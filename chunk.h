@@ -21,7 +21,7 @@ void Chunk_AllocateMeshData(Mesh *mesh, int triangleCount);
 void Chunk_ReAllocateMeshData(Mesh *mesh, int triangleCount);
 void Chunk_BuildMesh(Chunk *chunk);
 void Chunk_AddCube(Chunk *chunk, Mesh *mesh, Vector3 pos, int block_id);
-void Chunk_AddFace(Chunk *chunk, Mesh *mesh, Vector3 pos, BlockFace face);
+void Chunk_AddFace(Chunk *chunk, Mesh *mesh, Vector3 pos, BlockFace face, int block_id);
 void Chunk_Unload(Chunk *chunk);
 
 int Chunk_IsValidPos(Vector3 pos);

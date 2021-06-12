@@ -15,10 +15,12 @@ typedef struct {
 } World;
 
 void World_Init(World *world);
-Vector3 World_ChunkIndexToPos(int chunkIndex);
-int World_ChunkPosToIndex(Vector3 chunkPos);
 void World_Unload(World *world);
 void World_Draw(World *world);
 void World_ApplyTexture(World *world, Texture2D texture);
+
+int World_ChunkPosToIndex(Vector3 chunkPos);
+
+Vector3 World_ChunkIndexToPos(int chunkIndex);
 
 #endif

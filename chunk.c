@@ -28,7 +28,7 @@ void Chunk_ReAllocateMeshData(Mesh *mesh, int triangleCount)
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     for(int i = 0; i < CHUNK_SIZE; i++) {
-        chunk->data[i] = 1;
+        chunk->data[i] = rand() % 10;
     }
 }
 
@@ -54,18 +54,18 @@ void Chunk_AddCube(Chunk *chunk, Mesh *mesh, Vector3 pos, int block_id) {
     }
     
     for(int i = 0; i < 6; i++) {
-        Chunk_AddFace(chunk, mesh, pos, (BlockFace)i);
+        Chunk_AddFace(chunk, mesh, pos, (BlockFace)i, block_id);
     }
 }
 
-void Chunk_AddFace(Chunk *chunk, Mesh *mesh, Vector3 pos, BlockFace face) {
+void Chunk_AddFace(Chunk *chunk, Mesh *mesh, Vector3 pos, BlockFace face, int block_id) {
     Vector3 faceDir = BFH_GetDirection(face);
     Vector3 nextPos = (Vector3){ pos.x + faceDir.x, pos.y + faceDir.y, pos.z + faceDir.z };
     int nextIndex = Chunk_PosToIndex(nextPos);
     if(Chunk_IsValidPos(nextPos) && chunk->data[nextIndex] != 0) {
         return;
     }
-    BFH_AddFace(mesh, face, pos);
+    BFH_AddFace(mesh, face, pos, block_id);
     Chunk_facesCounter++;
 }
 
