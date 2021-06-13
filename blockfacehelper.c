@@ -62,11 +62,11 @@ void BFH_ResetIndexes() {
     BFH_texI = 0;
 }
 
-void BFH_AddFace(Mesh *mesh, BlockFace face, Vector3 pos, int block_id) {
+void BFH_AddFace(Mesh *mesh, BlockFace face, Vector3 pos, int blockID) {
     
     int texI = 0;
-    int textureX = block_id % 16;
-    int textureY = block_id / 16;
+    int textureX = blockID % 16;
+    int textureY = blockID / 16;
     
     for(int i = 0; i < 6; i++) {
         int faceIndex = i + ((int)face * 6);

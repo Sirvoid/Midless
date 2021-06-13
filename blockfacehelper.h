@@ -13,7 +13,7 @@ typedef enum {
 }  BlockFace;
 
 void BFH_ResetIndexes();
-void BFH_AddFace(Mesh *mesh, BlockFace face, Vector3 pos, int block_id);
+void BFH_AddFace(Mesh *mesh, BlockFace face, Vector3 pos, int blockID);
 
 Vector3 BFH_GetDirection(BlockFace face);
 

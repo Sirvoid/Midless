@@ -14,21 +14,21 @@ int main(void)
     Player player;
     Player_Init(&player);
     
-    World world;
-    World_Init(&world);
+    World_Init();
 
     Image terrainTex = LoadImage("textures/terrain.png"); 
     Texture2D texture = LoadTextureFromImage(terrainTex);
     UnloadImage(terrainTex);
-    World_ApplyTexture(&world, texture);
+    World_ApplyTexture(texture);
 
     SetTargetFPS(60);    
     
     //Game loop
     while (!WindowShouldClose())
     {
+        
         // Update
-        UpdateCamera(&player.camera);                  
+        Player_Update(&player);
         
         // Draw
         BeginDrawing();
@@ -37,7 +37,7 @@ int main(void)
 
             BeginMode3D(player.camera);
                 
-                World_Draw(&world);
+                World_Draw();
 
             EndMode3D();
 
@@ -45,7 +45,7 @@ int main(void)
     }
     
     UnloadTexture(texture);
-    World_Unload(&world);
+    World_Unload();
 
     CloseWindow();
 

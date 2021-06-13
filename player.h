@@ -6,5 +6,6 @@ typedef struct {
 } Player;
 
 void Player_Init(Player *player);
+void Player_Update(Player *player);
 
 #endif

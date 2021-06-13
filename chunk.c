@@ -1,7 +1,8 @@
-#include "raylib.h" 
-#include "chunk.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "raylib.h" 
+#include "chunk.h"
+#include "world.h"
 
 int Chunk_facesCounter = 0;
 
@@ -28,49 +29,67 @@ void Chunk_ReAllocateMeshData(Mesh *mesh, int triangleCount)
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     for(int i = 0; i < CHUNK_SIZE; i++) {
-        chunk->data[i] = rand() % 10;
+        if(i < CHUNK_SIZE_X * CHUNK_SIZE_Z) chunk->data[i] = rand() % 4;
     }
 }
 
 void Chunk_BuildMesh(Chunk *chunk) {
-    Chunk_AllocateMeshData(&chunk->mesh, 2 * 6 * CHUNK_SIZE);
+    
+    if(chunk->loaded == 1) UnloadMesh(*chunk->mesh);
+    chunk->loaded = 1;
+    
+    chunk->mesh = (Mesh*)malloc(sizeof(Mesh));
+    Chunk_AllocateMeshData(chunk->mesh, 2 * 6 * CHUNK_SIZE);
     
     BFH_ResetIndexes();
     Chunk_facesCounter = 0;
     for(int i = 0; i < CHUNK_SIZE; i++) {
-        Vector3 pos = Chunk_IndexToPos(i);
-        Chunk_AddCube(chunk, &chunk->mesh, pos, chunk->data[i]);
+        Vector3 cpos = Chunk_IndexToPos(i);
+        Vector3 wpos = (Vector3) { chunk->position.x * CHUNK_SIZE_X, chunk->position.y * CHUNK_SIZE_Y, chunk->position.z * CHUNK_SIZE_Z };
+        Vector3 pos = (Vector3) { cpos.x + wpos.x, cpos.y + wpos.y, cpos.z + wpos.z };
+        Chunk_AddCube(chunk, chunk->mesh, pos, chunk->data[i]);
     }
     
-    Chunk_ReAllocateMeshData(&chunk->mesh, Chunk_facesCounter * 2);
+    Chunk_ReAllocateMeshData(chunk->mesh, Chunk_facesCounter * 2);
     
-    UploadMesh(&chunk->mesh, false);
+    UploadMesh(chunk->mesh, true);
 }
 
-void Chunk_AddCube(Chunk *chunk, Mesh *mesh, Vector3 pos, int block_id) {
+void Chunk_AddCube(Chunk *chunk, Mesh *mesh, Vector3 pos, int blockID) {
     
-    if(block_id == 0) {
-        return;
-    }
+    if(blockID == 0) return;
     
     for(int i = 0; i < 6; i++) {
-        Chunk_AddFace(chunk, mesh, pos, (BlockFace)i, block_id);
+        Chunk_AddFace(chunk, mesh, pos, (BlockFace)i, blockID);
     }
 }
 
-void Chunk_AddFace(Chunk *chunk, Mesh *mesh, Vector3 pos, BlockFace face, int block_id) {
+void Chunk_AddFace(Chunk *chunk, Mesh *mesh, Vector3 pos, BlockFace face, int blockID) {
     Vector3 faceDir = BFH_GetDirection(face);
     Vector3 nextPos = (Vector3){ pos.x + faceDir.x, pos.y + faceDir.y, pos.z + faceDir.z };
-    int nextIndex = Chunk_PosToIndex(nextPos);
-    if(Chunk_IsValidPos(nextPos) && chunk->data[nextIndex] != 0) {
+    if(World_GetBlock(nextPos) != 0) {
         return;
     }
-    BFH_AddFace(mesh, face, pos, block_id);
+    BFH_AddFace(mesh, face, pos, blockID);
     Chunk_facesCounter++;
 }
 
 void Chunk_Unload(Chunk *chunk) {
-    UnloadMesh(chunk->mesh);
+    UnloadMesh(*chunk->mesh);
+}
+
+void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
+    if(Chunk_IsValidPos(pos)) {
+        chunk->data[Chunk_PosToIndex(pos)] = blockID;
+        Chunk_BuildMesh(chunk);
+    }
+}
+
+int Chunk_GetBlock(Chunk *chunk, Vector3 pos) {
+    if(Chunk_IsValidPos(pos)) {
+        return chunk->data[Chunk_PosToIndex(pos)];
+    }
+    return 0;
 }
 
 int Chunk_IsValidPos(Vector3 pos) {
