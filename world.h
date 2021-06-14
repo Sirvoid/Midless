@@ -4,16 +4,16 @@
 #include "chunk.h"
 #include "raylib.h"
 
-#define WORLD_SIZE_X 2
-#define WORLD_SIZE_Y 2
-#define WORLD_SIZE_Z 2
+#define WORLD_SIZE_X 8
+#define WORLD_SIZE_Y 8
+#define WORLD_SIZE_Z 8
 #define WORLD_SIZE (WORLD_SIZE_X * WORLD_SIZE_Y * WORLD_SIZE_Z)
 
 #define WORLD_BLOCK_SIZE_X (WORLD_SIZE_X * CHUNK_SIZE_X)
 #define WORLD_BLOCK_SIZE_Y (WORLD_SIZE_Y * CHUNK_SIZE_Y)
 #define WORLD_BLOCK_SIZE_Z (WORLD_SIZE_Z * CHUNK_SIZE_Z)
 
-typedef struct {
+typedef struct World{
     Chunk chunks[WORLD_SIZE];
     Material mat;
 } World;

@@ -1,7 +1,7 @@
 #ifndef G_PLAYER_H
 #define G_PLAYER_H
 
-typedef struct {
+typedef struct Player{
     Camera camera;
 } Player;
 

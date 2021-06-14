@@ -1,14 +1,21 @@
 #include "raylib.h"
 #include "blockfacehelper.h"
+#include "block.h"
 #include "math.h"
 
 int BFH_verticesI = 0;
 int BFH_normalsI = 0;
 int BFH_texI = 0;
 
-float texCoords[12] = {
+/*float texCoords[12] = {
     0, 1,  1, 0,  1, 1,
     1, 0,  0, 1,  0, 0
+};*/
+
+float texCoords[12] = {
+    1, 1,  0, 0,  1, 0,
+    0, 0,  1, 1,  0, 1
+    
 };
 
 Vector3 BFH_facesPosition[36] = {
@@ -64,9 +71,11 @@ void BFH_ResetIndexes() {
 
 void BFH_AddFace(Mesh *mesh, BlockFace face, Vector3 pos, int blockID) {
     
+    int texID = Block_definition[blockID].textures[(int)face];
+    
     int texI = 0;
-    int textureX = blockID % 16;
-    int textureY = blockID / 16;
+    int textureX = texID % 16;
+    int textureY = texID / 16;
     
     for(int i = 0; i < 6; i++) {
         int faceIndex = i + ((int)face * 6);

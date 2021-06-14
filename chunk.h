@@ -9,7 +9,7 @@
 #define CHUNK_SIZE_Z 16
 #define CHUNK_SIZE (CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z)
 
-typedef struct {
+typedef struct Chunk{
     Mesh *mesh;
     int loaded;
     Vector3 position;

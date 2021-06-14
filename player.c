@@ -75,7 +75,7 @@ void Player_Update(Player *player) {
     }
     
     if(IsKeyPressed(KEY_Z)) {
-        World_SetBlock(player->camera.position, 1);
+        World_SetBlock(player->camera.position, 4);
     }
  
     player->camera.target.x = player->camera.position.x + cx * sy;

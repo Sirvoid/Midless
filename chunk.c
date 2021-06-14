@@ -3,6 +3,8 @@
 #include "raylib.h" 
 #include "chunk.h"
 #include "world.h"
+#include "blockfacehelper.h"
+#include "block.h"
 
 int Chunk_facesCounter = 0;
 
@@ -11,26 +13,28 @@ void Chunk_AllocateMeshData(Mesh *mesh, int triangleCount)
     mesh->vertexCount = triangleCount * 3;
     mesh->triangleCount = triangleCount;
 
-    mesh->vertices = (float*)malloc(mesh->vertexCount * 3 * sizeof(float));
-    mesh->texcoords = (float*)malloc(mesh->vertexCount * 2 * sizeof(float));
-    mesh->normals = (float*)malloc(mesh->vertexCount * 3 * sizeof(float));
+    mesh->vertices = (float*)MemAlloc(mesh->vertexCount * 3 * sizeof(float));
+    mesh->texcoords = (float*)MemAlloc(mesh->vertexCount * 2 * sizeof(float));
+    mesh->normals = (float*)MemAlloc(mesh->vertexCount * 3 * sizeof(float));
 }
 
 void Chunk_ReAllocateMeshData(Mesh *mesh, int triangleCount)
 {
    mesh->vertexCount = triangleCount * 3;
    mesh->triangleCount = triangleCount;
+    
+   mesh->vertices = (float*)MemRealloc(mesh->vertices, mesh->vertexCount * 3 * sizeof(float));
+   mesh->texcoords = (float*)MemRealloc(mesh->texcoords, mesh->vertexCount * 2 * sizeof(float));
+   mesh->normals = (float*)MemRealloc(mesh->normals, mesh->vertexCount * 3 * sizeof(float));
 
-   mesh->vertices = (float*)realloc(mesh->vertices, mesh->vertexCount * 3 * sizeof(float));
-   mesh->texcoords = (float*)realloc(mesh->texcoords, mesh->vertexCount * 2 * sizeof(float));
-   mesh->normals = (float*)realloc(mesh->normals, mesh->vertexCount * 3 * sizeof(float));
 }
 
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     for(int i = 0; i < CHUNK_SIZE; i++) {
-        if(i < CHUNK_SIZE_X * CHUNK_SIZE_Z) chunk->data[i] = rand() % 4;
+        if( (i < CHUNK_SIZE_X * CHUNK_SIZE_Z * 3) && chunk->position.y == 0) chunk->data[i] = rand() % 4;
     }
+    Chunk_BuildMesh(chunk);
 }
 
 void Chunk_BuildMesh(Chunk *chunk) {
@@ -38,7 +42,7 @@ void Chunk_BuildMesh(Chunk *chunk) {
     if(chunk->loaded == 1) UnloadMesh(*chunk->mesh);
     chunk->loaded = 1;
     
-    chunk->mesh = (Mesh*)malloc(sizeof(Mesh));
+    chunk->mesh = (Mesh*)MemAlloc(sizeof(Mesh));
     Chunk_AllocateMeshData(chunk->mesh, 2 * 6 * CHUNK_SIZE);
     
     BFH_ResetIndexes();
@@ -52,7 +56,7 @@ void Chunk_BuildMesh(Chunk *chunk) {
     
     Chunk_ReAllocateMeshData(chunk->mesh, Chunk_facesCounter * 2);
     
-    UploadMesh(chunk->mesh, true);
+    UploadMesh(chunk->mesh, false);
 }
 
 void Chunk_AddCube(Chunk *chunk, Mesh *mesh, Vector3 pos, int blockID) {
@@ -99,11 +103,11 @@ int Chunk_IsValidPos(Vector3 pos) {
 Vector3 Chunk_IndexToPos(int index) {
     int x = (int)(index % CHUNK_SIZE_X);
 	int y = (int)(index / (CHUNK_SIZE_X * CHUNK_SIZE_Z));
-	int z = (int)((int)(index / CHUNK_SIZE_X) % CHUNK_SIZE_Z);
+	int z = (int)(index / CHUNK_SIZE_X) % CHUNK_SIZE_Z;
     return (Vector3){x, y, z};
 }
 
 int Chunk_PosToIndex(Vector3 pos) {
-    return (int)(((int)pos.y * CHUNK_SIZE_Z + (int)pos.z) * CHUNK_SIZE_X + (int)pos.x);
+    return ((int)pos.y * CHUNK_SIZE_Z + (int)pos.z) * CHUNK_SIZE_X + (int)pos.x;
     
 }

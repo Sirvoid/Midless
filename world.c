@@ -11,7 +11,6 @@ void World_Init() {
         Chunk* chunk = &world.chunks[i];
         Vector3 pos = World_ChunkIndexToPos(i);
         Chunk_Init(chunk, pos);
-        Chunk_BuildMesh(chunk);
     }
 }
 
@@ -32,6 +31,7 @@ void World_Draw() {
                                    0, 1, 0, 0,
                                    0, 0, 1, 0,
                                    0, 0, 0, 1 };
+                                   
         DrawMesh(*chunk->mesh, world.mat, matrix);
     }
 }
@@ -95,7 +95,7 @@ int World_IsValidBlockPos(Vector3 blockPos) {
 Vector3 World_ChunkIndexToPos(int chunkIndex) {
     int x = (int)(chunkIndex % WORLD_SIZE_X);
 	int y = (int)(chunkIndex / (WORLD_SIZE_X * WORLD_SIZE_Z));
-	int z = (int)((int)(chunkIndex / WORLD_SIZE_X) % WORLD_SIZE_Z);
+	int z = (int)(chunkIndex / WORLD_SIZE_X) % WORLD_SIZE_Z;
     return (Vector3){x, y, z};
 }
 
@@ -106,10 +106,10 @@ int World_ChunkPosToIndex(Vector3 chunkPos) {
 Vector3 World_BlockIndexToPos(int blockIndex) {
     int x = (int)(blockIndex % WORLD_BLOCK_SIZE_X);
 	int y = (int)(blockIndex / (WORLD_BLOCK_SIZE_X * WORLD_BLOCK_SIZE_Z));
-	int z = (int)((int)(blockIndex / WORLD_BLOCK_SIZE_X) % WORLD_BLOCK_SIZE_Z);
+	int z = (int)(blockIndex / WORLD_BLOCK_SIZE_X) % WORLD_BLOCK_SIZE_Z;
     return (Vector3){x, y, z};
 }
 
 int World_BlockPosToIndex(Vector3 blockPos) {
-    return (int)(((int)blockPos.y * WORLD_BLOCK_SIZE_Z + (int)blockPos.z) * WORLD_BLOCK_SIZE_X + (int)blockPos.x);
+    return ((int)blockPos.y * WORLD_BLOCK_SIZE_Z + (int)blockPos.z) * WORLD_BLOCK_SIZE_X + (int)blockPos.x;
 }

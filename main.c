@@ -2,6 +2,8 @@
 #include "player.h"
 #include "chunk.h"
 #include "world.h"
+#include "block.h"
+#include <string.h>
 
 int main(void)
 {
@@ -10,6 +12,12 @@ int main(void)
     const int screenHeight = 450;
 
     InitWindow(screenWidth, screenHeight, "Game");
+    SetTraceLogLevel(LOG_WARNING);
+    
+    Block_Define(1, "stone", 1, 1, 1);
+    Block_Define(2, "dirt", 2, 2, 2);
+    Block_Define(3, "grass", 0, 2, 3);
+    Block_Define(4, "wood", 4, 4, 4);
     
     Player player;
     Player_Init(&player);
@@ -21,7 +29,7 @@ int main(void)
     UnloadImage(terrainTex);
     World_ApplyTexture(texture);
 
-    SetTargetFPS(60);    
+    SetTargetFPS(60);
     
     //Game loop
     while (!WindowShouldClose())
@@ -35,6 +43,7 @@ int main(void)
 
             ClearBackground(RAYWHITE);
 
+            DrawFPS(16,16);
             BeginMode3D(player.camera);
                 
                 World_Draw();
