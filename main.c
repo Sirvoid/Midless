@@ -10,9 +10,11 @@ int main(void)
     // Initialization
     const int screenWidth = 800;
     const int screenHeight = 450;
+    Color crosshairColor = (Color){ 0, 0, 0, 100 };
 
     InitWindow(screenWidth, screenHeight, "Game");
     SetTraceLogLevel(LOG_WARNING);
+    SetTargetFPS(60);
     
     Block_Define(1, "stone", 1, 1, 1);
     Block_Define(2, "dirt", 2, 2, 2);
@@ -22,16 +24,16 @@ int main(void)
     Player player;
     Player_Init(&player);
     
+    // World Initialization
     World_Init();
 
     Image terrainTex = LoadImage("textures/terrain.png"); 
     Texture2D texture = LoadTextureFromImage(terrainTex);
     UnloadImage(terrainTex);
+    
     World_ApplyTexture(texture);
 
-    SetTargetFPS(60);
-    
-    //Game loop
+    // Game loop
     while (!WindowShouldClose())
     {
         
@@ -43,12 +45,15 @@ int main(void)
 
             ClearBackground(RAYWHITE);
 
-            DrawFPS(16,16);
+            DrawFPS(16, 16);
+            
             BeginMode3D(player.camera);
-                
                 World_Draw();
-
             EndMode3D();
+            
+            DrawRectangle(screenWidth / 2 - 8, screenHeight / 2 - 2, 16, 4, crosshairColor);
+            DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 + 2, 4, 6, crosshairColor);
+            DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 - 8, 4, 6, crosshairColor);
 
         EndDrawing();
     }

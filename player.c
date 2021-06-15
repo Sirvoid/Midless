@@ -2,6 +2,7 @@
 #include "player.h"
 #include "math.h"
 #include "world.h"
+#include "raycast.h"
 
 Vector2 Player_oldMousePos = {0.0f, 0.0f};
 Vector2 Player_cameraAngle = {0.0f, 0.0f};
@@ -48,6 +49,10 @@ void Player_Update(Player *player) {
     float sy = sinf(Player_cameraAngle.y);
     float cy = cosf(Player_cameraAngle.y);
     
+    float forwardX = cx * sy;
+    float forwardY = cy;
+    float forwardZ = sx * sy;
+    
     if(IsKeyDown(KEY_SPACE)) {
         player->camera.position.y++;
     } else if(IsKeyDown(KEY_LEFT_SHIFT)) {
@@ -74,13 +79,17 @@ void Player_Update(Player *player) {
        player->camera.position.x += cxS;
     }
     
-    if(IsKeyPressed(KEY_Z)) {
-        World_SetBlock(player->camera.position, 4);
+    if(IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        RaycastResult rayResult = Raycast_Do(player->camera.position, (Vector3) { forwardX, forwardY, forwardZ});
+        World_SetBlock(rayResult.hitPos, 0);
+    } else if(IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+        RaycastResult rayResult = Raycast_Do(player->camera.position, (Vector3) { forwardX, forwardY, forwardZ});
+        World_SetBlock(rayResult.prevPos, 4);
     }
  
-    player->camera.target.x = player->camera.position.x + cx * sy;
-    player->camera.target.z = player->camera.position.z + sx * sy;
-    player->camera.target.y = player->camera.position.y + cy;
+    player->camera.target.x = player->camera.position.x + forwardX;
+    player->camera.target.z = player->camera.position.z + forwardZ;
+    player->camera.target.y = player->camera.position.y + forwardY;
     
     UpdateCamera(&player->camera);
 }

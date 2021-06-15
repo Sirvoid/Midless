@@ -5,7 +5,10 @@ typedef struct Player{
     Camera camera;
 } Player;
 
+//Initialize a player.
 void Player_Init(Player *player);
+
+//Update a player.
 void Player_Update(Player *player);
 
 #endif

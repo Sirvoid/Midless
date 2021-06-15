@@ -7,11 +7,6 @@ int BFH_verticesI = 0;
 int BFH_normalsI = 0;
 int BFH_texI = 0;
 
-/*float texCoords[12] = {
-    0, 1,  1, 0,  1, 1,
-    1, 0,  0, 1,  0, 0
-};*/
-
 float texCoords[12] = {
     1, 1,  0, 0,  1, 0,
     0, 0,  1, 1,  0, 1

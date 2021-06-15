@@ -18,13 +18,20 @@ typedef struct World{
     Material mat;
 } World;
 
+//Initialize the world.
 void World_Init();
+//Unload the world.
 void World_Unload();
+//Draw the world.
 void World_Draw();
+//Apply terrain texture to the world.
 void World_ApplyTexture(Texture2D texture);
+//Set block at a given position and reload affected meshes.
 void World_SetBlock(Vector3 blockPos, int blockID);
 
+//Get block ID at a given position.
 int World_GetBlock(Vector3 blockPos);
+
 int World_IsValidChunkPos(Vector3 chunkPos);
 int World_IsValidBlockPos(Vector3 blockPos);
 int World_ChunkPosToIndex(Vector3 chunkPos);
