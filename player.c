@@ -10,7 +10,7 @@ Vector2 Player_cameraAngle = {0.0f, 0.0f};
 void Player_Init(Player *player) {
 
     Camera camera = { 0 };
-    camera.position = (Vector3){ -1.0f, 14.0f, -1.0f };
+    camera.position = (Vector3){ 16.0f, 16.0f, 16.0f };
     camera.target = (Vector3){ -1.0f, 1.8f, -1.0f };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 60.0f;

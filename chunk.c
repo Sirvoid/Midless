@@ -32,7 +32,7 @@ void Chunk_ReAllocateMeshData(Mesh *mesh, int triangleCount)
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     for(int i = 0; i < CHUNK_SIZE; i++) {
-        if( (i < CHUNK_SIZE_X * CHUNK_SIZE_Z * 3) && chunk->position.y == 0) chunk->data[i] = rand() % 4;
+        if( (i < CHUNK_SIZE_X * CHUNK_SIZE_Z * 8) && chunk->position.y == 0) chunk->data[i] = rand() % 4;
     }
     Chunk_BuildMesh(chunk);
 }
@@ -85,7 +85,6 @@ void Chunk_Unload(Chunk *chunk) {
 void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
     if(Chunk_IsValidPos(pos)) {
         chunk->data[Chunk_PosToIndex(pos)] = blockID;
-        Chunk_BuildMesh(chunk);
     }
 }
 

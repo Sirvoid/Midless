@@ -67,11 +67,37 @@ void World_SetBlock(Vector3 blockPos, int blockID) {
     
     //Set Block
     Vector3 blockPosInChunk = (Vector3) { 
-                                    blockPos.x - chunkPos.x * CHUNK_SIZE_X, 
-                                    blockPos.y - chunkPos.y * CHUNK_SIZE_Y, 
-                                    blockPos.z - chunkPos.z * CHUNK_SIZE_Z 
+                                    (int)(blockPos.x - chunkPos.x * CHUNK_SIZE_X), 
+                                    (int)(blockPos.y - chunkPos.y * CHUNK_SIZE_Y), 
+                                    (int)(blockPos.z - chunkPos.z * CHUNK_SIZE_Z)
                                };
     Chunk_SetBlock(chunk, blockPosInChunk, blockID);
+    
+    if(blockPosInChunk.x == 0) {
+        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x - 1, chunkPos.y, chunkPos.z} );
+        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
+    } else if(blockPosInChunk.x == CHUNK_SIZE_X - 1) {
+        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x + 1, chunkPos.y, chunkPos.z} );
+        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
+    } 
+
+    if(blockPosInChunk.y == 0) {
+        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x, chunkPos.y - 1, chunkPos.z} );
+        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
+    } else if(blockPosInChunk.y == CHUNK_SIZE_Y - 1) {
+        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x, chunkPos.y + 1, chunkPos.z} );
+        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
+    } 
+
+    if(blockPosInChunk.z == 0) {
+        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x, chunkPos.y, chunkPos.z - 1} );
+        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
+    } else if(blockPosInChunk.z == CHUNK_SIZE_Z - 1) {
+        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x, chunkPos.y, chunkPos.z + 1} );
+        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
+    }
+    
+    Chunk_BuildMesh(chunk);
 }
 
 Chunk* World_GetChunkAt(Vector3 pos) {
