@@ -4,9 +4,9 @@
 #include "chunk.h"
 #include "raylib.h"
 
-#define WORLD_SIZE_X 8
+#define WORLD_SIZE_X 16
 #define WORLD_SIZE_Y 8
-#define WORLD_SIZE_Z 8
+#define WORLD_SIZE_Z 16
 #define WORLD_SIZE (WORLD_SIZE_X * WORLD_SIZE_Y * WORLD_SIZE_Z)
 
 #define WORLD_BLOCK_SIZE_X (WORLD_SIZE_X * CHUNK_SIZE_X)
@@ -23,7 +23,7 @@ void World_Init();
 //Unload the world.
 void World_Unload();
 //Draw the world.
-void World_Draw();
+void World_Draw(Vector3 camPosition);
 //Apply terrain texture to the world.
 void World_ApplyTexture(Texture2D texture);
 //Set block at a given position and reload affected meshes.

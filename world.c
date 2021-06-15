@@ -1,16 +1,27 @@
 #include "world.h"
-#include "raylib.h" 
+#include "raylib.h"
+#include "raymath.h"
 #include "chunk.h"
 #include <stddef.h>
 
 World world;
 
+#define WORLD_RENDER_DISTANCE 128
+
 void World_Init() {
     world.mat = LoadMaterialDefault();
+    
+    //Create Chunks
     for(int i = 0; i < WORLD_SIZE; i++) {
         Chunk* chunk = &world.chunks[i];
         Vector3 pos = World_ChunkIndexToPos(i);
         Chunk_Init(chunk, pos);
+    }
+    
+    //Refresh meshes
+    for(int i = 0; i < WORLD_SIZE; i++) {
+        Chunk* chunk = &world.chunks[i];
+        Chunk_BuildMesh(chunk);
     }
 }
 
@@ -24,14 +35,17 @@ void World_ApplyTexture(Texture2D texture) {
     SetMaterialTexture(&world.mat, MATERIAL_MAP_DIFFUSE, texture);
 }
 
-void World_Draw() {
+void World_Draw(Vector3 camPosition) {
     for(int i = 0; i < WORLD_SIZE; i++) {
         Chunk* chunk = &world.chunks[i];
-        Matrix matrix = (Matrix) { 1, 0, 0, 0, 
-                                   0, 1, 0, 0,
-                                   0, 0, 1, 0,
-                                   0, 0, 0, 1 };
-                                   
+        
+        Vector3 cpxy = (Vector3) {chunk->position.x * CHUNK_SIZE_X, camPosition.y, chunk->position.z * CHUNK_SIZE_Z};
+        if(Vector3Distance(cpxy, camPosition) > WORLD_RENDER_DISTANCE) continue;
+        
+        Matrix matrix = (Matrix) { 1, 0, 0, chunk->position.x * CHUNK_SIZE_X,
+                                   0, 1, 0, chunk->position.y * CHUNK_SIZE_Y, 
+                                   0, 0, 1, chunk->position.z * CHUNK_SIZE_Z, 
+                                   0, 0, 0, 1 };        
         DrawMesh(*chunk->mesh, world.mat, matrix);
     }
 }
@@ -48,15 +62,16 @@ int World_GetBlock(Vector3 blockPos) {
     
     //Get Block
     Vector3 blockPosInChunk = (Vector3) { 
-                                    blockPos.x - chunkPos.x * CHUNK_SIZE_X, 
-                                    blockPos.y - chunkPos.y * CHUNK_SIZE_Y, 
-                                    blockPos.z - chunkPos.z * CHUNK_SIZE_Z 
+                                blockPos.x - chunkPos.x * CHUNK_SIZE_X, 
+                                blockPos.y - chunkPos.y * CHUNK_SIZE_Y, 
+                                blockPos.z - chunkPos.z * CHUNK_SIZE_Z 
                                };
 
     return Chunk_GetBlock(chunk, blockPosInChunk);
 }
 
 void World_SetBlock(Vector3 blockPos, int blockID) {
+    
     //Get Chunk
     Vector3 chunkPos = (Vector3) { (int)blockPos.x / CHUNK_SIZE_X, (int)blockPos.y / CHUNK_SIZE_Y, (int)blockPos.z / CHUNK_SIZE_Z };
     Chunk* chunk = World_GetChunkAt(chunkPos);
@@ -67,36 +82,21 @@ void World_SetBlock(Vector3 blockPos, int blockID) {
     
     //Set Block
     Vector3 blockPosInChunk = (Vector3) { 
-                                    (int)(blockPos.x - chunkPos.x * CHUNK_SIZE_X), 
-                                    (int)(blockPos.y - chunkPos.y * CHUNK_SIZE_Y), 
-                                    (int)(blockPos.z - chunkPos.z * CHUNK_SIZE_Z)
+                                (int)(blockPos.x - chunkPos.x * CHUNK_SIZE_X), 
+                                (int)(blockPos.y - chunkPos.y * CHUNK_SIZE_Y), 
+                                (int)(blockPos.z - chunkPos.z * CHUNK_SIZE_Z)
                                };
     Chunk_SetBlock(chunk, blockPosInChunk, blockID);
     
-    if(blockPosInChunk.x == 0) {
-        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x - 1, chunkPos.y, chunkPos.z} );
-        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
-    } else if(blockPosInChunk.x == CHUNK_SIZE_X - 1) {
-        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x + 1, chunkPos.y, chunkPos.z} );
-        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
-    } 
-
-    if(blockPosInChunk.y == 0) {
-        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x, chunkPos.y - 1, chunkPos.z} );
-        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
-    } else if(blockPosInChunk.y == CHUNK_SIZE_Y - 1) {
-        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x, chunkPos.y + 1, chunkPos.z} );
-        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
-    } 
-
-    if(blockPosInChunk.z == 0) {
-        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x, chunkPos.y, chunkPos.z - 1} );
-        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
-    } else if(blockPosInChunk.z == CHUNK_SIZE_Z - 1) {
-        Chunk* nextChunk = World_GetChunkAt( (Vector3) { chunkPos.x, chunkPos.y, chunkPos.z + 1} );
-        if(nextChunk != NULL) Chunk_BuildMesh(nextChunk);
+    //Refresh mesh of neighbour chunks.
+    Chunk *neighbourChunks[3] = {NULL};
+    Chunk_GetBorderingChunks(chunk, blockPosInChunk, &neighbourChunks);
+    for(int i = 0; i < 3; i++) {
+        if(neighbourChunks[i] == NULL) break;
+        Chunk_BuildMesh(neighbourChunks[i]);
     }
     
+    //Refresh current chunk.
     Chunk_BuildMesh(chunk);
 }
 

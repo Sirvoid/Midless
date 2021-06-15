@@ -16,6 +16,8 @@ void Player_Init(Player *player) {
     camera.fovy = 60.0f;
     camera.projection = CAMERA_PERSPECTIVE;
     player->camera = camera;
+    
+    player->speed = 0.5f;
 
     SetCameraMode(player->camera, CAMERA_CUSTOM);
     DisableCursor();
@@ -54,29 +56,29 @@ void Player_Update(Player *player) {
     float forwardZ = sx * sy;
     
     if(IsKeyDown(KEY_SPACE)) {
-        player->camera.position.y++;
+        player->camera.position.y += player->speed;
     } else if(IsKeyDown(KEY_LEFT_SHIFT)) {
-        player->camera.position.y--;
+        player->camera.position.y -= player->speed;
     }
     
     if(IsKeyDown(KEY_W)) {
-        player->camera.position.z += sx;
-        player->camera.position.x += cx;
+        player->camera.position.z += sx * player->speed;
+        player->camera.position.x += cx * player->speed;
     }
     
     if(IsKeyDown(KEY_S)) {
-       player->camera.position.z -= sx;
-       player->camera.position.x -= cx;
+       player->camera.position.z -= sx * player->speed;
+       player->camera.position.x -= cx * player->speed;
     }
     
     if(IsKeyDown(KEY_A)) {
-       player->camera.position.z -= sxS;
-       player->camera.position.x -= cxS;
+       player->camera.position.z -= sxS * player->speed;
+       player->camera.position.x -= cxS * player->speed;
     }
     
     if(IsKeyDown(KEY_D)) {
-       player->camera.position.z += sxS;
-       player->camera.position.x += cxS;
+       player->camera.position.z += sxS * player->speed;
+       player->camera.position.x += cxS * player->speed;
     }
     
     if(IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
@@ -84,7 +86,9 @@ void Player_Update(Player *player) {
         World_SetBlock(rayResult.hitPos, 0);
     } else if(IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
         RaycastResult rayResult = Raycast_Do(player->camera.position, (Vector3) { forwardX, forwardY, forwardZ});
-        World_SetBlock(rayResult.prevPos, 4);
+        if(rayResult.hitBlockID != -1) {
+            World_SetBlock(rayResult.prevPos, 4);
+        }
     }
  
     player->camera.target.x = player->camera.position.x + forwardX;

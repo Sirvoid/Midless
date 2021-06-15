@@ -10,7 +10,7 @@ int main(void)
     // Initialization
     const int screenWidth = 800;
     const int screenHeight = 450;
-    Color crosshairColor = (Color){ 0, 0, 0, 100 };
+    Color crosshairColor = (Color){ 0, 0, 0, 80 };
 
     InitWindow(screenWidth, screenHeight, "Game");
     SetTraceLogLevel(LOG_WARNING);
@@ -34,8 +34,7 @@ int main(void)
     World_ApplyTexture(texture);
 
     // Game loop
-    while (!WindowShouldClose())
-    {
+    while (!WindowShouldClose()) {
         
         // Update
         Player_Update(&player);
@@ -43,13 +42,13 @@ int main(void)
         // Draw
         BeginDrawing();
 
-            ClearBackground(RAYWHITE);
+            ClearBackground((Color) { 140, 210, 240});
 
-            DrawFPS(16, 16);
-            
             BeginMode3D(player.camera);
-                World_Draw();
+                World_Draw(player.camera.position);
             EndMode3D();
+            
+            DrawFPS(16, 16);
             
             DrawRectangle(screenWidth / 2 - 8, screenHeight / 2 - 2, 16, 4, crosshairColor);
             DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 + 2, 4, 6, crosshairColor);

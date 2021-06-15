@@ -28,8 +28,10 @@ void Chunk_Unload(Chunk *chunk);
 
 //Build/Refresh a chunk's mesh.
 void Chunk_BuildMesh(Chunk *chunk);
-void Chunk_AddCube(Chunk *chunk, Mesh *mesh, Vector3 pos, int blockID);
-void Chunk_AddFace(Chunk *chunk, Mesh *mesh, Vector3 pos, BlockFace face, int blockID);
+void Chunk_AddCube(Chunk *chunk, Mesh *mesh, Vector3 pos, Vector3 worldPos, int blockID);
+void Chunk_AddFace(Chunk *chunk, Mesh *mesh, Vector3 pos, Vector3 worldPos, BlockFace face, int blockID);
+
+void Chunk_GetBorderingChunks(Chunk *chunk, Vector3 pos, Chunk *(*dest)[3]);
 
 //Set a block in a chunk and refresh mesh.
 void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID);

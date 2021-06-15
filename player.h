@@ -3,6 +3,7 @@
 
 typedef struct Player{
     Camera camera;
+    float speed;
 } Player;
 
 //Initialize a player.
