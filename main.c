@@ -51,7 +51,12 @@ int main(void) {
                 World_Draw(player.camera.position);
             EndMode3D();
             
-            DrawFPS(16, 16);
+            
+            const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
+            
+            DrawRectangle(13, 15, MeasureText(coordText, 20) + 6, 39, crosshairColor);
+            DrawText(TextFormat("%2i FPS", GetFPS()), 16, 16, 20, WHITE);
+            DrawText(coordText, 16, 36, 20, WHITE);
             
             DrawRectangle(screenWidth / 2 - 8, screenHeight / 2 - 2, 16, 4, crosshairColor);
             DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 + 2, 4, 6, crosshairColor);

@@ -1,4 +1,5 @@
 #include "raylib.h"
+#include "raymath.h"
 #include "player.h"
 #include "math.h"
 #include "world.h"
@@ -10,21 +11,24 @@ Vector2 Player_cameraAngle = {0.0f, 0.0f};
 void Player_Init(Player *player) {
 
     Camera camera = { 0 };
-    camera.position = (Vector3){ 16.0f, 16.0f, 16.0f };
-    camera.target = (Vector3){ -1.0f, 1.8f, -1.0f };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
-    camera.fovy = 60.0f;
+    camera.fovy = 70.0f;
     camera.projection = CAMERA_PERSPECTIVE;
+    
     player->camera = camera;
     
-    player->speed = 0.5f;
+    player->velocity = (Vector3) {0, 0, 0};
+    player->position = (Vector3) { 16.0f, 16.0f, 16.0f };
+    player->speed = 0.15f;
+    
+    player->collisionBox.min = (Vector3) { 0, 0, 0 };
+    player->collisionBox.max = (Vector3) { 0.8f, 1.8f, 0.8f };
 
     SetCameraMode(player->camera, CAMERA_CUSTOM);
     DisableCursor();
 }
 
-void Player_Update(Player *player) {
-    
+void Player_CheckInputs(Player *player) {
     Vector2 mousePositionDelta = {0.0f, 0.0f};
     Vector2 mousePos = GetMousePosition();
     
@@ -55,30 +59,29 @@ void Player_Update(Player *player) {
     float forwardY = cy;
     float forwardZ = sx * sy;
     
-    if(IsKeyDown(KEY_SPACE)) {
-        player->camera.position.y += player->speed;
-    } else if(IsKeyDown(KEY_LEFT_SHIFT)) {
-        player->camera.position.y -= player->speed;
+    if(IsKeyDown(KEY_SPACE) && !player->jumped) {
+        player->velocity.y += 0.3f;
+        player->jumped = true;
     }
     
     if(IsKeyDown(KEY_W)) {
-        player->camera.position.z += sx * player->speed;
-        player->camera.position.x += cx * player->speed;
+        player->velocity.z += sx * player->speed;
+        player->velocity.x += cx * player->speed;
     }
     
     if(IsKeyDown(KEY_S)) {
-       player->camera.position.z -= sx * player->speed;
-       player->camera.position.x -= cx * player->speed;
+       player->velocity.z -= sx * player->speed;
+       player->velocity.x -= cx * player->speed;
     }
     
     if(IsKeyDown(KEY_A)) {
-       player->camera.position.z -= sxS * player->speed;
-       player->camera.position.x -= cxS * player->speed;
+       player->velocity.z -= sxS * player->speed;
+       player->velocity.x -= cxS * player->speed;
     }
     
     if(IsKeyDown(KEY_D)) {
-       player->camera.position.z += sxS * player->speed;
-       player->camera.position.x += cxS * player->speed;
+       player->velocity.z += sxS * player->speed;
+       player->velocity.x += cxS * player->speed;
     }
     
     if(IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
@@ -92,8 +95,60 @@ void Player_Update(Player *player) {
     }
  
     player->camera.target.x = player->camera.position.x + forwardX;
-    player->camera.target.z = player->camera.position.z + forwardZ;
     player->camera.target.y = player->camera.position.y + forwardY;
+    player->camera.target.z = player->camera.position.z + forwardZ;
     
     UpdateCamera(&player->camera);
+}
+
+void Player_Update(Player *player) {
+    
+    player->velocity.y -= 0.02f;
+    
+    player->position.x += player->velocity.x;
+    if(Player_TestCollision(player)) player->position.x -= player->velocity.x;
+
+    player->position.y += player->velocity.y;
+    if(Player_TestCollision(player)) {
+        player->position.y -= player->velocity.y;
+        player->velocity.y = 0;
+        player->jumped = false;
+    }
+
+    player->position.z += player->velocity.z;
+    if(Player_TestCollision(player)) player->position.z -= player->velocity.z;
+
+    player->camera.position = player->position;
+    player->camera.position.y += 1.8f;
+    player->camera.position.x += 0.4f;
+    player->camera.position.z += 0.4f;
+
+    player->velocity.x = 0;
+    player->velocity.z = 0;
+
+    Player_CheckInputs(player); 
+}
+
+bool Player_TestCollision(Player *player) {
+    
+    BoundingBox pB = player->collisionBox;
+    pB.min = Vector3Add(pB.min, player->position);
+    pB.max = Vector3Add(pB.max, player->position);
+    
+    for(int x = (int)(pB.min.x - 1); x < (int)(pB.max.x + 1); x++) {
+        for(int z = (int)(pB.min.z - 1); z < (int)(pB.max.z + 1); z++) {
+            for(int y = (int)(pB.min.y - 1); y < (int)(pB.max.y + 1); y++) {
+                int blockID = World_GetBlock((Vector3) {x, y, z});
+                if(blockID == 0) continue;
+                
+                BoundingBox blockB;
+                blockB.min = (Vector3) {x, y, z};
+                blockB.max = (Vector3) {x + 1, y + 1, z + 1};
+                
+                if(CheckCollisionBoxes(pB, blockB)) return true;
+            }
+        }
+    }
+    
+    return false;
 }
