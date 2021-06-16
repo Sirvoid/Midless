@@ -1,9 +1,6 @@
 #ifndef G_WORLD_H
 #define G_WORLD_H
 
-#include "chunk.h"
-#include "raylib.h"
-
 #define WORLD_SIZE_X 16
 #define WORLD_SIZE_Y 8
 #define WORLD_SIZE_Z 16
@@ -12,6 +9,9 @@
 #define WORLD_BLOCK_SIZE_X (WORLD_SIZE_X * CHUNK_SIZE_X)
 #define WORLD_BLOCK_SIZE_Y (WORLD_SIZE_Y * CHUNK_SIZE_Y)
 #define WORLD_BLOCK_SIZE_Z (WORLD_SIZE_Z * CHUNK_SIZE_Z)
+
+#include "chunk.h"
+#include "raylib.h"
 
 typedef struct World{
     Chunk chunks[WORLD_SIZE];
@@ -26,6 +26,7 @@ void World_Unload();
 void World_Draw(Vector3 camPosition);
 //Apply terrain texture to the world.
 void World_ApplyTexture(Texture2D texture);
+void World_ApplyShader(Shader shader);
 //Set block at a given position and reload affected meshes.
 void World_SetBlock(Vector3 blockPos, int blockID);
 

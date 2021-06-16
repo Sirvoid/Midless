@@ -6,6 +6,7 @@
 #include "world.h"
 #include "blockfacehelper.h"
 #include "block.h"
+#include "chunkmesh.h"
 
 int Chunk_facesCounter = 0;
 
@@ -23,41 +24,37 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
 }
 
 void Chunk_Unload(Chunk *chunk) {
-    UnloadMesh(*chunk->mesh);
+    ChunkMesh_Unload(*chunk->mesh);
 }
 
-void Chunk_AllocateMeshData(Mesh *mesh, int triangleCount)
-{
+void Chunk_AllocateMeshData(ChunkMesh *mesh, int triangleCount) {
     mesh->vertexCount = triangleCount * 3;
     mesh->triangleCount = triangleCount;
 
     int vertFX3 = mesh->vertexCount * 3 * sizeof(float);
 
     mesh->vertices = (float*)MemAlloc(vertFX3);
-    mesh->normals = (float*)MemAlloc(vertFX3);
     mesh->texcoords = (float*)MemAlloc(mesh->vertexCount * 2 * sizeof(float));
-    mesh->colors = (unsigned char*)MemAlloc(mesh->vertexCount * 4 * sizeof(unsigned char));
+    mesh->colors = (unsigned char*)MemAlloc(mesh->vertexCount * sizeof(unsigned char));
 }
 
-void Chunk_ReAllocateMeshData(Mesh *mesh, int triangleCount)
-{
+void Chunk_ReAllocateMeshData(ChunkMesh *mesh, int triangleCount) {
     mesh->vertexCount = triangleCount * 3;
     mesh->triangleCount = triangleCount;
     
     int vertFX3 = mesh->vertexCount * 3 * sizeof(float);
     
     mesh->vertices = (float*)MemRealloc(mesh->vertices, vertFX3);
-    mesh->normals = (float*)MemRealloc(mesh->normals, vertFX3);
     mesh->texcoords = (float*)MemRealloc(mesh->texcoords, mesh->vertexCount * 2 * sizeof(float));
-    mesh->colors = (unsigned char*)MemRealloc(mesh->colors, mesh->vertexCount * 4 * sizeof(unsigned char));
+    mesh->colors = (unsigned char*)MemRealloc(mesh->colors, mesh->vertexCount * sizeof(unsigned char));
 }
 
 void Chunk_BuildMesh(Chunk *chunk) {
     
-    if(chunk->loaded == 1) UnloadMesh(*chunk->mesh);
+    if(chunk->loaded == 1) ChunkMesh_Unload(*chunk->mesh);
     chunk->loaded = 1;
     
-    chunk->mesh = (Mesh*)MemAlloc(sizeof(Mesh));
+    chunk->mesh = (ChunkMesh*)MemAlloc(sizeof(ChunkMesh));
     Chunk_AllocateMeshData(chunk->mesh, 2 * 6 * CHUNK_SIZE);
     
     BFH_ResetIndexes();
@@ -74,10 +71,10 @@ void Chunk_BuildMesh(Chunk *chunk) {
     
     Chunk_ReAllocateMeshData(chunk->mesh, Chunk_facesCounter * 2);
     
-    UploadMesh(chunk->mesh, false);
+    ChunkMesh_Upload(chunk->mesh);
 }
 
-void Chunk_AddCube(Chunk *chunk, Mesh *mesh, Vector3 pos, Vector3 worldPos, int blockID) {
+void Chunk_AddCube(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, Vector3 worldPos, int blockID) {
     
     if(blockID == 0) return;
     
@@ -86,12 +83,12 @@ void Chunk_AddCube(Chunk *chunk, Mesh *mesh, Vector3 pos, Vector3 worldPos, int 
     }
 }
 
-void Chunk_AddFace(Chunk *chunk, Mesh *mesh, Vector3 pos, Vector3 worldPos, BlockFace face, int blockID) {
+void Chunk_AddFace(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, Vector3 worldPos, BlockFace face, int blockID) {
     Vector3 faceDir = BFH_GetDirection(face);
     Vector3 nextPos = (Vector3){ worldPos.x + faceDir.x, worldPos.y + faceDir.y, worldPos.z + faceDir.z };
-    if(World_GetBlock(nextPos) != 0) {
-        return;
-    }
+    
+    if(World_GetBlock(nextPos) != 0) return;
+    
     BFH_AddFace(mesh, face, pos, blockID);
     Chunk_facesCounter++;
 }

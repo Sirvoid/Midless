@@ -1,12 +1,11 @@
 #include "raylib.h"
 #include "player.h"
-#include "chunk.h"
 #include "world.h"
-#include "block.h"
 #include <string.h>
 
-int main(void)
-{
+#define GLSL_VERSION 330
+
+int main(void) {
     // Initialization
     const int screenWidth = 800;
     const int screenHeight = 450;
@@ -26,12 +25,16 @@ int main(void)
     
     // World Initialization
     World_Init();
-
+    
+    Shader shader = LoadShader(TextFormat("chunk_shader.vs", GLSL_VERSION),
+                               TextFormat("chunk_shader.fs", GLSL_VERSION));
+    
     Image terrainTex = LoadImage("textures/terrain.png"); 
     Texture2D texture = LoadTextureFromImage(terrainTex);
     UnloadImage(terrainTex);
     
     World_ApplyTexture(texture);
+    World_ApplyShader(shader);
 
     // Game loop
     while (!WindowShouldClose()) {
@@ -57,6 +60,7 @@ int main(void)
         EndDrawing();
     }
     
+    UnloadShader(shader);
     UnloadTexture(texture);
     World_Unload();
 

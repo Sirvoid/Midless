@@ -2,11 +2,12 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "chunk.h"
+#include "chunkmesh.h"
 #include <stddef.h>
 
 World world;
 
-#define WORLD_RENDER_DISTANCE 128
+#define WORLD_RENDER_DISTANCE 256
 
 void World_Init() {
     world.mat = LoadMaterialDefault();
@@ -35,6 +36,10 @@ void World_ApplyTexture(Texture2D texture) {
     SetMaterialTexture(&world.mat, MATERIAL_MAP_DIFFUSE, texture);
 }
 
+void World_ApplyShader(Shader shader) {
+    world.mat.shader = shader;
+}
+
 void World_Draw(Vector3 camPosition) {
     for(int i = 0; i < WORLD_SIZE; i++) {
         Chunk* chunk = &world.chunks[i];
@@ -46,7 +51,7 @@ void World_Draw(Vector3 camPosition) {
                                    0, 1, 0, chunk->position.y * CHUNK_SIZE_Y, 
                                    0, 0, 1, chunk->position.z * CHUNK_SIZE_Z, 
                                    0, 0, 0, 1 };        
-        DrawMesh(*chunk->mesh, world.mat, matrix);
+        ChunkMesh_Draw(*chunk->mesh, world.mat, matrix);
     }
 }
 
@@ -56,9 +61,7 @@ int World_GetBlock(Vector3 blockPos) {
     Vector3 chunkPos = (Vector3) { (int)blockPos.x / CHUNK_SIZE_X, (int)blockPos.y / CHUNK_SIZE_Y, (int)blockPos.z / CHUNK_SIZE_Z };
     Chunk* chunk = World_GetChunkAt(chunkPos);
     
-    if(chunk == NULL) {
-        return 0;
-    }
+    if(chunk == NULL) return 0;
     
     //Get Block
     Vector3 blockPosInChunk = (Vector3) { 
@@ -76,9 +79,7 @@ void World_SetBlock(Vector3 blockPos, int blockID) {
     Vector3 chunkPos = (Vector3) { (int)blockPos.x / CHUNK_SIZE_X, (int)blockPos.y / CHUNK_SIZE_Y, (int)blockPos.z / CHUNK_SIZE_Z };
     Chunk* chunk = World_GetChunkAt(chunkPos);
     
-    if(chunk == NULL) {
-        return;
-    }
+    if(chunk == NULL) return;
     
     //Set Block
     Vector3 blockPosInChunk = (Vector3) { 

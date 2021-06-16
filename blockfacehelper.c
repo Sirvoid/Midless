@@ -1,10 +1,12 @@
 #include "raylib.h"
-#include "blockfacehelper.h"
+#include <stdlib.h>
+#include "rlgl.h"
 #include "block.h"
 #include "math.h"
+#include "chunkmesh.h"
+#include "blockfacehelper.h"
 
 int BFH_verticesI = 0;
-int BFH_normalsI = 0;
 int BFH_texI = 0;
 int BFH_colorsI = 0;
 
@@ -61,12 +63,11 @@ Vector3 BFH_GetDirection(BlockFace face) {
 
 void BFH_ResetIndexes() {
     BFH_verticesI = 0;
-    BFH_normalsI = 0;
     BFH_texI = 0;
     BFH_colorsI = 0;
 }
 
-void BFH_AddFace(Mesh *mesh, BlockFace face, Vector3 pos, int blockID) {
+void BFH_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, int blockID) {
     
     int texID = Block_definition[blockID].textures[(int)face];
     
@@ -80,35 +81,19 @@ void BFH_AddFace(Mesh *mesh, BlockFace face, Vector3 pos, int blockID) {
         mesh->vertices[BFH_verticesI++] =  BFH_facesPosition[faceIndex].y + pos.y;
         mesh->vertices[BFH_verticesI++] =  BFH_facesPosition[faceIndex].z + pos.z;
         
-        mesh->normals[BFH_normalsI++] = 0;
-        mesh->normals[BFH_normalsI++] = 1;
-        mesh->normals[BFH_normalsI++] = 0;
-        
         switch(face) {
             case BlockFace_Bottom:
                 mesh->colors[BFH_colorsI++] = 100;
-                mesh->colors[BFH_colorsI++] = 100;
-                mesh->colors[BFH_colorsI++] = 100;
-                mesh->colors[BFH_colorsI++] = 255;
                 break;
             case BlockFace_Left:
             case BlockFace_Right:
                 mesh->colors[BFH_colorsI++] = 150;
-                mesh->colors[BFH_colorsI++] = 150;
-                mesh->colors[BFH_colorsI++] = 150;
-                mesh->colors[BFH_colorsI++] = 255;
                 break;
             case BlockFace_Front:
             case BlockFace_Back:
                 mesh->colors[BFH_colorsI++] = 200;
-                mesh->colors[BFH_colorsI++] = 200;
-                mesh->colors[BFH_colorsI++] = 200;
-                mesh->colors[BFH_colorsI++] = 255;
                 break;
             default:
-                mesh->colors[BFH_colorsI++] = 255;
-                mesh->colors[BFH_colorsI++] = 255;
-                mesh->colors[BFH_colorsI++] = 255;
                 mesh->colors[BFH_colorsI++] = 255;
                 break;
         }
@@ -119,3 +104,4 @@ void BFH_AddFace(Mesh *mesh, BlockFace face, Vector3 pos, int blockID) {
         mesh->texcoords[BFH_texI++] = (texCoords[texI++] + textureY) / 16.0f;
     }
 }
+
