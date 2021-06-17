@@ -112,22 +112,32 @@ int Chunk_GetBlock(Chunk *chunk, Vector3 pos) {
 }
 
 void Chunk_RefreshBorderingChunks(Chunk *chunk, Vector3 pos) {
+    
+    int c = 0;
+    Vector3 directions[3];
+    
     if(pos.x == 0) {
-        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){-1, 0, 0})));
+        directions[c++] = (Vector3){-1, 0, 0};
     } else if(pos.x == CHUNK_SIZE_X - 1) {
-        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){1, 0, 0})));
+        directions[c++] = (Vector3){1, 0, 0};
     } 
 
     if(pos.y == 0) {
-        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, -1, 0})));
+        directions[c++] = (Vector3){0, -1, 0};
     } else if(pos.y == CHUNK_SIZE_Y - 1) {
-        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, 1, 0})));
+        directions[c++] = (Vector3){0, 1, 0};
     } 
 
     if(pos.z == 0) {
-        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, 0, -1})));
+        directions[c++] = (Vector3){0, 0, -1};
     } else if(pos.z == CHUNK_SIZE_Z - 1) {
-        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, 0, 1})));
+        directions[c++] = (Vector3){0, 0, 1};
+    }
+    
+    for(int i = 0; i < c; i++) {
+        Chunk *borderingChunk = World_GetChunkAt(Vector3Add(chunk->position, directions[i]));
+        if(borderingChunk == NULL) continue;
+        Chunk_BuildMesh(borderingChunk);
     }
     
 }
