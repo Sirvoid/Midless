@@ -26,8 +26,15 @@ int main(void) {
     // World Initialization
     World_Init();
     
-    Shader shader = LoadShader(TextFormat("chunk_shader.vs", GLSL_VERSION),
-                               TextFormat("chunk_shader.fs", GLSL_VERSION));
+    char *chunkShaderVs = 
+        #include "chunk_shader.vs"
+    ;
+    
+    char *chunkShaderFs = 
+        #include "chunk_shader.fs"
+    ;
+    
+    Shader shader = LoadShaderFromMemory(chunkShaderVs, chunkShaderFs);
     
     Image terrainTex = LoadImage("textures/terrain.png"); 
     Texture2D texture = LoadTextureFromImage(terrainTex);
