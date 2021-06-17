@@ -17,13 +17,14 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     if(chunk->position.y > 0) return;
     
     for(int i = 0; i < CHUNK_SIZE; i++) {
-        Vector3 npos = Vector3Add(Chunk_IndexToPos(i), Vector3Multiply(chunk->position, (Vector3) {CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z}) );
+        Vector3 npos = Vector3Add(Chunk_IndexToPos(i), Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3));
         float noise = (stb_perlin_fbm_noise3( npos.x / WORLD_SIZE_X / 4.0f, 1.0f,  npos.z / WORLD_SIZE_Z / 4.0f, 2.0f, 0.5f, 3) + 1.0f) / 2.0f * WORLD_SIZE_Y;
         float ny = npos.y - 8;
         
         if(ny < noise) chunk->data[i] = 3;
         if(ny + 1 < noise) chunk->data[i] = 2;
         if(ny + 2 < noise) chunk->data[i] = 1;
+        
     }
     
 }
@@ -65,12 +66,11 @@ void Chunk_BuildMesh(Chunk *chunk) {
     BFH_ResetIndexes();
     Chunk_facesCounter = 0;
     
-    Vector3 chunkWorldPos = (Vector3) { chunk->position.x * CHUNK_SIZE_X, chunk->position.y * CHUNK_SIZE_Y, chunk->position.z * CHUNK_SIZE_Z };
+    Vector3 chunkWorldPos = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
     
     for(int i = 0; i < CHUNK_SIZE; i++) {
         Vector3 pos = Chunk_IndexToPos(i);
         Vector3 worldPos = Vector3Add(pos, chunkWorldPos);
-        
         Chunk_AddCube(chunk, chunk->mesh, pos, worldPos, chunk->data[i]);
     }
     
@@ -111,26 +111,25 @@ int Chunk_GetBlock(Chunk *chunk, Vector3 pos) {
     return 0;
 }
 
-void Chunk_GetBorderingChunks(Chunk *chunk, Vector3 pos, Chunk *(*dest)[3]) {
-    int i = 0;
-    
+void Chunk_RefreshBorderingChunks(Chunk *chunk, Vector3 pos) {
     if(pos.x == 0) {
-        *dest[i++] = World_GetChunkAt(Vector3Add(chunk->position, (Vector3){-1, 0, 0}));
+        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){-1, 0, 0})));
     } else if(pos.x == CHUNK_SIZE_X - 1) {
-        *dest[i++] = World_GetChunkAt(Vector3Add(chunk->position, (Vector3){1, 0, 0}));
+        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){1, 0, 0})));
     } 
 
     if(pos.y == 0) {
-        *dest[i++] = World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, -1, 0}));
+        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, -1, 0})));
     } else if(pos.y == CHUNK_SIZE_Y - 1) {
-        *dest[i++] = World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, 1, 0}));
+        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, 1, 0})));
     } 
 
     if(pos.z == 0) {
-        *dest[i++] = World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, 0, -1}));
+        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, 0, -1})));
     } else if(pos.z == CHUNK_SIZE_Z - 1) {
-        *dest[i++] = World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, 0, 1}));
+        Chunk_BuildMesh(World_GetChunkAt(Vector3Add(chunk->position, (Vector3){0, 0, 1})));
     }
+    
 }
 
 int Chunk_IsValidPos(Vector3 pos) {

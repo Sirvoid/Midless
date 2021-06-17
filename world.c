@@ -9,7 +9,7 @@ World world;
 
 #define WORLD_RENDER_DISTANCE 256
 
-void World_Init() {
+void World_Init(void) {
     world.mat = LoadMaterialDefault();
     
     //Create Chunks
@@ -26,7 +26,7 @@ void World_Init() {
     }
 }
 
-void World_Unload() {
+void World_Unload(void) {
     for(int i = 0; i < WORLD_SIZE; i++) {
         Chunk_Unload(&world.chunks[i]);
     }
@@ -44,13 +44,14 @@ void World_Draw(Vector3 camPosition) {
     for(int i = 0; i < WORLD_SIZE; i++) {
         Chunk* chunk = &world.chunks[i];
         
-        Vector3 cpxy = (Vector3) {chunk->position.x * CHUNK_SIZE_X, camPosition.y, chunk->position.z * CHUNK_SIZE_Z};
-        if(Vector3Distance(cpxy, camPosition) > WORLD_RENDER_DISTANCE) continue;
+        Vector3 chunkPosInBlocks = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);  
+        if(Vector3Distance(chunkPosInBlocks, camPosition) > WORLD_RENDER_DISTANCE) continue;
         
-        Matrix matrix = (Matrix) { 1, 0, 0, chunk->position.x * CHUNK_SIZE_X,
-                                   0, 1, 0, chunk->position.y * CHUNK_SIZE_Y, 
-                                   0, 0, 1, chunk->position.z * CHUNK_SIZE_Z, 
-                                   0, 0, 0, 1 };        
+        Matrix matrix = (Matrix) { 1, 0, 0, chunkPosInBlocks.x,
+                                   0, 1, 0, chunkPosInBlocks.y,
+                                   0, 0, 1, chunkPosInBlocks.z,
+                                   0, 0, 0, 1 };
+        
         ChunkMesh_Draw(*chunk->mesh, world.mat, matrix);
     }
 }
@@ -83,19 +84,15 @@ void World_SetBlock(Vector3 blockPos, int blockID) {
     
     //Set Block
     Vector3 blockPosInChunk = (Vector3) { 
-                                (int)(blockPos.x - chunkPos.x * CHUNK_SIZE_X), 
-                                (int)(blockPos.y - chunkPos.y * CHUNK_SIZE_Y), 
-                                (int)(blockPos.z - chunkPos.z * CHUNK_SIZE_Z)
+                                (int)blockPos.x - chunkPos.x * CHUNK_SIZE_X, 
+                                (int)blockPos.y - chunkPos.y * CHUNK_SIZE_Y, 
+                                (int)blockPos.z - chunkPos.z * CHUNK_SIZE_Z 
                                };
+    
     Chunk_SetBlock(chunk, blockPosInChunk, blockID);
     
     //Refresh mesh of neighbour chunks.
-    Chunk *neighbourChunks[3] = {NULL};
-    Chunk_GetBorderingChunks(chunk, blockPosInChunk, &neighbourChunks);
-    for(int i = 0; i < 3; i++) {
-        if(neighbourChunks[i] == NULL) break;
-        Chunk_BuildMesh(neighbourChunks[i]);
-    }
+    Chunk_RefreshBorderingChunks(chunk, blockPosInChunk);
     
     //Refresh current chunk.
     Chunk_BuildMesh(chunk);

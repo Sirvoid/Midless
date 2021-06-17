@@ -7,7 +7,7 @@
 #include "chunkmesh.h"
 
 //Reset memory counters.
-void BFH_ResetIndexes();
+void BFH_ResetIndexes(void);
 
 //Add a block face to a given mesh.
 void BFH_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, int blockID);

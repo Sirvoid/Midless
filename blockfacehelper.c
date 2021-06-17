@@ -10,7 +10,7 @@ int BFH_verticesI = 0;
 int BFH_texI = 0;
 int BFH_colorsI = 0;
 
-float texCoords[12] = {
+float BFH_texCoords[12] = {
     1, 1,  0, 0,  1, 0,
     0, 0,  1, 1,  0, 1
     
@@ -61,7 +61,7 @@ Vector3 BFH_GetDirection(BlockFace face) {
     return (Vector3){ 0, 0, 0 };
 }
 
-void BFH_ResetIndexes() {
+void BFH_ResetIndexes(void) {
     BFH_verticesI = 0;
     BFH_texI = 0;
     BFH_colorsI = 0;
@@ -100,8 +100,8 @@ void BFH_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, int blockID) {
     }
     
     for(int i = 0; i < 6; i++) {
-        mesh->texcoords[BFH_texI++] = (texCoords[texI++] + textureX) / 16.0f;
-        mesh->texcoords[BFH_texI++] = (texCoords[texI++] + textureY) / 16.0f;
+        mesh->texcoords[BFH_texI++] = (BFH_texCoords[texI++] + textureX) / 16.0f;
+        mesh->texcoords[BFH_texI++] = (BFH_texCoords[texI++] + textureY) / 16.0f;
     }
 }
 

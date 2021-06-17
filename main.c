@@ -9,7 +9,7 @@ int main(void) {
     // Initialization
     const int screenWidth = 800;
     const int screenHeight = 450;
-    Color crosshairColor = (Color){ 0, 0, 0, 80 };
+    Color uiColBg = (Color){ 0, 0, 0, 80 };
 
     InitWindow(screenWidth, screenHeight, "Game");
     SetTraceLogLevel(LOG_WARNING);
@@ -54,13 +54,13 @@ int main(void) {
             
             const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
             
-            DrawRectangle(13, 15, MeasureText(coordText, 20) + 6, 39, crosshairColor);
+            DrawRectangle(13, 15, MeasureText(coordText, 20) + 6, 39, uiColBg);
             DrawText(TextFormat("%2i FPS", GetFPS()), 16, 16, 20, WHITE);
             DrawText(coordText, 16, 36, 20, WHITE);
             
-            DrawRectangle(screenWidth / 2 - 8, screenHeight / 2 - 2, 16, 4, crosshairColor);
-            DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 + 2, 4, 6, crosshairColor);
-            DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 - 8, 4, 6, crosshairColor);
+            DrawRectangle(screenWidth / 2 - 8, screenHeight / 2 - 2, 16, 4, uiColBg);
+            DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 + 2, 4, 6, uiColBg);
+            DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 - 8, 4, 6, uiColBg);
 
         EndDrawing();
     }

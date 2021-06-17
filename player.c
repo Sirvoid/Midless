@@ -5,6 +5,8 @@
 #include "world.h"
 #include "raycast.h"
 
+#define MOUSE_SENSITIVITY 0.003f
+
 Vector2 Player_oldMousePos = {0.0f, 0.0f};
 Vector2 Player_cameraAngle = {0.0f, 0.0f};
 
@@ -19,7 +21,7 @@ void Player_Init(Player *player) {
     
     player->velocity = (Vector3) {0, 0, 0};
     player->position = (Vector3) { 16.0f, 16.0f, 16.0f };
-    player->speed = 0.15f;
+    player->speed = 0.125f;
     
     player->collisionBox.min = (Vector3) { 0, 0, 0 };
     player->collisionBox.max = (Vector3) { 0.8f, 1.8f, 0.8f };
@@ -29,7 +31,7 @@ void Player_Init(Player *player) {
 }
 
 void Player_CheckInputs(Player *player) {
-    Vector2 mousePositionDelta = {0.0f, 0.0f};
+    Vector2 mousePositionDelta = { 0.0f, 0.0f };
     Vector2 mousePos = GetMousePosition();
     
     mousePositionDelta.x = mousePos.x - Player_oldMousePos.x;
@@ -37,20 +39,25 @@ void Player_CheckInputs(Player *player) {
     
     Player_oldMousePos = GetMousePosition();
     
-    Player_cameraAngle.x -= (mousePositionDelta.x * -0.003f);
-    Player_cameraAngle.y -= (mousePositionDelta.y * -0.003f);
+    Player_cameraAngle.x -= (mousePositionDelta.x * -MOUSE_SENSITIVITY);
+    Player_cameraAngle.y -= (mousePositionDelta.y * -MOUSE_SENSITIVITY);
     
+    //Limit head rotation
     float maxCamAngleY = PI - 0.01f;
     float minCamAngleY = 0.01f;
     
-    if(Player_cameraAngle.y >= maxCamAngleY) Player_cameraAngle.y = maxCamAngleY;
-    if(Player_cameraAngle.y <= minCamAngleY) Player_cameraAngle.y = minCamAngleY;
+    if(Player_cameraAngle.y >= maxCamAngleY) 
+        Player_cameraAngle.y = maxCamAngleY;
+    else if(Player_cameraAngle.y <= minCamAngleY) 
+        Player_cameraAngle.y = minCamAngleY;
     
+    
+    //Calculate direction vectors of the camera angle
     float cx = cosf(Player_cameraAngle.x);
     float sx = sinf(Player_cameraAngle.x);
     
-    float cxS = cosf(Player_cameraAngle.x + PI / 2);
-    float sxS = sinf(Player_cameraAngle.x + PI / 2);
+    float cx90 = cosf(Player_cameraAngle.x + PI / 2);
+    float sx90 = sinf(Player_cameraAngle.x + PI / 2);
     
     float sy = sinf(Player_cameraAngle.y);
     float cy = cosf(Player_cameraAngle.y);
@@ -59,8 +66,9 @@ void Player_CheckInputs(Player *player) {
     float forwardY = cy;
     float forwardZ = sx * sy;
     
+    //Handle keys & mouse
     if(IsKeyDown(KEY_SPACE) && !player->jumped) {
-        player->velocity.y += 0.3f;
+        player->velocity.y += 0.2f;
         player->jumped = true;
     }
     
@@ -75,13 +83,13 @@ void Player_CheckInputs(Player *player) {
     }
     
     if(IsKeyDown(KEY_A)) {
-       player->velocity.z -= sxS * player->speed;
-       player->velocity.x -= cxS * player->speed;
+       player->velocity.z -= sx90 * player->speed;
+       player->velocity.x -= cx90 * player->speed;
     }
     
     if(IsKeyDown(KEY_D)) {
-       player->velocity.z += sxS * player->speed;
-       player->velocity.x += cxS * player->speed;
+       player->velocity.z += sx90 * player->speed;
+       player->velocity.x += cx90 * player->speed;
     }
     
     if(IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
@@ -94,6 +102,7 @@ void Player_CheckInputs(Player *player) {
         }
     }
  
+    //Place camera's target to the direction looking at.
     player->camera.target.x = player->camera.position.x + forwardX;
     player->camera.target.y = player->camera.position.y + forwardY;
     player->camera.target.z = player->camera.position.z + forwardZ;
@@ -103,20 +112,22 @@ void Player_CheckInputs(Player *player) {
 
 void Player_Update(Player *player) {
     
-    player->velocity.y -= 0.02f;
+    player->velocity.y -= 0.015f;
     
-    player->position.x += player->velocity.x;
-    if(Player_TestCollision(player)) player->position.x -= player->velocity.x;
+    Vector3 velXdt = Vector3Scale(player->velocity, GetFrameTime() * 60);
+    
+    player->position.x += velXdt.x;
+    if(Player_TestCollision(player)) player->position.x -= velXdt.x;
 
-    player->position.y += player->velocity.y;
+    player->position.y += velXdt.y;
     if(Player_TestCollision(player)) {
-        player->position.y -= player->velocity.y;
+        player->position.y -= velXdt.y;
+        if(player->velocity.y <= 0) player->jumped = false;
         player->velocity.y = 0;
-        player->jumped = false;
     }
 
-    player->position.z += player->velocity.z;
-    if(Player_TestCollision(player)) player->position.z -= player->velocity.z;
+    player->position.z += velXdt.z;
+    if(Player_TestCollision(player)) player->position.z -= velXdt.z;
 
     player->camera.position = player->position;
     player->camera.position.y += 1.8f;

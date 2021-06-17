@@ -19,9 +19,9 @@ typedef struct World{
 } World;
 
 //Initialize the world.
-void World_Init();
+void World_Init(void);
 //Unload the world.
-void World_Unload();
+void World_Unload(void);
 //Draw the world.
 void World_Draw(Vector3 camPosition);
 //Apply terrain texture to the world.
