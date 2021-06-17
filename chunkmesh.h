@@ -1,14 +1,14 @@
 #ifndef G_CHUNKMESH_H
 #define G_CHUNKMESH_H
 
-#define MAX_CHUNKMESH_VERTEX_BUFFERS 4
+#define MAX_CHUNKMESH_VERTEX_BUFFERS 3
 
 typedef struct ChunkMesh {
     int vertexCount; 
     int triangleCount;
 
-    float *vertices;
-    float *texcoords;
+    unsigned char *vertices;
+    unsigned char *texcoords;
     unsigned char *colors;
 
     unsigned int vaoId;  

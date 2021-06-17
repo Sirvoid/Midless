@@ -7,11 +7,13 @@
 
 int main(void) {
     // Initialization
-    const int screenWidth = 800;
-    const int screenHeight = 450;
+    int screenWidth = 800;
+    int screenHeight = 450;
     Color uiColBg = (Color){ 0, 0, 0, 80 };
 
     InitWindow(screenWidth, screenHeight, "Game");
+    SetWindowState(FLAG_WINDOW_RESIZABLE);
+    SetExitKey(0);
     SetTraceLogLevel(LOG_WARNING);
     SetTargetFPS(60);
     
@@ -19,9 +21,6 @@ int main(void) {
     Block_Define(2, "dirt", 2, 2, 2);
     Block_Define(3, "grass", 0, 2, 3);
     Block_Define(4, "wood", 4, 4, 4);
-    
-    Player player;
-    Player_Init(&player);
     
     // World Initialization
     World_Init();
@@ -43,8 +42,15 @@ int main(void) {
     World_ApplyTexture(texture);
     World_ApplyShader(shader);
 
+    //Player Initialization
+    Player player;
+    Player_Init(&player);
+
     // Game loop
     while (!WindowShouldClose()) {
+        
+        screenHeight = GetScreenHeight();
+        screenWidth = GetScreenWidth();
         
         // Update
         Player_Update(&player);
@@ -57,7 +63,6 @@ int main(void) {
             BeginMode3D(player.camera);
                 World_Draw(player.camera.position);
             EndMode3D();
-            
             
             const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
             

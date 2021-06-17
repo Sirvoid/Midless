@@ -11,21 +11,23 @@ void ChunkMesh_Upload(ChunkMesh *mesh) {
     mesh->vaoId = 0;        
     mesh->vboId[0] = 0;
     mesh->vboId[1] = 0;
-    mesh->vboId[3] = 0;
+    mesh->vboId[2] = 0;
 
     mesh->vaoId = rlLoadVertexArray();
     rlEnableVertexArray(mesh->vaoId);
 
-    mesh->vboId[0] = rlLoadVertexBuffer(mesh->vertices, mesh->vertexCount * 3 * sizeof(float), false);
-    rlSetVertexAttribute(0, 3, RL_FLOAT, 0, 0, 0);
+    int vertXchar = mesh->vertexCount * sizeof(unsigned char);
+
+    mesh->vboId[0] = rlLoadVertexBuffer(mesh->vertices, vertXchar * 3, false);
+    rlSetVertexAttribute(0, 3, RL_UNSIGNED_BYTE, 0, 0, 0);
     rlEnableVertexAttribute(0);
 
-    mesh->vboId[1] = rlLoadVertexBuffer(mesh->texcoords, mesh->vertexCount * 2 * sizeof(float), false);
-    rlSetVertexAttribute(1, 2, RL_FLOAT, 0, 0, 0);
+    mesh->vboId[1] = rlLoadVertexBuffer(mesh->texcoords, vertXchar * 2, false);
+    rlSetVertexAttribute(1, 2, RL_UNSIGNED_BYTE, 0, 0, 0);
     rlEnableVertexAttribute(1);
 
-    mesh->vboId[3] = rlLoadVertexBuffer(mesh->colors, mesh->vertexCount * sizeof(unsigned char), false);
-    rlSetVertexAttribute(3, 1, RL_UNSIGNED_BYTE, 1, 0, 0);
+    mesh->vboId[2] = rlLoadVertexBuffer(mesh->colors, vertXchar, false);
+    rlSetVertexAttribute(3, 1, RL_UNSIGNED_BYTE, 0, 0, 0);
     rlEnableVertexAttribute(3);
 
     rlDisableVertexArray();
@@ -57,16 +59,16 @@ void ChunkMesh_Draw(ChunkMesh mesh, Material material, Matrix transform) {
 
     if (!rlEnableVertexArray(mesh.vaoId)) {
         rlEnableVertexBuffer(mesh.vboId[0]);
-        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_FLOAT, 0, 0, 0);
+        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_UNSIGNED_BYTE, 0, 0, 0);
         rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION]);
 
         rlEnableVertexBuffer(mesh.vboId[1]);
-        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01], 2, RL_FLOAT, 0, 0, 0);
+        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01], 2, RL_UNSIGNED_BYTE, 0, 0, 0);
         rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01]);
 
         if (material.shader.locs[SHADER_LOC_VERTEX_COLOR] != -1) {
-            rlEnableVertexBuffer(mesh.vboId[3]);
-            rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR], 1, RL_UNSIGNED_BYTE, 1, 0, 0);
+            rlEnableVertexBuffer(mesh.vboId[2]);
+            rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR], 1, RL_UNSIGNED_BYTE, 0, 0, 0);
             rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR]);
         }
 

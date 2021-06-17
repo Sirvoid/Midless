@@ -75,11 +75,13 @@ void BFH_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, int blockID) {
     int textureX = texID % 16;
     int textureY = texID / 16;
     
+    int faceX6 = ((int)face * 6);
+    
     for(int i = 0; i < 6; i++) {
-        int faceIndex = i + ((int)face * 6);
-        mesh->vertices[BFH_verticesI++] =  BFH_facesPosition[faceIndex].x + pos.x;
-        mesh->vertices[BFH_verticesI++] =  BFH_facesPosition[faceIndex].y + pos.y;
-        mesh->vertices[BFH_verticesI++] =  BFH_facesPosition[faceIndex].z + pos.z;
+        int faceIndex = i + faceX6;
+        mesh->vertices[BFH_verticesI++] =  (unsigned char)((BFH_facesPosition[faceIndex].x + pos.x) * 15.9f);
+        mesh->vertices[BFH_verticesI++] =  (unsigned char)((BFH_facesPosition[faceIndex].y + pos.y) * 15.9f);
+        mesh->vertices[BFH_verticesI++] =  (unsigned char)((BFH_facesPosition[faceIndex].z + pos.z) * 15.9f);
         
         switch(face) {
             case BlockFace_Bottom:
@@ -97,11 +99,10 @@ void BFH_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, int blockID) {
                 mesh->colors[BFH_colorsI++] = 255;
                 break;
         }
+        
+        mesh->texcoords[BFH_texI++] = (unsigned char)((BFH_texCoords[texI++] + textureX));
+        mesh->texcoords[BFH_texI++] = (unsigned char)((BFH_texCoords[texI++] + textureY));
     }
     
-    for(int i = 0; i < 6; i++) {
-        mesh->texcoords[BFH_texI++] = (BFH_texCoords[texI++] + textureX) / 16.0f;
-        mesh->texcoords[BFH_texI++] = (BFH_texCoords[texI++] + textureY) / 16.0f;
-    }
 }
 

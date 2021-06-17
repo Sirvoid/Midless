@@ -4,12 +4,13 @@
 #include "math.h"
 
 #define RAYCAST_PRECISION 0.05f
+#define RAYCAST_REACH 8
 
 RaycastResult Raycast_Do(Vector3 position, Vector3 direction) {
     float i = 0;
     Vector3 oldPos = position;
     
-    while(i < 160) {
+    while(i < RAYCAST_REACH / RAYCAST_PRECISION) {
         i += 1;
         
         oldPos = position;

@@ -10,6 +10,8 @@
 Vector2 Player_oldMousePos = {0.0f, 0.0f};
 Vector2 Player_cameraAngle = {0.0f, 0.0f};
 
+bool Player_cursorEnabled = false;
+
 void Player_Init(Player *player) {
 
     Camera camera = { 0 };
@@ -20,7 +22,7 @@ void Player_Init(Player *player) {
     player->camera = camera;
     
     player->velocity = (Vector3) {0, 0, 0};
-    player->position = (Vector3) { 16.0f, 16.0f, 16.0f };
+    player->position = (Vector3) { 16.0f, 64.0f, 16.0f };
     player->speed = 0.125f;
     
     player->collisionBox.min = (Vector3) { 0, 0, 0 };
@@ -65,6 +67,15 @@ void Player_CheckInputs(Player *player) {
     float forwardX = cx * sy;
     float forwardY = cy;
     float forwardZ = sx * sy;
+    
+    if(IsKeyPressed(KEY_ESCAPE)) {
+        if(Player_cursorEnabled) {
+            DisableCursor();
+        } else {
+            EnableCursor();
+        }
+        Player_cursorEnabled = !Player_cursorEnabled;
+    }
     
     //Handle keys & mouse
     if(IsKeyDown(KEY_SPACE) && !player->jumped) {

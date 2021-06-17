@@ -8,14 +8,16 @@
 #define CHUNK_SIZE_X 16
 #define CHUNK_SIZE_Y 16
 #define CHUNK_SIZE_Z 16
+#define CHUNK_SIZE_XZ (CHUNK_SIZE_X * CHUNK_SIZE_Z)
 #define CHUNK_SIZE_VEC3 CLITERAL(Vector3){ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }
 #define CHUNK_SIZE (CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z)
 
 typedef struct Chunk{
     ChunkMesh *mesh;
-    int loaded;
-    Vector3 position;
     int data[CHUNK_SIZE];
+    int loaded; //Chunk loaded once
+    Vector3 position; //Position of the chunk in chunk unit
+    Vector3 blockPosition; //Position of the chunk in block unit
 } Chunk;
 
 //Initialize a chunk.

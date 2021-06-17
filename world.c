@@ -1,9 +1,10 @@
+#include <stdio.h>
+#include <stddef.h>
 #include "world.h"
 #include "raylib.h"
 #include "raymath.h"
 #include "chunk.h"
 #include "chunkmesh.h"
-#include <stddef.h>
 
 World world;
 
@@ -12,18 +13,20 @@ World world;
 void World_Init(void) {
     world.mat = LoadMaterialDefault();
     
+    double startTime = GetTime();
+    
     //Create Chunks
     for(int i = 0; i < WORLD_SIZE; i++) {
-        Chunk* chunk = &world.chunks[i];
         Vector3 pos = World_ChunkIndexToPos(i);
-        Chunk_Init(chunk, pos);
+        Chunk_Init(&world.chunks[i], pos);
     }
     
     //Refresh meshes
     for(int i = 0; i < WORLD_SIZE; i++) {
-        Chunk* chunk = &world.chunks[i];
-        Chunk_BuildMesh(chunk);
+        Chunk_BuildMesh(&world.chunks[i]);
     }
+    
+    printf("World loaded in %f seconds.\n", GetTime() - startTime);
 }
 
 void World_Unload(void) {
@@ -43,13 +46,12 @@ void World_ApplyShader(Shader shader) {
 void World_Draw(Vector3 camPosition) {
     for(int i = 0; i < WORLD_SIZE; i++) {
         Chunk* chunk = &world.chunks[i];
+         
+        if(Vector3Distance(chunk->blockPosition, camPosition) > WORLD_RENDER_DISTANCE) continue;
         
-        Vector3 chunkPosInBlocks = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);  
-        if(Vector3Distance(chunkPosInBlocks, camPosition) > WORLD_RENDER_DISTANCE) continue;
-        
-        Matrix matrix = (Matrix) { 1, 0, 0, chunkPosInBlocks.x,
-                                   0, 1, 0, chunkPosInBlocks.y,
-                                   0, 0, 1, chunkPosInBlocks.z,
+        Matrix matrix = (Matrix) { 1, 0, 0, chunk->blockPosition.x,
+                                   0, 1, 0, chunk->blockPosition.y,
+                                   0, 0, 1, chunk->blockPosition.z,
                                    0, 0, 0, 1 };
         
         ChunkMesh_Draw(*chunk->mesh, world.mat, matrix);
@@ -66,9 +68,9 @@ int World_GetBlock(Vector3 blockPos) {
     
     //Get Block
     Vector3 blockPosInChunk = (Vector3) { 
-                                blockPos.x - chunkPos.x * CHUNK_SIZE_X, 
-                                blockPos.y - chunkPos.y * CHUNK_SIZE_Y, 
-                                blockPos.z - chunkPos.z * CHUNK_SIZE_Z 
+                                (int)blockPos.x - chunkPos.x * CHUNK_SIZE_X, 
+                                (int)blockPos.y - chunkPos.y * CHUNK_SIZE_Y, 
+                                (int)blockPos.z - chunkPos.z * CHUNK_SIZE_Z 
                                };
 
     return Chunk_GetBlock(chunk, blockPosInChunk);
