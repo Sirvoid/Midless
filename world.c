@@ -8,7 +8,7 @@
 
 World world;
 
-#define WORLD_RENDER_DISTANCE 256
+#define WORLD_RENDER_DISTANCE 160
 
 void World_Init(void) {
     world.mat = LoadMaterialDefault();

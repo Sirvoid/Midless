@@ -123,13 +123,17 @@ void Player_CheckInputs(Player *player) {
 
 void Player_Update(Player *player) {
     
+    //Gravity
     player->velocity.y -= 0.015f;
     
+    //Calculate velocity with delta time
     Vector3 velXdt = Vector3Scale(player->velocity, GetFrameTime() * 60);
     
+    //Move X & Test Collisions
     player->position.x += velXdt.x;
     if(Player_TestCollision(player)) player->position.x -= velXdt.x;
 
+    //Move Y & Test Collisions
     player->position.y += velXdt.y;
     if(Player_TestCollision(player)) {
         player->position.y -= velXdt.y;
@@ -137,9 +141,11 @@ void Player_Update(Player *player) {
         player->velocity.y = 0;
     }
 
+    //Move Z & Test Collisions
     player->position.z += velXdt.z;
     if(Player_TestCollision(player)) player->position.z -= velXdt.z;
 
+    //Place Camera
     player->camera.position = player->position;
     player->camera.position.y += 1.8f;
     player->camera.position.x += 0.4f;
@@ -160,6 +166,9 @@ bool Player_TestCollision(Player *player) {
     for(int x = (int)(pB.min.x - 1); x < (int)(pB.max.x + 1); x++) {
         for(int z = (int)(pB.min.z - 1); z < (int)(pB.max.z + 1); z++) {
             for(int y = (int)(pB.min.y - 1); y < (int)(pB.max.y + 1); y++) {
+                
+                if(pB.min.x < 0 || pB.min.y < 0 || pB.min.z < 0 || pB.max.x > WORLD_BLOCK_SIZE_X || pB.max.z > WORLD_BLOCK_SIZE_Z) return true;
+                
                 int blockID = World_GetBlock((Vector3) {x, y, z});
                 if(blockID == 0) continue;
                 

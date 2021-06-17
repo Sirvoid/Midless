@@ -15,12 +15,16 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
     
-    if(chunk->position.y > 3) return;
-    
+    //Map Generation
+    if(chunk->position.y >= 3) return;
+
     for(int i = 0; i < CHUNK_SIZE; i++) {
         Vector3 npos = Vector3Add(Chunk_IndexToPos(i), chunk->blockPosition);
         float noise = (stb_perlin_fbm_noise3( npos.x / WORLD_SIZE_X / 4.0f, 1.0f,  npos.z / WORLD_SIZE_Z / 4.0f, 2.0f, 0.5f, 3) + 1.0f) / 2.0f * WORLD_SIZE_Y;
+        float noise2 = (stb_perlin_fbm_noise3( npos.x / WORLD_SIZE_X, npos.y / WORLD_SIZE_Y,  npos.z / WORLD_SIZE_Z, 2.0f, 1, 1) + 1.0f) / 2.0f;
         float ny = npos.y - 32;
+        
+        if(noise2 < 0.3f) continue; 
         
         if(ny < noise) chunk->data[i] = 3;
         if(ny + 1 < noise) chunk->data[i] = 2;
