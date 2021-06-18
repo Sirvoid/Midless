@@ -4,6 +4,7 @@
 #define WORLD_SIZE_X 16
 #define WORLD_SIZE_Y 8
 #define WORLD_SIZE_Z 16
+#define WORLD_SIZE_VEC3 CLITERAL(Vector3){ WORLD_SIZE_X, WORLD_SIZE_Y, WORLD_SIZE_Z }
 #define WORLD_SIZE (WORLD_SIZE_X * WORLD_SIZE_Y * WORLD_SIZE_Z)
 
 #define WORLD_BLOCK_SIZE_X (WORLD_SIZE_X * CHUNK_SIZE_X)
@@ -16,10 +17,12 @@
 typedef struct World{
     Chunk chunks[WORLD_SIZE];
     Material mat;
+    int loaded; //Number of chunks loaded
 } World;
 
 //Initialize the world.
 void World_Init(void);
+void World_LoadChunks(void);
 //Unload the world.
 void World_Unload(void);
 //Draw the world.

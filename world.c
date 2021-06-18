@@ -8,10 +8,11 @@
 
 World world;
 
-#define WORLD_RENDER_DISTANCE 160
+#define WORLD_RENDER_DISTANCE 128
 
 void World_Init(void) {
     world.mat = LoadMaterialDefault();
+    world.loaded = 0;
     
     double startTime = GetTime();
     
@@ -21,12 +22,15 @@ void World_Init(void) {
         Chunk_Init(&world.chunks[i], pos);
     }
     
-    //Refresh meshes
-    for(int i = 0; i < WORLD_SIZE; i++) {
-        Chunk_BuildMesh(&world.chunks[i]);
-    }
-    
     printf("World loaded in %f seconds.\n", GetTime() - startTime);
+}
+
+void World_LoadChunks(void) {
+    int updatesThisFrame = 16;
+    while(updatesThisFrame-- > 0 && world.loaded < WORLD_SIZE) {
+        Chunk_BuildMesh(&world.chunks[world.loaded]);
+        world.loaded++;
+    }
 }
 
 void World_Unload(void) {
@@ -45,6 +49,7 @@ void World_ApplyShader(Shader shader) {
 
 void World_Draw(Vector3 camPosition) {
     for(int i = 0; i < WORLD_SIZE; i++) {
+        if(i >= world.loaded) break;
         Chunk* chunk = &world.chunks[i];
          
         if(Vector3Distance(chunk->blockPosition, camPosition) > WORLD_RENDER_DISTANCE) continue;

@@ -1,7 +1,7 @@
+#include <string.h>
 #include "raylib.h"
 #include "player.h"
 #include "world.h"
-#include <string.h>
 
 #define GLSL_VERSION 330
 
@@ -45,7 +45,7 @@ int main(void) {
     //Player Initialization
     Player player;
     Player_Init(&player);
-
+    
     // Game loop
     while (!WindowShouldClose()) {
         
@@ -54,6 +54,9 @@ int main(void) {
         
         // Update
         Player_Update(&player);
+        World_LoadChunks();
+        
+        Vector3 selectionBoxPos = (Vector3) { (int)player.rayResult.hitPos.x + 0.5f, (int)player.rayResult.hitPos.y + 0.5f, (int)player.rayResult.hitPos.z + 0.5f};
         
         // Draw
         BeginDrawing();
@@ -62,14 +65,18 @@ int main(void) {
 
             BeginMode3D(player.camera);
                 World_Draw(player.camera.position);
+                if(player.rayResult.hitBlockID != -1) 
+                    DrawCube(selectionBoxPos, 1.01f, 1.01f, 1.01f, (Color){255, 255, 255, 40});
             EndMode3D();
             
+            //Draw debug infos
             const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
             
             DrawRectangle(13, 15, MeasureText(coordText, 20) + 6, 39, uiColBg);
             DrawText(TextFormat("%2i FPS", GetFPS()), 16, 16, 20, WHITE);
             DrawText(coordText, 16, 36, 20, WHITE);
             
+            //Draw crosshair
             DrawRectangle(screenWidth / 2 - 8, screenHeight / 2 - 2, 16, 4, uiColBg);
             DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 + 2, 4, 6, uiColBg);
             DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 - 8, 4, 6, uiColBg);

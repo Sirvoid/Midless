@@ -22,7 +22,7 @@ void Player_Init(Player *player) {
     player->camera = camera;
     
     player->velocity = (Vector3) {0, 0, 0};
-    player->position = (Vector3) { 16.0f, 64.0f, 16.0f };
+    player->position = (Vector3) { WORLD_BLOCK_SIZE_X / 2, 64.0f, WORLD_BLOCK_SIZE_Z / 2 };
     player->speed = 0.125f;
     
     player->collisionBox.min = (Vector3) { 0, 0, 0 };
@@ -103,13 +103,12 @@ void Player_CheckInputs(Player *player) {
        player->velocity.x += cx90 * player->speed;
     }
     
+    player->rayResult = Raycast_Do(player->camera.position, (Vector3) { forwardX, forwardY, forwardZ});
     if(IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        RaycastResult rayResult = Raycast_Do(player->camera.position, (Vector3) { forwardX, forwardY, forwardZ});
-        World_SetBlock(rayResult.hitPos, 0);
+        World_SetBlock(player->rayResult.hitPos, 0);
     } else if(IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-        RaycastResult rayResult = Raycast_Do(player->camera.position, (Vector3) { forwardX, forwardY, forwardZ});
-        if(rayResult.hitBlockID != -1) {
-            World_SetBlock(rayResult.prevPos, 4);
+        if(player->rayResult.hitBlockID != -1) {
+            World_SetBlock(player->rayResult.prevPos, 4);
         }
     }
  

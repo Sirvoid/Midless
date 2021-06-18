@@ -1,5 +1,5 @@
-#include "raylib.h"
 #include <stdlib.h>
+#include "raylib.h"
 #include "rlgl.h"
 #include "block.h"
 #include "math.h"

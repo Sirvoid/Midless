@@ -1,6 +1,6 @@
+#include <stdlib.h>
 #include "raylib.h"
 #include "raymath.h"
-#include <stdlib.h>
 #include "rlgl.h"
 #include "chunkmesh.h"
 

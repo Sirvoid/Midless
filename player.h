@@ -2,6 +2,7 @@
 #define G_PLAYER_H
 
 #include "raylib.h"
+#include "raycast.h"
 
 typedef struct Player{
     Camera camera;
@@ -9,6 +10,7 @@ typedef struct Player{
     Vector3 position;
     Vector3 velocity;
     BoundingBox collisionBox;
+    RaycastResult rayResult;
     bool jumped;
 } Player;
 

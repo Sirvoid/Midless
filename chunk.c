@@ -14,6 +14,7 @@ int Chunk_triangleCounter = 0;
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
+    chunk->mesh = (ChunkMesh*)MemAlloc(sizeof(ChunkMesh));
     
     //Map Generation
     if(chunk->position.y >= 3) return;
@@ -29,7 +30,6 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
         if(ny < noise) chunk->data[i] = 3;
         if(ny + 1 < noise) chunk->data[i] = 2;
         if(ny + 2 < noise) chunk->data[i] = 1;
-        
     }
     
 }
@@ -65,7 +65,6 @@ void Chunk_BuildMesh(Chunk *chunk) {
     if(chunk->loaded == 1) ChunkMesh_Unload(*chunk->mesh);
     chunk->loaded = 1;
     
-    chunk->mesh = (ChunkMesh*)MemAlloc(sizeof(ChunkMesh));
     Chunk_AllocateMeshData(chunk->mesh, 2 * 6 * CHUNK_SIZE);
     
     BFH_ResetIndexes();
