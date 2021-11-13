@@ -1,8 +1,10 @@
 #ifndef G_BLOCK_H
 #define G_BLOCK_H
 
+#include "raylib.h"
+
 typedef enum BlockFace{
-	BlockFace_Left,
+    BlockFace_Left,
 	BlockFace_Right,
 	BlockFace_Top,
 	BlockFace_Bottom,
@@ -11,7 +13,7 @@ typedef enum BlockFace{
 } BlockFace;
 
 typedef enum BlockModelType{
-	BlockModelType_Gas,
+    BlockModelType_Gas,
     BlockModelType_Solid,
     BlockModelType_Sprite
 } BlockType;
@@ -22,13 +24,13 @@ typedef enum BlockLightType {
 } BlockLightType;
 
 typedef enum BlockRenderType{
-	BlockRenderType_Opaque,
+    BlockRenderType_Opaque,
     BlockRenderType_Transparent,
     BlockRenderType_Translucent
 } BlockRenderType;
 
 typedef enum BlockColliderType{
-	BlockColliderType_None,
+    BlockColliderType_None,
     BlockColliderType_Solid,
     BlockColliderType_Liquid
 } BlockColliderType;
@@ -40,6 +42,8 @@ typedef struct Block {
     int renderType;
     int colliderType;
     int lightType;
+    Vector3 minBB; //0-16
+    Vector3 maxBB; //0-16
 } Block;
 
 //Definiton of every blocks.

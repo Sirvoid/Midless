@@ -85,7 +85,7 @@ void ChunkMesh_Draw(ChunkMesh mesh, Material material, Matrix transform) {
     float drawDistance = world.drawDistance * 16.0f;
 
     rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_MVP], matMVP);
-    rlSetUniform(0, &drawDistance, RL_SHADER_UNIFORM_FLOAT, 1);
+    rlSetUniform(rlGetLocationUniform(material.shader.id, "drawDistance"), &drawDistance, RL_SHADER_UNIFORM_FLOAT, 1);
 
     rlDrawVertexArray(0, mesh.drawVertexCount);
 

@@ -3,6 +3,7 @@
 #include <math.h>
 #include "raylib.h"
 #include "rlgl.h"
+#include "raymath.h"
 #include "block.h"
 #include "chunkmesh.h"
 #include "blockfacehelper.h"
@@ -46,29 +47,29 @@ void BFH_GetFacesPosition(Block b, Vector3 *facesPosition) {
 
         Vector3 nFacesPosition[36] = {
             //left
-            (Vector3) {0, 0, 0}, (Vector3) {0, 1, 1},
-            (Vector3) {0, 1, 0}, (Vector3) {0, 1, 1},
-            (Vector3) {0, 0, 0}, (Vector3) {0, 0, 1},
+            (Vector3) {b.minBB.x, b.minBB.y, b.minBB.z}, (Vector3) {b.minBB.x, b.maxBB.y, b.maxBB.z},
+            (Vector3) {b.minBB.x, b.maxBB.y, b.minBB.z}, (Vector3) {b.minBB.x, b.maxBB.y, b.maxBB.z},
+            (Vector3) {b.minBB.x, b.minBB.y, b.minBB.z}, (Vector3) {b.minBB.x, b.minBB.y, b.maxBB.z},
             //right
-            (Vector3) {1, 0, 1}, (Vector3) {1, 1, 0},
-            (Vector3) {1, 1, 1}, (Vector3) {1, 1, 0}, 
-            (Vector3) {1, 0, 1}, (Vector3) {1, 0, 0},
+            (Vector3) {b.maxBB.x, b.minBB.y, b.maxBB.z}, (Vector3) {b.maxBB.x, b.maxBB.y, b.minBB.z},
+            (Vector3) {b.maxBB.x, b.maxBB.y, b.maxBB.z}, (Vector3) {b.maxBB.x, b.maxBB.y, b.minBB.z}, 
+            (Vector3) {b.maxBB.x, b.minBB.y, b.maxBB.z}, (Vector3) {b.maxBB.x, b.minBB.y, b.minBB.z},
             //top
-            (Vector3) {0, 1, 1}, (Vector3) {1, 1, 0},
-            (Vector3) {0, 1, 0}, (Vector3) {1, 1, 0},
-            (Vector3) {0, 1, 1}, (Vector3) {1, 1, 1},
+            (Vector3) {b.minBB.x, b.maxBB.y, b.maxBB.z}, (Vector3) {b.maxBB.x, b.maxBB.y, b.minBB.z},
+            (Vector3) {b.minBB.x, b.maxBB.y, b.minBB.z}, (Vector3) {b.maxBB.x, b.maxBB.y, b.minBB.z},
+            (Vector3) {b.minBB.x, b.maxBB.y, b.maxBB.z}, (Vector3) {b.maxBB.x, b.maxBB.y, b.maxBB.z},
             //bottom
-            (Vector3) {0, 0, 0}, (Vector3) {1, 0, 1},
-            (Vector3) {0, 0, 1}, (Vector3) {1, 0, 1},
-            (Vector3) {0, 0, 0}, (Vector3) {1, 0, 0},
+            (Vector3) {b.minBB.x, b.minBB.y, b.minBB.z}, (Vector3) {b.maxBB.x, b.minBB.y, b.maxBB.z},
+            (Vector3) {b.minBB.x, b.minBB.y, b.maxBB.z}, (Vector3) {b.maxBB.x, b.minBB.y, b.maxBB.z},
+            (Vector3) {b.minBB.x, b.minBB.y, b.minBB.z}, (Vector3) {b.maxBB.x, b.minBB.y, b.minBB.z},
             //front
-            (Vector3) {0, 0, 1}, (Vector3) {1, 1, 1},
-            (Vector3) {0, 1, 1}, (Vector3) {1, 1, 1},
-            (Vector3) {0, 0, 1}, (Vector3) {1, 0, 1},
+            (Vector3) {b.minBB.x, b.minBB.y, b.maxBB.z}, (Vector3) {b.maxBB.x, b.maxBB.y, b.maxBB.z},
+            (Vector3) {b.minBB.x, b.maxBB.y, b.maxBB.z}, (Vector3) {b.maxBB.x, b.maxBB.y, b.maxBB.z},
+            (Vector3) {b.minBB.x, b.minBB.y, b.maxBB.z}, (Vector3) {b.maxBB.x, b.minBB.y, b.maxBB.z},
             //back
-            (Vector3) {1, 0, 0}, (Vector3) {0, 1, 0},
-            (Vector3) {1, 1, 0}, (Vector3) {0, 1, 0},
-            (Vector3) {1, 0, 0}, (Vector3) {0, 0, 0}
+            (Vector3) {b.maxBB.x, b.minBB.y, b.minBB.z}, (Vector3) {b.minBB.x, b.maxBB.y, b.minBB.z},
+            (Vector3) {b.maxBB.x, b.maxBB.y, b.minBB.z}, (Vector3) {b.minBB.x, b.maxBB.y, b.minBB.z},
+            (Vector3) {b.maxBB.x, b.minBB.y, b.minBB.z}, (Vector3) {b.minBB.x, b.minBB.y, b.minBB.z}
         };
 
         memcpy(facesPosition, nFacesPosition, 36 * sizeof(Vector3));
@@ -120,9 +121,9 @@ void BFH_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, Block blockDef, i
     for(int i = 0; i < 6; i++) {
         int faceIndex = i + faceX6;
         
-        mesh->vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].x + pos.x) * 15.99f);
-        mesh->vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].y + pos.y) * 15.99f);
-        mesh->vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].z + pos.z) * 15.99f);
+        mesh->vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].x / 16 + pos.x) * 15);
+        mesh->vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].y / 16 + pos.y) * 15);
+        mesh->vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].z / 16 + pos.z) * 15);
         
         if(blockDef.modelType != BlockModelType_Sprite) {
             switch(face) {

@@ -120,8 +120,8 @@ void Player_CheckInputs() {
         float wheel = GetMouseWheelMove();
         if(wheel > 0.35f) player.blockSelected++;
         if(wheel < -0.35f) player.blockSelected--;
-        if(player.blockSelected > 16) player.blockSelected = 1;
-        if(player.blockSelected < 1) player.blockSelected = 16;
+        if(player.blockSelected > 18) player.blockSelected = 1;
+        if(player.blockSelected < 1) player.blockSelected = 18;
         
         player.rayResult = Raycast_Do(player.camera.position, (Vector3) { forwardX, forwardY, forwardZ});
 
@@ -201,11 +201,12 @@ bool Player_TestCollision() {
                 if(pB.min.x < 0 || pB.min.y < 0 || pB.min.z < 0 || pB.max.x > (world.size.x * CHUNK_SIZE_X) || pB.max.z > (world.size.z * CHUNK_SIZE_Z)) return true;
                 
                 int blockID = World_GetBlock((Vector3) {x, y, z});
-                if(blockID == 0 || Block_definition[blockID].colliderType != BlockColliderType_Solid) continue;
+                Block blockDef = Block_definition[blockID];
+                if(blockDef.colliderType != BlockColliderType_Solid) continue;
                 
                 BoundingBox blockB;
-                blockB.min = (Vector3) {x, y, z};
-                blockB.max = (Vector3) {x + 1, y + 1, z + 1};
+                blockB.min = (Vector3) {x + (blockDef.minBB.x / 16), y + (blockDef.minBB.y / 16), z + (blockDef.minBB.z / 16)};
+                blockB.max = (Vector3) {x + (blockDef.maxBB.x / 16), y + (blockDef.maxBB.y / 16), z + (blockDef.maxBB.z / 16)};
                 
                 if(CheckCollisionBoxes(pB, blockB)) return true;
             }

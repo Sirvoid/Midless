@@ -54,6 +54,12 @@ void Block_BuildDefinition(void) {
     Block_Define(16, "lava", 15, 15, 15);
     Block_definition[16].colliderType = BlockColliderType_None;
     Block_definition[16].lightType = BlockLightType_Emit;
+
+    Block_Define(17, "stone_slab", 1, 1, 1);
+    Block_definition[17].maxBB = (Vector3) {16, 8, 16};
+
+    Block_Define(18, "wood_slab", 4, 4, 4);
+    Block_definition[18].maxBB = (Vector3) {16, 8, 16};
 }
 
 Block* Block_Define(int ID, char name[], int topTex, int bottomTex, int sideTex) {
@@ -64,7 +70,9 @@ Block* Block_Define(int ID, char name[], int topTex, int bottomTex, int sideTex)
     block->renderType = BlockRenderType_Opaque;
     block->colliderType = BlockColliderType_Solid;
     block->lightType = BlockLightType_None;
-    
+    block->minBB = (Vector3) {0, 0, 0};
+    block->maxBB = (Vector3) {16, 16, 16};
+
     Block_SetTexture(block, BlockFace_Top, topTex);
     Block_SetTexture(block, BlockFace_Bottom, bottomTex);
     Block_SetTexture(block, BlockFace_Left, sideTex);

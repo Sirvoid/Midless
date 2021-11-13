@@ -2,7 +2,7 @@
 #include "raylib.h"
 #include "world.h"
 
-#define RAYCAST_PRECISION 0.05f
+#define RAYCAST_PRECISION 0.01f
 #define RAYCAST_REACH 8
 
 RaycastResult Raycast_Do(Vector3 position, Vector3 direction) {
@@ -18,8 +18,9 @@ RaycastResult Raycast_Do(Vector3 position, Vector3 direction) {
         position.z += direction.z * RAYCAST_PRECISION;
         
         int blockID = World_GetBlock(position);
+        Block block = Block_definition[blockID];
         
-        if(blockID != 0) {
+        if(block.modelType != BlockModelType_Gas) {
             return (RaycastResult) {position, oldPos, blockID};
         }
     }

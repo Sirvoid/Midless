@@ -69,11 +69,26 @@ void Screen_MakeGame(void) {
     DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 - 8,  4, 6, uiColBg);
 
     //Draw Block Selected
-    int texI = Block_definition[player.blockSelected].textures[4];
+    Block blockDef = Block_definition[player.blockSelected];
+    int texI = blockDef.textures[4];
     int texX = texI % 16 * 16;
     int texY = texI / 16 * 16;
-    DrawTextureTiled(mapTerrain, (Rectangle) {texX, texY, texX + 16, texY + 16}, (Rectangle) { screenWidth - 80, 16, 64, 64}, (Vector2) {0, 0}, 0, 4, WHITE);
 
+    Rectangle texRec = (Rectangle) {
+        texX, 
+        texY, 
+        texX + 16, 
+        texY + 16
+    };
+
+    Rectangle destRec = (Rectangle) { 
+        screenWidth - 80 - (blockDef.minBB.x * 4), 
+        16 + ((16 - blockDef.maxBB.y) * 4), 
+        (blockDef.maxBB.x - blockDef.minBB.x) * 4, 
+        (blockDef.maxBB.y - blockDef.minBB.y) * 4
+    };
+    
+    DrawTextureTiled(mapTerrain, texRec, destRec, (Vector2) {0, 0}, 0, 4, WHITE);
 }
 
 void Screen_MakePause(void) {
@@ -85,26 +100,26 @@ void Screen_MakePause(void) {
     int index = 0;
 
     //Continue Button
-    if(GuiButton((Rectangle) {offsetX , offsetY + (index++ * 30), 200, 30 }, "Continue")) {
+    if(GuiButton((Rectangle) {offsetX , offsetY + (index++ * 35), 200, 30 }, "Continue")) {
         Screen_Switch(SCREEN_GAME);
         DisableCursor();
         Screen_cursorEnabled = false;
     }
 
     //Options Button
-    if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 30), 200, 30 }, "Options")) {
+    if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Options")) {
         Screen_Switch(SCREEN_OPTIONS);
     }
 
     //Save Button
     if(!Network_connectedToServer) {
-        if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 30), 200, 30 }, "Save")) {
+        if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Save")) {
             World_SaveFile("world.dat");
         }
     }
 
     //Main Menu Button
-    if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 30), 200, 30 }, "Main Menu")) {
+    if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Main Menu")) {
         World_SaveFile("world.dat");
         Screen_Switch(SCREEN_LOGIN);
         Network_threadState = -1; //End network thread
@@ -113,7 +128,7 @@ void Screen_MakePause(void) {
     }
 
     //Quit Button
-    if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 30), 200, 30 }, "Quit")) {
+    if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Quit")) {
         World_SaveFile("world.dat");
         *exitGame = true;
     }
@@ -141,9 +156,14 @@ void Screen_MakeOptions(void) {
 }
 
 void Screen_MakeLoading(void) {
+
+    int offsetY = screenHeight / 2;
+    int offsetX = screenWidth / 2;
+    int progressValue = (int)((float)world.loaded / World_GetFlatSize() * 100);
+
     DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
-    GuiProgressBar((Rectangle) { screenWidth / 2 - 80, screenHeight / 2 - 7, 160, 15 }, "", "", (int)(((float)world.loaded / World_GetFlatSize()) * 100), 0, 100);
-    DrawText("Loading World", screenWidth / 2 - 80, screenHeight / 2 - 30, 20, WHITE);
+    GuiProgressBar((Rectangle) { offsetX - 80, offsetY - 7, 160, 15 }, "", "", progressValue, 0, 100);
+    DrawText("Loading World", offsetX - 80, offsetY - 30, 20, WHITE);
 }
 
 void Screen_MakeJoining(void) {
@@ -164,11 +184,10 @@ void Screen_MakeLogin(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
 
     const char *title = "VOXEL ENGINE";
-
-    DrawText(title, screenWidth / 2 - (MeasureText(title, 64) / 2), screenHeight / 2 - 100, 64, WHITE);
-
     int offsetY = screenHeight / 2;
     int offsetX = screenWidth / 2;
+
+    DrawText(title, offsetX - (MeasureText(title, 64) / 2), offsetY - 100, 64, WHITE);
 
     //Name Input
     if(GuiTextBox((Rectangle) { offsetX - 80, offsetY - 15, 160, 30 }, name_input, 16, login_editMode)) {

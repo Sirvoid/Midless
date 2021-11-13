@@ -109,19 +109,21 @@ void Chunk_AddFace(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, Vector3 worldPos,
     bool opaque = blockDef.renderType == BlockRenderType_Opaque;
     bool translucent = blockDef.renderType == BlockRenderType_Translucent;
     bool transparent = blockDef.renderType == BlockRenderType_Transparent;
+    bool fullSize = blockDef.minBB.x == 0 && blockDef.minBB.y == 0 && blockDef.minBB.z == 0 && blockDef.maxBB.x == 16 && blockDef.maxBB.y == 16 && blockDef.maxBB.z == 16;
     
     bool nextTranslucent = nextDef.renderType == BlockRenderType_Translucent;
     bool nextTransparent = nextDef.renderType == BlockRenderType_Transparent;
     bool nextSprite = nextDef.modelType == BlockModelType_Sprite;
-    
+    bool nextFullSize = nextDef.minBB.x == 0 && nextDef.minBB.y == 0 && nextDef.minBB.z == 0 && nextDef.maxBB.x == 16 && nextDef.maxBB.y == 16 && nextDef.maxBB.z == 16;
+
     bool bTest = true;
-    if(opaque) bTest = (nextDef.modelType == BlockModelType_Gas || nextTranslucent || nextTransparent || nextSprite);
-    else if(translucent) bTest = (nextDef.modelType == BlockModelType_Gas  || nextTransparent);
+    if(opaque) bTest = (nextDef.modelType == BlockModelType_Gas || nextTranslucent || nextTransparent || nextSprite || !nextFullSize || !fullSize);
+    else if(translucent) bTest = (nextDef.modelType == BlockModelType_Gas  || nextTransparent || !nextFullSize || !fullSize);
     else if(transparent) {
         Vector3 prevPos = Vector3Subtract(worldPos, faceDir);
         int behindBlockID = World_GetBlock(prevPos);
         Block behindDef = Block_definition[behindBlockID];
-        bTest = ((behindDef.modelType == BlockModelType_Gas && nextTransparent) || nextDef.modelType == BlockModelType_Gas  || nextTranslucent || nextSprite);
+        bTest = ((behindDef.modelType == BlockModelType_Gas && nextTransparent) || nextDef.modelType == BlockModelType_Gas  || nextTranslucent || nextSprite || !nextFullSize || !fullSize);
     }
     
     //Get Face's Light Level

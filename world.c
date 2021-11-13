@@ -299,10 +299,11 @@ void World_PropagateLight(Vector3 pos, Vector3 *directions, int intensity, bool 
     if(!World_IsValidBlockPos(pos) || intensity <= 0) return;
     int index = World_BlockPosToIndex(pos);
     if(world.lightData[index] >= intensity) return;
-    if(Block_definition[world.data[index]].renderType == BlockRenderType_Opaque) return;
-    
+    Block blockDef = Block_definition[world.data[index]];
     world.lightData[index] = intensity;
-
+    
+    if(blockDef.renderType == BlockRenderType_Opaque) return;
+    
     for(int d = 0; d < 5; d++) {
         int subVal = 32;
         if(directions[d].y == 1 && isSunLight) subVal = 0;
