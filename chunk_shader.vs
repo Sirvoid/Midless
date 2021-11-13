@@ -9,7 +9,7 @@
 "void main() {"
 "    fragTexCoord = vertexTexCoord / 16;"
 "    fragColor = vec4(vertexColor / 256, vertexColor / 256, vertexColor / 256, 1.0);" 
-"    vec3 pos = vec3(round(vertexPosition.x / 16.0f), round(vertexPosition.y / 16.0f), round(vertexPosition.z / 16.0f));"
+"    vec3 pos = vec3(round(vertexPosition.x / 15.99f), round(vertexPosition.y / 15.99f), round(vertexPosition.z / 15.99f));"
 "    vertPos = mvp*vec4(pos, 1.0);"
 "    gl_Position = vertPos;"
 "}"
