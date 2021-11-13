@@ -10,9 +10,11 @@
 void BFH_ResetIndexes(void);
 
 //Add a block face to a given mesh.
-void BFH_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, int blockID);
+void BFH_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, Block blockDef, int translucent, int light);
 
 //Get facing direction of a block face.
 Vector3 BFH_GetDirection(BlockFace face);
+
+void BFH_GetFacesPosition(Block b, Vector3 *facesPosition);
 
 #endif

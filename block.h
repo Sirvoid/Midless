@@ -10,13 +10,43 @@ typedef enum BlockFace{
 	BlockFace_Back
 } BlockFace;
 
+typedef enum BlockModelType{
+	BlockModelType_Gas,
+    BlockModelType_Solid,
+    BlockModelType_Sprite
+} BlockType;
+
+typedef enum BlockLightType {
+    BlockLightType_None,
+    BlockLightType_Emit
+} BlockLightType;
+
+typedef enum BlockRenderType{
+	BlockRenderType_Opaque,
+    BlockRenderType_Transparent,
+    BlockRenderType_Translucent
+} BlockRenderType;
+
+typedef enum BlockColliderType{
+	BlockColliderType_None,
+    BlockColliderType_Solid,
+    BlockColliderType_Liquid
+} BlockColliderType;
+
 typedef struct Block {
     char name[16];
     int textures[6];
+    int modelType;
+    int renderType;
+    int colliderType;
+    int lightType;
 } Block;
 
 //Definiton of every blocks.
 extern Block Block_definition[256];
+
+//Define All Blocks
+void Block_BuildDefinition(void);
 
 //Define a block.
 Block* Block_Define(int ID, char name[], int topTex, int bottomTex, int sideTex);

@@ -5,6 +5,7 @@
 
 typedef struct ChunkMesh {
     int vertexCount; 
+    int drawVertexCount;
     int triangleCount;
 
     unsigned char *vertices;
@@ -16,7 +17,7 @@ typedef struct ChunkMesh {
 } ChunkMesh;
 
 void ChunkMesh_Upload(ChunkMesh *mesh);
-void ChunkMesh_Unload(ChunkMesh mesh);
+void ChunkMesh_Unload(ChunkMesh mesh, bool isEndOfChunk);
 void ChunkMesh_Draw(ChunkMesh mesh, Material material, Matrix transform);
 
 #endif

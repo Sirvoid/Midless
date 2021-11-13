@@ -14,8 +14,9 @@
 
 typedef struct Chunk{
     ChunkMesh *mesh;
-    int data[CHUNK_SIZE];
+    ChunkMesh *meshTransparent;
     int loaded; //Chunk loaded once
+    int index;
     Vector3 position; //Position of the chunk in chunk unit
     Vector3 blockPosition; //Position of the chunk in block unit
 } Chunk;
@@ -31,22 +32,10 @@ void Chunk_Unload(Chunk *chunk);
 
 //Build/Refresh a chunk's mesh.
 void Chunk_BuildMesh(Chunk *chunk);
-void Chunk_AddCube(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, Vector3 worldPos, int blockID);
-void Chunk_AddFace(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, Vector3 worldPos, BlockFace face, int blockID);
+void Chunk_AddCube(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, Vector3 worldPos, Block blockDef);
+void Chunk_AddFace(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, Vector3 worldPos, BlockFace face, Block blockDef);
 
-void Chunk_RefreshBorderingChunks(Chunk *chunk, Vector3 pos);
-
-//Set a block in a chunk and refresh mesh.
-void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID);
-
-//Get a block ID in a chunk.
-int Chunk_GetBlock(Chunk *chunk, Vector3 pos);
-
-//Check if block position is valid in chunk.
-int Chunk_IsValidPos(Vector3 pos);
-
-//Convert block position to index.
-int Chunk_PosToIndex(Vector3 pos);
+void Chunk_RefreshBorderingChunks(Chunk *chunk, Vector3 blockPos);
 
 //convert index to block position.
 Vector3 Chunk_IndexToPos(int index);

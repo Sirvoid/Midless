@@ -3,8 +3,11 @@
 #include "raymath.h"
 #include "rlgl.h"
 #include "chunkmesh.h"
+#include "world.h"
 
 void ChunkMesh_Upload(ChunkMesh *mesh) {
+
+    mesh->drawVertexCount = mesh->vertexCount;
 
     mesh->vboId = (unsigned int*)RL_CALLOC(MAX_CHUNKMESH_VERTEX_BUFFERS, sizeof(unsigned int));
 
@@ -33,11 +36,13 @@ void ChunkMesh_Upload(ChunkMesh *mesh) {
     rlDisableVertexArray();
 }
 
-void ChunkMesh_Unload(ChunkMesh mesh) {
+void ChunkMesh_Unload(ChunkMesh mesh, bool isEndOfChunk) {
     
-    rlUnloadVertexArray(mesh.vaoId);
+    if(isEndOfChunk) {
+        rlUnloadVertexArray(mesh.vaoId);
+        for (int i = 0; i < MAX_CHUNKMESH_VERTEX_BUFFERS; i++) rlUnloadVertexBuffer(mesh.vboId[i]);
+    }
 
-    for (int i = 0; i < MAX_CHUNKMESH_VERTEX_BUFFERS; i++) rlUnloadVertexBuffer(mesh.vboId[i]);
     RL_FREE(mesh.vboId);
 
     RL_FREE(mesh.vertices);
@@ -77,9 +82,12 @@ void ChunkMesh_Draw(ChunkMesh mesh, Material material, Matrix transform) {
     Matrix matMVP = MatrixIdentity();
     matMVP = MatrixMultiply(matModelView, matProjection);
 
-    rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_MVP], matMVP);
+    float drawDistance = world.drawDistance * 16.0f;
 
-    rlDrawVertexArray(0, mesh.vertexCount);
+    rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_MVP], matMVP);
+    rlSetUniform(0, &drawDistance, RL_SHADER_UNIFORM_FLOAT, 1);
+
+    rlDrawVertexArray(0, mesh.drawVertexCount);
 
     rlDisableTexture();
 

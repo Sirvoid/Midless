@@ -1,7 +1,14 @@
 #include <string.h>
+#include <stdio.h>
+#include <pthread.h>
 #include "raylib.h"
+#include "rlgl.h"
 #include "player.h"
 #include "world.h"
+#include "screens.h"
+#include "client.h"
+#include "networkhandler.h"
+#include "packet.h"
 
 #define GLSL_VERSION 330
 
@@ -9,7 +16,6 @@ int main(void) {
     // Initialization
     int screenWidth = 800;
     int screenHeight = 450;
-    Color uiColBg = (Color){ 0, 0, 0, 80 };
 
     InitWindow(screenWidth, screenHeight, "Game");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
@@ -17,10 +23,7 @@ int main(void) {
     SetTraceLogLevel(LOG_WARNING);
     SetTargetFPS(60);
     
-    Block_Define(1, "stone", 1, 1, 1);
-    Block_Define(2, "dirt", 2, 2, 2);
-    Block_Define(3, "grass", 0, 2, 3);
-    Block_Define(4, "wood", 4, 4, 4);
+    Block_BuildDefinition();
     
     // World Initialization
     World_Init();
@@ -33,27 +36,27 @@ int main(void) {
         #include "chunk_shader.fs"
     ;
     
-    Shader shader = LoadShaderFromMemory(chunkShaderVs, chunkShaderFs);
+    Shader chunkShader = LoadShaderFromMemory(chunkShaderVs, chunkShaderFs);
     
     Image terrainTex = LoadImage("textures/terrain.png"); 
     Texture2D texture = LoadTextureFromImage(terrainTex);
     UnloadImage(terrainTex);
-    
     World_ApplyTexture(texture);
-    World_ApplyShader(shader);
+    World_ApplyShader(chunkShader);
 
     //Player Initialization
-    Player player;
-    Player_Init(&player);
+    Player_Init();
+    
+    bool exitProgram = false;
+    Screens_init(texture, &exitProgram);
     
     // Game loop
-    while (!WindowShouldClose()) {
+    while (!WindowShouldClose() && !exitProgram) {
         
-        screenHeight = GetScreenHeight();
-        screenWidth = GetScreenWidth();
-        
+        Network_ReadQueue();
+      
         // Update
-        Player_Update(&player);
+        Player_Update();
         World_LoadChunks();
         
         Vector3 selectionBoxPos = (Vector3) { (int)player.rayResult.hitPos.x + 0.5f, (int)player.rayResult.hitPos.y + 0.5f, (int)player.rayResult.hitPos.z + 0.5f};
@@ -62,29 +65,21 @@ int main(void) {
         BeginDrawing();
 
             ClearBackground((Color) { 140, 210, 240});
-
+            
             BeginMode3D(player.camera);
                 World_Draw(player.camera.position);
                 if(player.rayResult.hitBlockID != -1) 
                     DrawCube(selectionBoxPos, 1.01f, 1.01f, 1.01f, (Color){255, 255, 255, 40});
             EndMode3D();
-            
-            //Draw debug infos
-            const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
-            
-            DrawRectangle(13, 15, MeasureText(coordText, 20) + 6, 39, uiColBg);
-            DrawText(TextFormat("%2i FPS", GetFPS()), 16, 16, 20, WHITE);
-            DrawText(coordText, 16, 36, 20, WHITE);
-            
-            //Draw crosshair
-            DrawRectangle(screenWidth / 2 - 8, screenHeight / 2 - 2, 16, 4, uiColBg);
-            DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 + 2, 4, 6, uiColBg);
-            DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 - 8, 4, 6, uiColBg);
 
+            Screen_Make();
+        
         EndDrawing();
     }
     
-    UnloadShader(shader);
+    Network_threadState = -1;
+    
+    UnloadShader(chunkShader);
     UnloadTexture(texture);
     World_Unload();
 
