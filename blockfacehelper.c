@@ -24,21 +24,21 @@ void BFH_GetFacesPosition(Block b, Vector3 *facesPosition) {
 
         Vector3 nFacesPosition[24] = {
             //left
-            (Vector3) {0, 0, 0}, (Vector3) {1, 1, 1},
-            (Vector3) {0, 1, 0}, (Vector3) {1, 1, 1},
-            (Vector3) {0, 0, 0}, (Vector3) {1, 0, 1},
+            (Vector3) {0, 0, 0}, (Vector3) {16, 16, 16},
+            (Vector3) {0, 16, 0}, (Vector3) {16, 16, 16},
+            (Vector3) {0, 0, 0}, (Vector3) {16, 0, 16},
             //right
-            (Vector3) {1, 0, 1}, (Vector3) {0, 1, 0},
-            (Vector3) {1, 1, 1}, (Vector3) {0, 1, 0}, 
-            (Vector3) {1, 0, 1}, (Vector3) {0, 0, 0},
+            (Vector3) {16, 0, 16}, (Vector3) {0, 16, 0},
+            (Vector3) {16, 16, 16}, (Vector3) {0, 16, 0}, 
+            (Vector3) {16, 0, 16}, (Vector3) {0, 0, 0},
             //front
-            (Vector3) {0, 0, 1}, (Vector3) {1, 1, 0},
-            (Vector3) {0, 1, 1}, (Vector3) {1, 1, 0},
-            (Vector3) {0, 0, 1}, (Vector3) {1, 0, 0},
+            (Vector3) {0, 0, 16}, (Vector3) {16, 16, 0},
+            (Vector3) {0, 16, 16}, (Vector3) {16, 16, 0},
+            (Vector3) {0, 0, 16}, (Vector3) {16, 0, 0},
             //back
-            (Vector3) {1, 0, 0}, (Vector3) {0, 1, 1},
-            (Vector3) {1, 1, 0}, (Vector3) {0, 1, 1},
-            (Vector3) {1, 0, 0}, (Vector3) {0, 0, 1}
+            (Vector3) {16, 0, 0}, (Vector3) {0, 16, 16},
+            (Vector3) {16, 16, 0}, (Vector3) {0, 16, 16},
+            (Vector3) {16, 0, 0}, (Vector3) {0, 0, 16}
         };
 
         memcpy(facesPosition, nFacesPosition, 24 * sizeof(Vector3));
