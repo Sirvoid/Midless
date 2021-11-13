@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "raylib.h"
 #include "rlgl.h"
 #include "block.h"
-#include "math.h"
 #include "chunkmesh.h"
 #include "blockfacehelper.h"
 

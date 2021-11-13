@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "raylib.h"
 #include "packet.h"
 #include "world.h"
 #include "networkhandler.h"
-#include "math.h"
 
 #define PACKET_STRING_SIZE 64
 

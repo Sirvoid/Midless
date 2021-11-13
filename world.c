@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <limits.h>
+#include <pthread.h>
+#include <time.h>
+#include <string.h>
 #include "world.h"
 #include "raylib.h"
 #include "rlgl.h"
@@ -8,11 +11,8 @@
 #include "chunk.h"
 #include "chunkmesh.h"
 #include "screens.h"
-#include "string.h"
 #include "block.h"
-#include "time.h"
 #include "networkhandler.h"
-#include "pthread.h"
 
 World world;
 
@@ -137,6 +137,7 @@ void World_Unload(void) {
     MemFree(world.data);
     MemFree(world.lightData);
     MemFree(world.chunks);
+    MemFree(world.chunksToRebuild);
     world.loaded = INT_MAX;
 
 }
@@ -148,7 +149,7 @@ void World_Load(unsigned char *worldData) {
     world.lightData = MemAlloc(World_GetFlatSize() * CHUNK_SIZE);
 
     world.chunksToRebuild = MemAlloc(World_GetFlatSize());
-    memset(world.chunksToRebuild, false, World_GetFlatSize());
+    memset(world.chunksToRebuild, 0, World_GetFlatSize());
 
     World_BuildLightMap();
 
@@ -426,8 +427,8 @@ void World_SetBlock(Vector3 blockPos, int blockID) {
 
 void *World_ReadChunksQueue(void *state) {
     while(true) {
-        if(world.loaded == INT_MAX) continue;
         for(int i = 0; i < World_GetFlatSize(); i++) {
+            if(world.loaded == INT_MAX) continue;
             if(world.chunksToRebuild[i] == 11) {
                 Chunk *chunk = &world.chunks[i];
                 World_UpdateLightMap(Vector3Add(chunk->blockPosition, (Vector3){CHUNK_SIZE_X / 2, CHUNK_SIZE_Y / 2, CHUNK_SIZE_Z / 2}));
@@ -439,6 +440,8 @@ void *World_ReadChunksQueue(void *state) {
             }
         }
     }
+
+    return NULL;
 }
 
 void World_QueueChunk(Chunk *chunk, bool updateLight) {

@@ -1,14 +1,15 @@
 #define RAYGUI_IMPLEMENTATION
 #define RAYGUI_SUPPORT_ICONS
-#include "raylib.h"
 #include <pthread.h>
+#include <math.h>
+#include "raylib.h"
 #include "raygui.h"
 #include "screens.h"
 #include "player.h"
 #include "world.h"
 #include "networkhandler.h"
 #include "client.h"
-#include "math.h"
+
 
 Screen Screen_Current = SCREEN_LOGIN;
 bool Screen_cursorEnabled = false;

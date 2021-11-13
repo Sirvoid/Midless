@@ -1,7 +1,6 @@
 #include "raycast.h"
 #include "raylib.h"
 #include "world.h"
-#include "math.h"
 
 #define RAYCAST_PRECISION 0.05f
 #define RAYCAST_REACH 8

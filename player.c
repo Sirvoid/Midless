@@ -1,4 +1,5 @@
 #include <limits.h>
+#include <stdio.h>
 #include "raylib.h"
 #include "raymath.h"
 #include "player.h"
@@ -8,7 +9,6 @@
 #include "screens.h"
 #include "networkhandler.h"
 #include "packet.h"
-#include <stdio.h>
 
 #define MOUSE_SENSITIVITY 0.003f
 

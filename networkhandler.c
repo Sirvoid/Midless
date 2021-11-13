@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
+#include <math.h>
+#include <string.h>
 #include "networkhandler.h"
 #include "packet.h"
-#include "string.h"
 #include "raylib.h"
-#include "math.h"
 #include "screens.h"
 #include "world.h"
-#include <pthread.h>
 
 PacketDefinition packets[256];
 int Network_connectedToServer = 0;
