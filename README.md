@@ -1,8 +1,8 @@
 # IsleForge
-![Image](https://i.imgur.com/mgC5tN3.png)
+![Image](https://i.imgur.com/0kFPamn.png)
 [![Chat](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/tZthSbpUcV)
 
-Open-Source Voxel Game made in C using Raylib.
+Open Source Voxel Game made in C using Raylib.
 
 *Multiplayer is not fully implemented yet so the server code will come later.
 
