@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -30,6 +37,7 @@ void Network_Init(void) {
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_Pong}; //3
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_SpawnEntity}; //4
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_TeleportEntity}; //5
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_Message}; //6
 }
 
 void Network_Connect(void) {

@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #include <limits.h>
 #include <stdio.h>
 #include "raylib.h"
@@ -9,6 +16,7 @@
 #include "screens.h"
 #include "networkhandler.h"
 #include "packet.h"
+#include "chat.h"
 
 #define MOUSE_SENSITIVITY 0.003f
 
@@ -26,7 +34,7 @@ void Player_Init() {
     player.camera = camera;
     
     player.velocity = (Vector3) {0, 0, 0};
-    player.position = (Vector3) { (world.size.x * CHUNK_SIZE_X) / 2, 128.0f, (world.size.z * CHUNK_SIZE_Z) / 2 };
+    player.position = (Vector3) { world.size.x / 2, 128.0f, world.size.z / 2 };
     player.speed = 0.125f / 6;
     
     player.collisionBox.min = (Vector3) { 0, 0, 0 };
@@ -40,18 +48,30 @@ void Player_Init() {
 
 void Player_CheckInputs() {
     
-    if(world.loaded > World_GetFlatSize()) {
-        if(IsKeyPressed(KEY_ESCAPE)) {
-            if(Screen_cursorEnabled) {
-                DisableCursor();
-                Screen_Switch(SCREEN_GAME);
-            } else {
-                EnableCursor();
-                Screen_Switch(SCREEN_PAUSE);
-            }
-            Screen_cursorEnabled = !Screen_cursorEnabled;
+    if(world.loaded == INT_MAX) return;
+
+    if(IsKeyPressed(KEY_ESCAPE)) {
+        if(Screen_cursorEnabled) {
+            DisableCursor();
+            Chat_open = false;
+            Screen_Switch(SCREEN_GAME);
+        } else {
+            EnableCursor();
+            Screen_Switch(SCREEN_PAUSE);
+        }
+        Screen_cursorEnabled = !Screen_cursorEnabled;
+    } else if(IsKeyPressed(KEY_T)) {
+        if(Screen_cursorEnabled && !Chat_open) {
+            DisableCursor();
+            Screen_cursorEnabled = false;
+            Screen_Switch(SCREEN_GAME);
+        } else {
+            Chat_open = true;
+            EnableCursor();
+            Screen_cursorEnabled = true;
         }
     }
+    
     
     Vector2 mousePositionDelta = { 0.0f, 0.0f };
     Vector2 mousePos = GetMousePosition();
@@ -198,7 +218,7 @@ bool Player_TestCollision() {
         for(int z = (int)(pB.min.z - 1); z < (int)(pB.max.z + 1); z++) {
             for(int y = (int)(pB.min.y - 1); y < (int)(pB.max.y + 1); y++) {
                 
-                if(pB.min.x < 0 || pB.min.y < 0 || pB.min.z < 0 || pB.max.x > (world.size.x * CHUNK_SIZE_X) || pB.max.z > (world.size.z * CHUNK_SIZE_Z)) return true;
+                if(pB.min.x < 0 || pB.min.y < 0 || pB.min.z < 0 || pB.max.x > world.size.x || pB.max.z > world.size.z) return true;
                 
                 int blockID = World_GetBlock((Vector3) {x, y, z});
                 Block blockDef = Block_definition[blockID];

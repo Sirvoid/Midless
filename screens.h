@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #include "player.h"
 
 #ifndef G_SCREEN_H
@@ -9,7 +16,8 @@ typedef enum Screen {
     SCREEN_LOADING,
     SCREEN_JOINING,
     SCREEN_LOGIN,
-    SCREEN_OPTIONS
+    SCREEN_OPTIONS,
+    SCREEN_GENERATING
 } Screen;
 
 extern bool Screen_cursorEnabled;
@@ -23,6 +31,7 @@ void Screen_MakeGame(void);
 void Screen_MakePause(void);
 void Screen_MakeOptions(void);
 void Screen_MakeLoading(void);
+void Screen_MakeGenerating(void);
 void Screen_MakeJoining(void);
 void Screen_MakeLogin(void);
 

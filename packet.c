@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,6 +13,7 @@
 #include "packet.h"
 #include "world.h"
 #include "networkhandler.h"
+#include "chat.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -14,7 +22,8 @@ int Packet_Lengths[256] = {
     66, //0
     1, //1
     8, //2
-    7 //3
+    7, //3
+    65 //4
 };
 int PingCalculation_oldTime = 0;
 
@@ -49,13 +58,15 @@ int Packet_ReadInt(void) {
     return value;
 }
 
-char* Packet_ReadString(void) {
-    char *string = MemAlloc(PACKET_STRING_SIZE);
+char *Packet_ReadString(void) {
+    char *string = MemAlloc(PACKET_STRING_SIZE + 1);
     
     for(int i = 0; i < PACKET_STRING_SIZE; i++) {
         string[i] = Packet_data[PacketReader_index++];
     }
     
+    string[PACKET_STRING_SIZE] = 0;
+
     return string;
 }
 
@@ -72,30 +83,30 @@ unsigned char* Packet_ReadArray(int size) {
 *--------------------------------------------------------------------------------------------------------*/
 int PacketWriter_index = 0;
 
-void Packet_WriteByte(unsigned char* packet, unsigned char value) {
+void Packet_WriteByte(unsigned char *packet, unsigned char value) {
     packet[PacketWriter_index++] = value;
 }
 
-void Packet_WriteShort(unsigned char* packet, short value) {
+void Packet_WriteShort(unsigned char *packet, short value) {
     packet[PacketWriter_index++] = (char)(value >> 8);
 	packet[PacketWriter_index++] = (char)(value);
 }
 
-void Packet_WriteUShort(unsigned char* packet, unsigned short value) {
+void Packet_WriteUShort(unsigned char *packet, unsigned short value) {
     packet[PacketWriter_index++] = (char)(value >> 8);
 	packet[PacketWriter_index++] = (char)(value);
 }
 
-void Packet_WriteInt(unsigned char* packet, int value) {
+void Packet_WriteInt(unsigned char *packet, int value) {
     packet[PacketWriter_index++] = (char)(value >> 24);
 	packet[PacketWriter_index++] = (char)(value >> 16);
     packet[PacketWriter_index++] = (char)(value >> 8);
     packet[PacketWriter_index++] = (char)(value);
 }
 
-void Packet_WriteString(unsigned char* packet, char* string) {
+void Packet_WriteString(unsigned char *packet, char *string) {
     int length = TextLength(string);
-    for(int i = 0; i < 64; i++) {
+    for(int i = 0; i < PACKET_STRING_SIZE; i++) {
         if(i < length) {
             packet[PacketWriter_index++] = string[i];
         } else {
@@ -110,7 +121,7 @@ void Packet_WriteString(unsigned char* packet, char* string) {
 *--------------------------------------------------------------------------------------------------------*/
 int mapLoadingChunkCnt = 0;
 int compressedLength = 0;
-unsigned char* compressedMap;
+unsigned char *compressedMap;
 void Packet_H_MapInit(void) {
 
     int nbChunksX = Packet_ReadByte();
@@ -119,9 +130,9 @@ void Packet_H_MapInit(void) {
     compressedLength = Packet_ReadInt();
     compressedMap = MemAlloc(compressedLength);
 
-    world.size.x = nbChunksX;
-    world.size.y = nbChunksY;
-    world.size.z = nbChunksZ;
+    world.size.x = nbChunksX * CHUNK_SIZE_X;
+    world.size.y = nbChunksY * CHUNK_SIZE_Y;
+    world.size.z = nbChunksZ * CHUNK_SIZE_Z;
     
     World_Unload();
     
@@ -134,7 +145,7 @@ void Packet_H_MapChunk(void) {
     
     int dataLength = Packet_ReadShort();
 
-    unsigned char* compressedChunk = Packet_ReadArray(1024);
+    unsigned char *compressedChunk = Packet_ReadArray(1024);
     
     memcpy(&compressedMap[mapLoadingChunkCnt], compressedChunk, dataLength);
     mapLoadingChunkCnt += dataLength;
@@ -177,22 +188,26 @@ void Packet_H_TeleportEntity(void) {
     World_TeleportEntity(ID, (Vector3) { x / 64.0f, y / 64.0f, z / 64.0f });
 }
 
+void Packet_H_Message(void) {
+    char *message = Packet_ReadString();
+    Chat_AddLine(message);
+}
 
 /*-------------------------------------------------------------------------------------------------------*
 *--------------------------------------------Packets Sent------------------------------------------------*
 *--------------------------------------------------------------------------------------------------------*/
-unsigned char* Packet_Identification(char version, char* name) {
+unsigned char *Packet_Identification(char version, char *name) {
     PacketWriter_index = 0;
-    unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[0]);
+    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[0]);
     Packet_WriteByte(packet, 0);
     Packet_WriteByte(packet, version);
     Packet_WriteString(packet, name);
     return packet;
 }
 
-unsigned char* Packet_SetBlock(unsigned char blockID, Vector3 position) {
+unsigned char *Packet_SetBlock(unsigned char blockID, Vector3 position) {
     PacketWriter_index = 0;
-    unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[2]);
+    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[2]);
     Packet_WriteByte(packet, 2);
     Packet_WriteByte(packet, blockID);
     Packet_WriteUShort(packet, (unsigned short)position.x);
@@ -201,12 +216,20 @@ unsigned char* Packet_SetBlock(unsigned char blockID, Vector3 position) {
     return packet;
 }
 
-unsigned char* Packet_PlayerPosition(Vector3 position) {
+unsigned char *Packet_PlayerPosition(Vector3 position) {
     PacketWriter_index = 0;
-    unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[3]);
+    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[3]);
     Packet_WriteByte(packet, 3);
     Packet_WriteUShort(packet, (unsigned short)(position.x * 64));
     Packet_WriteUShort(packet, (unsigned short)(position.y * 64));
     Packet_WriteUShort(packet, (unsigned short)(position.z * 64));
+    return packet;
+}
+
+unsigned char *Packet_SendMessage(char *message) {
+    PacketWriter_index = 0;
+    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
+    Packet_WriteByte(packet, 4);
+    Packet_WriteString(packet, message);
     return packet;
 }

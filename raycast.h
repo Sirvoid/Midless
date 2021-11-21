@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #ifndef G_RAYCAST_H
 #define G_RAYCAST_H
 

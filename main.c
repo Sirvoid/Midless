@@ -1,5 +1,13 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include "raylib.h"
 #include "rlgl.h"
@@ -9,6 +17,7 @@
 #include "client.h"
 #include "networkhandler.h"
 #include "packet.h"
+#include "chat.h"
 
 #define GLSL_VERSION 330
 
@@ -17,7 +26,7 @@ int main(void) {
     int screenWidth = 800;
     int screenHeight = 450;
 
-    InitWindow(screenWidth, screenHeight, "Game");
+    InitWindow(screenWidth, screenHeight, "IsleForge");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     SetExitKey(0);
     SetTraceLogLevel(LOG_WARNING);

@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #ifndef G_CHUNKMESH_H
 #define G_CHUNKMESH_H
 
@@ -18,6 +25,8 @@ typedef struct ChunkMesh {
 
 void ChunkMesh_Upload(ChunkMesh *mesh);
 void ChunkMesh_Unload(ChunkMesh mesh, bool isEndOfChunk);
+void ChunkMesh_PrepareDrawing(Material mat);
+void ChunkMesh_FinishDrawing(void);
 void ChunkMesh_Draw(ChunkMesh mesh, Material material, Matrix transform);
 
 #endif

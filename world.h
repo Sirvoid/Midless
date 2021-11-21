@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #ifndef G_WORLD_H
 #define G_WORLD_H
 
@@ -7,11 +14,11 @@
 
 typedef struct World{
     Vector3 size;
-    unsigned char* data;
-    unsigned char* lightData;
-    Chunk* chunks;
-    unsigned char* chunksToRebuild;
-    Entity* entities;
+    unsigned char *data;
+    unsigned char *lightData;
+    Chunk *chunks;
+    unsigned char *chunksToRebuild;
+    Entity *entities;
     Material mat;
     int loaded; //Number of chunks loaded
     int drawDistance;
@@ -23,15 +30,15 @@ extern World world;
 void World_Init(void);
 void World_LoadSingleplayer(void);
 
-unsigned char* World_Decompress(unsigned char *data, int currentLength, int *newLength); //Decompress world sent by the server.
+unsigned char *World_Decompress(unsigned char *data, int currentLength, int *newLength); //Decompress world sent by the server.
 
 //Loading
 void World_StartLoading(void); //Start loading the world.
 void World_LoadChunks(void); //Main thread load chunks updated by the chunk thread.
 
 //Save/Load
-void World_SaveFile(const char* fileName);
-bool World_LoadFile(const char* fileName);
+void World_SaveFile(const char *fileName);
+bool World_LoadFile(const char *fileName);
 //Unload the world.
 void World_Unload(void);
 //Load world from data (World Size needs to be updated before calling this!)

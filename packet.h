@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #ifndef G_PACKET_H
 #define G_PACKET_H
 
@@ -25,9 +32,11 @@ void Packet_H_SetBlock(void);
 void Packet_H_Pong(void);
 void Packet_H_SpawnEntity(void);
 void Packet_H_TeleportEntity(void);
+void Packet_H_Message(void);
 
 unsigned char* Packet_Identification(char version, char* name);
 unsigned char* Packet_SetBlock(unsigned char blockID, Vector3 position);
 unsigned char* Packet_PlayerPosition(Vector3 position);
+unsigned char* Packet_SendMessage(char* message);
 
 #endif

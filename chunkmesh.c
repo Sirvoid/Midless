@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #include <stdlib.h>
 #include "raylib.h"
 #include "raymath.h"
@@ -50,9 +57,20 @@ void ChunkMesh_Unload(ChunkMesh mesh, bool isEndOfChunk) {
     RL_FREE(mesh.colors);
 }
 
-void ChunkMesh_Draw(ChunkMesh mesh, Material material, Matrix transform) {
+void ChunkMesh_PrepareDrawing(Material mat) {
+    rlEnableShader(mat.shader.id);
+    rlEnableTexture(mat.maps[0].texture.id);
 
-    rlEnableShader(material.shader.id);
+    float drawDistance = world.drawDistance * 16.0f;
+    rlSetUniform(rlGetLocationUniform(mat.shader.id, "drawDistance"), &drawDistance, RL_SHADER_UNIFORM_FLOAT, 1);
+}
+
+void ChunkMesh_FinishDrawing(void) {
+    rlDisableShader();
+    rlDisableTexture();
+}
+
+void ChunkMesh_Draw(ChunkMesh mesh, Material material, Matrix transform) {
 
     Matrix matView = rlGetMatrixModelview();
     Matrix matModelView = matView;
@@ -60,8 +78,6 @@ void ChunkMesh_Draw(ChunkMesh mesh, Material material, Matrix transform) {
 
     matModelView = MatrixMultiply(transform, MatrixMultiply(rlGetMatrixTransform(), matView));
     
-    rlEnableTexture(material.maps[0].texture.id);
-
     if (!rlEnableVertexArray(mesh.vaoId)) {
         rlEnableVertexBuffer(mesh.vboId[0]);
         rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_UNSIGNED_BYTE, 0, 0, 0);
@@ -71,31 +87,20 @@ void ChunkMesh_Draw(ChunkMesh mesh, Material material, Matrix transform) {
         rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01], 2, RL_UNSIGNED_BYTE, 0, 0, 0);
         rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01]);
 
-        if (material.shader.locs[SHADER_LOC_VERTEX_COLOR] != -1) {
-            rlEnableVertexBuffer(mesh.vboId[2]);
-            rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR], 1, RL_UNSIGNED_BYTE, 0, 0, 0);
-            rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR]);
-        }
-
+        rlEnableVertexBuffer(mesh.vboId[2]);
+        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR], 1, RL_UNSIGNED_BYTE, 0, 0, 0);
+        rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR]);
     }
 
     Matrix matMVP = MatrixIdentity();
     matMVP = MatrixMultiply(matModelView, matProjection);
 
-    float drawDistance = world.drawDistance * 16.0f;
-
     rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_MVP], matMVP);
-    rlSetUniform(rlGetLocationUniform(material.shader.id, "drawDistance"), &drawDistance, RL_SHADER_UNIFORM_FLOAT, 1);
-
+    
     rlDrawVertexArray(0, mesh.drawVertexCount);
-
-    rlDisableTexture();
 
     rlDisableVertexArray();
     rlDisableVertexBuffer();
-    rlDisableVertexBufferElement();
-
-    rlDisableShader();
 
     rlSetMatrixModelview(matView);
     rlSetMatrixProjection(matProjection);

@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 "#version 330\n"
 "in vec2 fragTexCoord;"
 "in vec4 fragColor;"

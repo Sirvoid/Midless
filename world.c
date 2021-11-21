@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #include <stdio.h>
 #include <stddef.h>
 #include <limits.h>
@@ -13,6 +20,9 @@
 #include "screens.h"
 #include "block.h"
 #include "networkhandler.h"
+#include "worldgenerator.h"
+
+
 
 World world;
 
@@ -23,13 +33,13 @@ World world;
 *--------------------------------------------------------------------------------------------------------*/
 
 void World_Init(void) {
-    world.size = (Vector3) {8, 8, 8};
+    world.size = (Vector3) {128, 128, 128};
     world.mat = LoadMaterialDefault();
     world.loaded = INT_MAX;
     world.drawDistance = 6;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
-    for(int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0;
+    for(int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
 
     pthread_t clientThread_id;
     pthread_create(&clientThread_id, NULL, World_ReadChunksQueue, NULL);
@@ -39,23 +49,16 @@ void World_LoadSingleplayer(void) {
     
     if(World_LoadFile("world.dat")) return;
 
-    world.size = (Vector3) {8, 8, 8};
-    unsigned char *worldData = MemAlloc((world.size.x * world.size.y * world.size.z) * CHUNK_SIZE);
+    world.size = (Vector3) {256, 128, 256};
 
-    for(int i = 0; i < World_GetFlatSize() * CHUNK_SIZE; i++) {
-        Vector3 npos = World_BlockIndexToPos(i);
+    Screen_MakeGenerating();
 
-        if(npos.y < 3) worldData[i] = 3;
-        if(npos.y < 2) worldData[i] = 2;
-        if(npos.y < 1) worldData[i] = 1;
-    }
-    
-    World_Load(worldData);
+    World_Load(WorldGenerator_Generate());
 }
 
-unsigned char* World_Decompress(unsigned char *data, int currentLength, int *newLength) {
+unsigned char *World_Decompress(unsigned char *data, int currentLength, int *newLength) {
     
-    unsigned char *decompressed = (unsigned char*)MemAlloc(World_GetFlatSize() * CHUNK_SIZE);
+    unsigned char *decompressed = (unsigned char*)MemAlloc(World_GetFlatSize());
     for(int i = 0; i < currentLength; i+=2) {
         for(int j = 0; j < data[i + 1]; j++) {
             decompressed[*newLength] = data[i];
@@ -74,48 +77,53 @@ void World_StartLoading(void) {
 void World_LoadChunks(void) {
     if(world.loaded == INT_MAX) return;
     
-    if(world.loaded == World_GetFlatSize()) {
+    int amountChunks = World_GetFlatSize() / CHUNK_SIZE;
+
+    if(world.loaded == amountChunks) {
         Screen_Switch(SCREEN_GAME);
         world.loaded++;
     }
 
-    for(int i = 0; i < World_GetFlatSize(); i++) {
+    for(int i = 0; i < amountChunks; i++) {
         if(world.chunksToRebuild[i] == 2) {
             world.chunksToRebuild[i] = 0;
             ChunkMesh_Upload(world.chunks[i].mesh);
             ChunkMesh_Upload(world.chunks[i].meshTransparent);
 
-            if(world.loaded < World_GetFlatSize()) {
+            if(world.loaded < amountChunks) {
                 world.loaded++;
             }
         }
     }
 }
 
-void World_SaveFile(const char* fileName) {
+void World_SaveFile(const char *fileName) {
     if(Network_connectedToServer) return;
-    unsigned char *saveFile = MemAlloc(World_GetFlatSize() * CHUNK_SIZE + 3);
-    saveFile[0] = (unsigned char)world.size.x;
-    saveFile[1] = (unsigned char)world.size.y;
-    saveFile[2] = (unsigned char)world.size.z;
-    memcpy(&saveFile[3], world.data, World_GetFlatSize() * CHUNK_SIZE);
-    SaveFileData(fileName, saveFile, World_GetFlatSize() * CHUNK_SIZE);
+    unsigned char *saveFile = MemAlloc(World_GetFlatSize() + 3);
+
+    //Save size in chunks unit
+    saveFile[0] = (unsigned char)(world.size.x / CHUNK_SIZE_X);
+    saveFile[1] = (unsigned char)(world.size.y / CHUNK_SIZE_Y);
+    saveFile[2] = (unsigned char)(world.size.z / CHUNK_SIZE_Z);
+
+    memcpy(&saveFile[3], world.data, World_GetFlatSize());
+    SaveFileData(fileName, saveFile, World_GetFlatSize());
     MemFree(saveFile);
 }
 
-bool World_LoadFile(const char* fileName) {
+bool World_LoadFile(const char *fileName) {
     if(FileExists(fileName)) {
 
         World_Unload();
 
         unsigned int length = 0;
         unsigned char *saveFile = LoadFileData(fileName, &length);
-        world.size.x = saveFile[0];
-        world.size.y = saveFile[1];
-        world.size.z = saveFile[2];
+        world.size.x = saveFile[0] * CHUNK_SIZE_X;
+        world.size.y = saveFile[1] * CHUNK_SIZE_Y;
+        world.size.z = saveFile[2] * CHUNK_SIZE_Z;
 
-        unsigned char *wData = MemAlloc(World_GetFlatSize() * CHUNK_SIZE);
-        memcpy(wData, &saveFile[3], World_GetFlatSize() * CHUNK_SIZE);
+        unsigned char *wData = MemAlloc(World_GetFlatSize());
+        memcpy(wData, &saveFile[3], World_GetFlatSize());
 
         World_Load(wData);
 
@@ -129,7 +137,8 @@ void World_Unload(void) {
 
     if(world.loaded == INT_MAX) return;
 
-    for(int i = 0; i < World_GetFlatSize(); i++) {
+    int amountChunks = World_GetFlatSize() / CHUNK_SIZE;
+    for(int i = 0; i < amountChunks; i++) {
         Chunk_Unload(&world.chunks[i]);
     }
 
@@ -145,22 +154,24 @@ void World_Unload(void) {
 void World_Load(unsigned char *worldData) {
     world.data = worldData;
     
-    world.chunks = MemAlloc(World_GetFlatSize() * sizeof(Chunk));
-    world.lightData = MemAlloc(World_GetFlatSize() * CHUNK_SIZE);
+    int amountChunks = World_GetFlatSize() / CHUNK_SIZE;
 
-    world.chunksToRebuild = MemAlloc(World_GetFlatSize());
-    memset(world.chunksToRebuild, 0, World_GetFlatSize());
+    world.chunks = MemAlloc(amountChunks * sizeof(Chunk));
+    world.lightData = MemAlloc(World_GetFlatSize());
+
+    world.chunksToRebuild = MemAlloc(amountChunks);
+    memset(world.chunksToRebuild, 0, amountChunks);
 
     World_BuildLightMap();
 
     //Create Chunks
-    for(int i = 0; i < World_GetFlatSize(); i++) {
+    for(int i = 0; i < amountChunks; i++) {
         Vector3 pos = World_ChunkIndexToPos(i);
         Chunk_Init(&world.chunks[i], pos);
         World_QueueChunk(&world.chunks[i], false);
     }
 
-    player.position = (Vector3) { (world.size.x * CHUNK_SIZE_X) / 2, 128.0f, (world.size.z * CHUNK_SIZE_Z) / 2 };
+    player.position = (Vector3) { world.size.x / 2, 128.0f, world.size.z / 2 };
     World_StartLoading();
 }
 
@@ -179,40 +190,54 @@ void World_ApplyShader(Shader shader) {
 void World_Draw(Vector3 camPosition) {
     if(world.loaded == INT_MAX) return;
 
+    int amountChunks = World_GetFlatSize() / CHUNK_SIZE;
+    Vector3 chunkLocalCenter = (Vector3){CHUNK_SIZE_X / 2, CHUNK_SIZE_Y / 2, CHUNK_SIZE_Z / 2};
+
     //Create the sorted chunk list
-    Chunk* sortedChunks = MemAlloc(World_GetFlatSize() * sizeof(Chunk));
+    struct { Chunk chunk; float dist; } *sortedChunks = MemAlloc(amountChunks * (sizeof(Chunk) + sizeof(float)));
+
     int sortedLength = 0;
-    for(int i = 0; i < World_GetFlatSize(); i++) {
+    for(int i = 0; i < amountChunks; i++) {
         Chunk* chunk = &world.chunks[i];
+        Vector3 centerChunk = Vector3Add(chunk->blockPosition, chunkLocalCenter);
+        float distFromCam = Vector3Distance(centerChunk, camPosition);
 
         //Don't draw chunks further than the drawing distance
-        if(Vector3Distance(chunk->blockPosition, camPosition) > world.drawDistance * 16) continue;
+        if(distFromCam > world.drawDistance * 16) continue;
 
         //Don't draw chunks behind the player
-        Vector3 centerChunk = Vector3Add(chunk->blockPosition, (Vector3){8, 8, 8});
         Vector3 toChunkVec = Vector3Normalize(Vector3Subtract(centerChunk, camPosition));
         Vector3 dirVec = Player_GetForwardVector();
-        if(Vector3Distance(centerChunk, camPosition) > 16 && Vector3Distance(toChunkVec, dirVec) > 1.5f) continue;
+        
+        if(distFromCam > CHUNK_SIZE_X && Vector3Distance(toChunkVec, dirVec) > 1.5f) continue;
 
-        sortedChunks[sortedLength] = world.chunks[i];
+        sortedChunks[sortedLength].dist = distFromCam;
+        sortedChunks[sortedLength].chunk = world.chunks[i];
         sortedLength++;
     }
     
     //Sort chunks back to front
     for(int i = 1; i < sortedLength; i++) {
         int j = i;
-        while(j > 0 && Vector3Distance(Vector3Add(sortedChunks[j-1].blockPosition, (Vector3){8, 8, 8}), camPosition) <= Vector3Distance(Vector3Add(sortedChunks[j].blockPosition, (Vector3){8, 8, 8}), camPosition)) {
-            Chunk tempC = sortedChunks[j];
+        while(j > 0 && sortedChunks[j-1].dist <= sortedChunks[j].dist) {
+
+            static struct { Chunk chunk; float dist; } tempC;
+            tempC.chunk = sortedChunks[j].chunk;
+            tempC.dist = sortedChunks[j].dist;
+
             sortedChunks[j] = sortedChunks[j - 1];
-            sortedChunks[j - 1] = tempC;
+            sortedChunks[j - 1].chunk = tempC.chunk;
+            sortedChunks[j - 1].dist = tempC.dist;
             j = j - 1;
         }
     }
     
+    ChunkMesh_PrepareDrawing(world.mat);
+
     //Draw sorted chunks
     for(int i = 0; i < sortedLength; i++) {
         if(i >= world.loaded) break;
-        Chunk* chunk = &sortedChunks[i];
+        Chunk* chunk = &sortedChunks[i].chunk;
         
         Matrix matrix = (Matrix) { 1, 0, 0, chunk->blockPosition.x,
                                    0, 1, 0, chunk->blockPosition.y,
@@ -224,6 +249,8 @@ void World_Draw(Vector3 camPosition) {
         ChunkMesh_Draw(*chunk->meshTransparent, world.mat, matrix);
         rlEnableBackfaceCulling();
     }
+
+    ChunkMesh_FinishDrawing();
 
     MemFree(sortedChunks);
 
@@ -301,7 +328,7 @@ void World_PropagateLight(Vector3 pos, Vector3 *directions, int intensity, bool 
     if(world.lightData[index] >= intensity) return;
     Block blockDef = Block_definition[world.data[index]];
     world.lightData[index] = intensity;
-    
+
     if(blockDef.renderType == BlockRenderType_Opaque) return;
     
     for(int d = 0; d < 5; d++) {
@@ -327,7 +354,7 @@ void World_UpdateLightMap(Vector3 pos) {
     for(int x = pos.x - 23; x <= pos.x + 23; x++) {
         for(int z = pos.z - 23; z < pos.z + 23; z++) {
 
-            for(int y = world.size.y * CHUNK_SIZE_Y - 1; y >= 0; y--) {
+            for(int y = world.size.y - 1; y >= 0; y--) {
                 Vector3 dPos = (Vector3) {x, y, z};
 
                 Vector3 nPos = Vector3Add(dPos, (Vector3) {0, -1, 0});
@@ -358,11 +385,13 @@ void World_UpdateLightMap(Vector3 pos) {
 
 void World_BuildLightMap(void) {
 
-    memset(world.lightData, 0, (world.size.x * world.size.y * world.size.z) * CHUNK_SIZE);
-    int one_up = world.size.x * world.size.z * CHUNK_SIZE_XZ;
-    for(int i = 0; i < World_GetFlatSize() * CHUNK_SIZE; i++) {
+    int worldSize = World_GetFlatSize();
+
+    memset(world.lightData, 0, worldSize);
+    int one_up = world.size.x * world.size.z;
+    for(int i = 0; i < worldSize; i++) {
         
-        if(i >= ( World_GetFlatSize() * CHUNK_SIZE ) - one_up) {
+        if(i >= worldSize - one_up) {
             for(int j = i; j >= one_up; j -= one_up) {
 
                 int index = j - one_up;
@@ -402,17 +431,14 @@ void World_SetBlock(Vector3 blockPos, int blockID) {
     if(!World_IsValidBlockPos(blockPos)) return;
     int index = World_BlockPosToIndex(blockPos);
     
+    //Set Block
     if(world.data[index] == blockID) return;
-
     world.data[index] = blockID;
     
     //Get Chunk
     Vector3 chunkPos = (Vector3) { (int)blockPos.x / CHUNK_SIZE_X, (int)blockPos.y / CHUNK_SIZE_Y, (int)blockPos.z / CHUNK_SIZE_Z };
     Chunk* chunk = World_GetChunkAt(chunkPos);
-
-    if(chunk == NULL) return;
     
-    //Set Block
     Vector3 blockPosInChunk = (Vector3) { 
                                 (int)blockPos.x - chunkPos.x * CHUNK_SIZE_X, 
                                 (int)blockPos.y - chunkPos.y * CHUNK_SIZE_Y, 
@@ -428,7 +454,8 @@ void World_SetBlock(Vector3 blockPos, int blockID) {
 
 void *World_ReadChunksQueue(void *state) {
     while(true) {
-        for(int i = 0; i < World_GetFlatSize(); i++) {
+        int amountChunks = World_GetFlatSize() / CHUNK_SIZE;
+        for(int i = 0; i < amountChunks; i++) {
             if(world.loaded == INT_MAX) continue;
             if(world.chunksToRebuild[i] == 11) {
                 Chunk *chunk = &world.chunks[i];
@@ -472,11 +499,11 @@ Chunk* World_GetChunkAt(Vector3 pos) {
 }
 
 int World_IsValidChunkPos(Vector3 chunkPos) {
-    return chunkPos.x >= 0 && chunkPos.x < world.size.x && chunkPos.y >= 0 && chunkPos.y < world.size.y && chunkPos.z >= 0 && chunkPos.z < world.size.z;
+    return chunkPos.x >= 0 && chunkPos.x < world.size.x / CHUNK_SIZE_X && chunkPos.y >= 0 && chunkPos.y < world.size.y / CHUNK_SIZE_Y && chunkPos.z >= 0 && chunkPos.z < world.size.z / CHUNK_SIZE_Z;
 }
 
 int World_IsValidBlockPos(Vector3 blockPos) {
-    return blockPos.x >= 0 && blockPos.x < (world.size.x * CHUNK_SIZE_X) && blockPos.y >= 0 && blockPos.y < (world.size.y * CHUNK_SIZE_Y) && blockPos.z >= 0 && blockPos.z < (world.size.z * CHUNK_SIZE_Z);
+    return blockPos.x >= 0 && blockPos.x < world.size.x && blockPos.y >= 0 && blockPos.y < world.size.y && blockPos.z >= 0 && blockPos.z < world.size.z;
 }
 
 int World_GetFlatSize(void) {
@@ -484,23 +511,23 @@ int World_GetFlatSize(void) {
 }
 
 Vector3 World_ChunkIndexToPos(int chunkIndex) {
-    int x = (int)(chunkIndex % (int)world.size.x);
-	int y = (int)(chunkIndex / (world.size.x * world.size.z));
-	int z = (int)(chunkIndex / world.size.x) % (int)world.size.z;
+    int x = (int)(chunkIndex % (int)(world.size.x / CHUNK_SIZE_X));
+	int y = (int)(chunkIndex / ((world.size.x / CHUNK_SIZE_X) * (world.size.z / CHUNK_SIZE_Z)));
+	int z = (int)(chunkIndex / (world.size.x / CHUNK_SIZE_X)) % (int)(world.size.z / CHUNK_SIZE_Z);
     return (Vector3){x, y, z};
 }
 
 int World_ChunkPosToIndex(Vector3 chunkPos) {
-    return (int)(((int)chunkPos.y * world.size.z + (int)chunkPos.z) * world.size.x + (int)chunkPos.x);
+    return (int)((chunkPos.y * (world.size.z / CHUNK_SIZE_Z) + chunkPos.z) * (world.size.x / CHUNK_SIZE_X) + chunkPos.x);
 }
 
 Vector3 World_BlockIndexToPos(int blockIndex) {
-    int x = (int)(blockIndex % (int)(world.size.x * CHUNK_SIZE_X));
-	int y = (int)(blockIndex / ((world.size.x * CHUNK_SIZE_X) * (world.size.z * CHUNK_SIZE_Z)));
-	int z = (int)(blockIndex / (world.size.x * CHUNK_SIZE_X)) % (int)(world.size.z * CHUNK_SIZE_Z);
+    int x = blockIndex % (int)world.size.x;
+	int y = (int)(blockIndex / (world.size.x * world.size.z));
+	int z = (int)(blockIndex / world.size.x) % (int)world.size.z;
     return (Vector3){x, y, z};
 }
 
 int World_BlockPosToIndex(Vector3 blockPos) {
-    return ((int)blockPos.y * (world.size.z * CHUNK_SIZE_Z) + (int)blockPos.z) * (world.size.x * CHUNK_SIZE_X) + (int)blockPos.x;
+    return ((int)blockPos.y * world.size.z + (int)blockPos.z) * world.size.x + blockPos.x;
 }

@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2021 Sirvoid
+ * 
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #define RAYGUI_IMPLEMENTATION
 #define RAYGUI_SUPPORT_ICONS
 #include <pthread.h>
@@ -9,10 +16,12 @@
 #include "world.h"
 #include "networkhandler.h"
 #include "client.h"
-
+#include "chat.h"
+#include "worldgenerator.h"
 
 Screen Screen_Current = SCREEN_LOGIN;
 bool Screen_cursorEnabled = false;
+bool Screen_showDebug = false;
 int screenHeight;
 int screenWidth;
 bool *exitGame;
@@ -51,17 +60,19 @@ void Screen_MakeGame(void) {
     const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
     const char* debugText;
 
-    if(Network_connectedToServer) {
-        debugText = TextFormat("%2i FPS %2i PING", GetFPS(), Network_ping);
-    } else {
-        debugText = TextFormat("%2i FPS", GetFPS());
+    if(Screen_showDebug) {
+        if(Network_connectedToServer) {
+            debugText = TextFormat("%2i FPS %2i PING", GetFPS(), Network_ping);
+        } else {
+            debugText = TextFormat("%2i FPS", GetFPS());
+        }
+    
+        int backgroundWidth = fmax(MeasureText(coordText, 20), MeasureText(debugText, 20));
+
+        DrawRectangle(13, 15, backgroundWidth + 6, 39, uiColBg);
+        DrawText(debugText, 16, 16, 20, WHITE);
+        DrawText(coordText, 16, 36, 20, WHITE);
     }
-
-    int backgroundWidth = fmax(MeasureText(coordText, 20), MeasureText(debugText, 20));
-
-    DrawRectangle(13, 15, backgroundWidth + 6, 39, uiColBg);
-    DrawText(debugText, 16, 16, 20, WHITE);
-    DrawText(coordText, 16, 36, 20, WHITE);
 
     //Draw crosshair
     DrawRectangle(screenWidth / 2 - 8, screenHeight / 2 - 2, 16, 4, uiColBg);
@@ -87,8 +98,11 @@ void Screen_MakeGame(void) {
         (blockDef.maxBB.x - blockDef.minBB.x) * 4, 
         (blockDef.maxBB.y - blockDef.minBB.y) * 4
     };
-    
+
     DrawTextureTiled(mapTerrain, texRec, destRec, (Vector2) {0, 0}, 0, 4, WHITE);
+
+    //Draw Chat
+    Chat_Draw((Vector2){16, screenHeight - 52}, uiColBg);
 }
 
 void Screen_MakePause(void) {
@@ -148,8 +162,16 @@ void Screen_MakeOptions(void) {
         if(world.drawDistance > 12) world.drawDistance = 4;
     }
 
+    //Draw Debug Button
+    const char* debugStateTxt = "OFF";
+    if(Screen_showDebug) debugStateTxt = "ON";
+    const char* showDebugTxt = TextFormat("Show Debug: %s", debugStateTxt);
+    if(GuiButton((Rectangle) {offsetX, offsetY + 20, 200, 30 }, showDebugTxt)) {
+        Screen_showDebug = !Screen_showDebug;
+    }
+
     //Back Button
-    if(GuiButton((Rectangle) {offsetX, offsetY + 20, 200, 30 }, "Back")) {
+    if(GuiButton((Rectangle) {offsetX, offsetY + 55, 200, 30 }, "Back")) {
         Screen_Switch(SCREEN_PAUSE);
     }
 
@@ -159,11 +181,20 @@ void Screen_MakeLoading(void) {
 
     int offsetY = screenHeight / 2;
     int offsetX = screenWidth / 2;
-    int progressValue = (int)((float)world.loaded / World_GetFlatSize() * 100);
+    int progressValue = (int)((float)world.loaded / (World_GetFlatSize() / CHUNK_SIZE) * 100);
 
     DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
     GuiProgressBar((Rectangle) { offsetX - 80, offsetY - 7, 160, 15 }, "", "", progressValue, 0, 100);
     DrawText("Loading World", offsetX - 80, offsetY - 30, 20, WHITE);
+}
+
+void Screen_MakeGenerating(void) {
+    int offsetY = screenHeight / 2;
+    int offsetX = screenWidth / 2;
+
+    DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
+    DrawText("Generating World...", offsetX - 80, offsetY - 30, 20, WHITE);
+    EndDrawing();
 }
 
 void Screen_MakeJoining(void) {
@@ -183,7 +214,7 @@ void Screen_MakeLogin(void) {
     EnableCursor();
     DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
 
-    const char *title = "VOXEL ENGINE";
+    const char *title = "IsleForge";
     int offsetY = screenHeight / 2;
     int offsetX = screenWidth / 2;
 
@@ -244,6 +275,8 @@ void Screen_Make(void) {
         Screen_MakeLogin();
     else if(Screen_Current == SCREEN_OPTIONS)
         Screen_MakeOptions();
+    else if(Screen_Current == SCREEN_GENERATING)
+        Screen_MakeGenerating();
 }
 
 void Screen_Switch(Screen screen) {
