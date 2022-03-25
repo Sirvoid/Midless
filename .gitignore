@@ -1,0 +1,4 @@
+midless.code-workspace
+.vscode/
+bin/
+*.o

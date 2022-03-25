@@ -1,18 +1,25 @@
-.PHONY: all clean
-
 RAYLIB_PATH=C:\raylib\raylib
-PROJECT := game.exe
-
 COMPILER_PATH ?= C:\raylib\w64devkit\bin
 export PATH := $(COMPILER_PATH):$(PATH)
 
-DIR_SRC += .
-DIR_SRC += ./src
-DIR_SRC += ./src/chunk
-DIR_SRC += ./src/block
-DIR_SRC += ./src/entity
-DIR_SRC += ./src/gui
-DIR_SRC += ./src/networking
+ifdef BUILD_SERVER
+	PROJECT := server.exe
+	BUILD_DIR = server/bin/$(PROJECT)
+
+	DIR_SRC += ./server
+	DIR_SRC += ./server/src
+else
+	PROJECT := game.exe
+	BUILD_DIR = client/bin/$(PROJECT)
+	
+	DIR_SRC += ./client
+	DIR_SRC += ./client/src
+	DIR_SRC += ./client/src/chunk
+	DIR_SRC += ./client/src/block
+	DIR_SRC += ./client/src/entity
+	DIR_SRC += ./client/src/gui
+	DIR_SRC += ./client/src/networking
+endif
 
 DIR_INC = $(addprefix -I, $(DIR_SRC))
 
@@ -32,10 +39,7 @@ all:
 	mingw32-make $(PROJECT)
 
 $(PROJECT): $(OBJ)
-	$(CC) -o bin/$(PROJECT) $(OBJ) $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LDLIBS) -DPLATFORM_DESKTOP
+	$(CC) -o $(BUILD_DIR) $(OBJ) $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LDLIBS) -DPLATFORM_DESKTOP
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDE_PATHS) -DPLATFORM_DESKTOP
-
-clean:
-	del *.o *.exe /s
