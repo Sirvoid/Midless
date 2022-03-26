@@ -3,7 +3,7 @@
 
 Open Source Voxel Game made in C using Raylib.
 
-*Multiplayer is not fully implemented yet so the server code will come later.
+*Multiplayer not fully functional yet*
 
 ## Dependencies
 
