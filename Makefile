@@ -29,6 +29,12 @@ EXE := $(PROJECT)
 
 CC := gcc
 CFLAGS = -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces -Wl,--subsystem,windows
+ifdef DEBUG
+	CFLAGS += -g -O0
+else
+    CFLAGS += -s -O1
+endif
+
 INCLUDE_PATHS = -I$(DIR_INC) -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external
 LDFLAGS = -L. -L$(RAYLIB_PATH)/src
 LDLIBS = -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 -lwinmm

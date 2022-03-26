@@ -135,7 +135,7 @@ void Chunk_DoSunlight(Chunk *srcChunk) {
     LightNode *lightQueue = NULL;
 
     bool isTopLoaded = srcChunk->neighbours[2] != NULL;
-    if(isTopLoaded == true) isTopLoaded = srcChunk->neighbours[2]->isLightGenerated == true;
+    if(isTopLoaded) isTopLoaded = srcChunk->neighbours[2]->isLightGenerated == true;
 
     if(isTopLoaded) {
         Chunk* topChunk = srcChunk->neighbours[2];
@@ -182,7 +182,7 @@ LightNode *Chunk_SpreadLight(LightNode *lightQueue, bool sunlight) {
                 nextChunk = chunk->neighbours[d];
                 nextPos = Vector3Subtract(nextPos, lightDirectionsXChunk[d]); 
                 if(nextChunk == NULL) continue;
-                if(nextChunk->isMapGenerated == false) continue;
+                if(!nextChunk->isMapGenerated) continue;
             }
 
             int nextIndex = Chunk_PosToIndex(nextPos);

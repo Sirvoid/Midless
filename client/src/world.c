@@ -24,52 +24,49 @@ void World_Init(void) {
     world.mat = LoadMaterialDefault();
     world.loadChunks = false;
     world.drawDistance = 3;
+    world.chunks = NULL;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
     for(int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
 
     WorldGenerator_Init(1);
+
+    pthread_create(&chunkThread_id, NULL, World_ReadChunksQueues, NULL);
 }
 
 void World_LoadSingleplayer(void) {
 
     Screen_Switch(SCREEN_GAME);
 
-    world.chunks = MemAlloc(sizeof(Chunk));
-    world.chunks->nextChunk = NULL;
-    world.chunks->previousChunk = NULL;
-    Chunk_Init(world.chunks, (Vector3){0,0,0});
-    World_QueueChunk(world.chunks);
-
     world.loadChunks = true;
-
-    pthread_create(&chunkThread_id, NULL, World_ReadChunksQueues, NULL);
 }
 
+pthread_mutex_t generateChunk_mutex;
 pthread_mutex_t chunk_mutex;
 void *World_ReadChunksQueues(void *state) {
     while(true) {
         
-        
-        if(world.loadChunks && world.generateChunksQueue != NULL) {
-            Chunk_Generate(world.generateChunksQueue->chunk);
+        pthread_mutex_lock(&chunk_mutex);
+        QueuedChunk *queuedChunk = world.generateChunksQueue;
+        if(world.loadChunks == true && queuedChunk != NULL) {
+            Chunk_Generate(queuedChunk->chunk);
 
-            pthread_mutex_lock(&chunk_mutex);
-            world.generateChunksQueue = Chunk_PopFromQueue(world.generateChunksQueue);
-            pthread_mutex_unlock(&chunk_mutex);
+            pthread_mutex_lock(&generateChunk_mutex);
+            world.generateChunksQueue = Chunk_PopFromQueue(queuedChunk);
+            pthread_mutex_unlock(&generateChunk_mutex);
         }
-        
-        if(!world.loadChunks) return NULL;
+        pthread_mutex_unlock(&chunk_mutex);
+
     }
     return NULL;
 }
 
 void World_QueueChunk(Chunk *chunk) {
  
-    if(!chunk->hasStartedGenerating) {
-        pthread_mutex_lock(&chunk_mutex);
+    if(chunk->hasStartedGenerating == false) {
+        pthread_mutex_lock(&generateChunk_mutex);
         world.generateChunksQueue = Chunk_AddToQueue(world.generateChunksQueue, chunk);
-        pthread_mutex_unlock(&chunk_mutex);
+        pthread_mutex_unlock(&generateChunk_mutex);
     }
     chunk->hasStartedGenerating = true;
 
@@ -82,20 +79,29 @@ void World_QueueChunk(Chunk *chunk) {
 void World_AddChunk(Vector3 position) {
 
     Chunk *curChunk = world.chunks;
-    if(curChunk == NULL) return;
 
-    while(curChunk->nextChunk != NULL) {
+    while(curChunk != NULL) {
         if(curChunk->position.x == position.x && curChunk->position.y == position.y && curChunk->position.z == position.z) { 
             return; //Already exists
         }
-        curChunk = curChunk->nextChunk;
+
+        if(curChunk->nextChunk != NULL) {
+            curChunk = curChunk->nextChunk;
+        } else {
+            break;
+        }
     }
 
     Chunk *newChunk = MemAlloc(sizeof(Chunk));
     newChunk->nextChunk = NULL;
-    newChunk->previousChunk = curChunk;
 
-    curChunk->nextChunk = newChunk;
+    if(curChunk != NULL) {
+        curChunk->nextChunk = newChunk;
+        newChunk->previousChunk = curChunk;
+    } else {
+        world.chunks = newChunk;
+        newChunk->previousChunk = NULL;
+    }
 
     Chunk_Init(newChunk, position);
     World_QueueChunk(newChunk);
@@ -160,43 +166,27 @@ void World_LoadChunks() {
         if(world.buildChunksQueue != NULL) {
             chunk = world.buildChunksQueue->chunk;
             if(chunk->isLightGenerated == true) {
-                for(int j = 0; j < 6; j++) {
-                    if(chunk->neighbours[j] != NULL) {
-                        if(!chunk->neighbours[j]->isLightGenerated) {
-                           break;
-                        }
-                    }
-                    if(j == 5) {
-                        Chunk_BuildMesh(chunk);
-                        chunk->isBuilding = false;
-                        world.buildChunksQueue = Chunk_PopFromQueue(world.buildChunksQueue);
-                        break;
-                    }
+                if(Chunk_AreNeighbourGenerated(chunk) == true) {
+                    Chunk_BuildMesh(chunk);
+                    chunk->isBuilding = false;
+                    world.buildChunksQueue = Chunk_PopFromQueue(world.buildChunksQueue);
                 }
+                
             }
         }
     }
     
     //destroy far chunks
     chunk = world.chunks;
-    float unloadDist = world.drawDistance * CHUNK_SIZE_X * 2.5f;
     while(chunk != NULL) {
         Chunk *nextChunk = chunk->nextChunk;
 
+        float unloadDist = world.drawDistance * CHUNK_SIZE_X * 2.5f;
         if(Vector3Distance(chunk->blockPosition, player.position) > unloadDist) {
             if(chunk->isBuilt == true && chunk->isBuilding == false) {
-                for(int j = 0; j < 6; j++) {
-                    if(chunk->neighbours[j] != NULL) {
-                        if(chunk->neighbours[j]->isBuilding == true) {
-                            break;
-                        }
-                    }
-                    if(j == 25) {
-                        World_RemoveChunk(chunk->position);
-                        break;
-                    }
+                if(Chunk_AreNeighbourBuilding(chunk) == false) {
+                   World_RemoveChunk(chunk->position);
                 }
-                
             }
         }
 
@@ -205,13 +195,30 @@ void World_LoadChunks() {
     
 }
 
+void World_Reload(void) {
+    World_Unload();
+    world.loadChunks = true;
+}
+
 void World_Unload(void) {
     world.loadChunks = false;
+
+    pthread_mutex_lock(&chunk_mutex);
+    while(world.generateChunksQueue != NULL) {
+        world.generateChunksQueue = Chunk_PopFromQueue(world.generateChunksQueue);
+    }
+
+    while(world.buildChunksQueue != NULL) {
+        world.buildChunksQueue = Chunk_PopFromQueue(world.buildChunksQueue);
+    }
+
     Chunk *curChunk = world.chunks;
     while(curChunk != NULL) {
         World_RemoveChunk(curChunk->position);
         curChunk = world.chunks;
     }
+    pthread_mutex_unlock(&chunk_mutex);
+    
 }
 
 void World_ApplyTexture(Texture2D texture) {

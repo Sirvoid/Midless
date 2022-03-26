@@ -22,8 +22,8 @@
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
-    chunk->mesh = (ChunkMesh*)MemAlloc(sizeof(ChunkMesh));
-    chunk->meshTransparent = (ChunkMesh*)MemAlloc(sizeof(ChunkMesh));
+    chunk->mesh = MemAlloc(sizeof(ChunkMesh));
+    chunk->meshTransparent = MemAlloc(sizeof(ChunkMesh));
     chunk->fromFile = false;
     chunk->isBuilt = false;
     chunk->isBuilding = false;
@@ -48,7 +48,7 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
 void Chunk_SaveFile(Chunk *chunk) {
     if(Network_connectedToServer) return;
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
-    SaveFileData(fileName, chunk->data, CHUNK_SIZE * 4);
+    SaveFileData(fileName, chunk->data, CHUNK_SIZE * 2);
 }
 
 bool Chunk_LoadFile(Chunk *chunk) {
@@ -67,18 +67,21 @@ bool Chunk_LoadFile(Chunk *chunk) {
 }
 
 void Chunk_Unload(Chunk *chunk) {
-    ChunkMesh_Unload(chunk->mesh);
-    ChunkMesh_Unload(chunk->meshTransparent);
 
-    MemFree(chunk->mesh);
-    MemFree(chunk->meshTransparent);
+    if(chunk->isBuilt) {
+        ChunkMesh_Unload(chunk->mesh);
+        ChunkMesh_Unload(chunk->meshTransparent);
+
+        MemFree(chunk->mesh);
+        MemFree(chunk->meshTransparent);
+    }
 
     Chunk_UpdateNeighbours(chunk, true);
 }
 
 
 void Chunk_Generate(Chunk *chunk) {
-    if(chunk->isLightGenerated == false) {
+    if(!chunk->isLightGenerated) {
 
         if(!chunk->fromFile) {
             //Map Generation
@@ -190,7 +193,6 @@ void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood) {
         }
     }
 
-
 }
 
 void Chunk_RefreshBorderingChunks(Chunk *chunk, bool sidesOnly) {
@@ -205,7 +207,34 @@ void Chunk_RefreshBorderingChunks(Chunk *chunk, bool sidesOnly) {
      }
 }
 
-int Chunk_IsValidPos(Vector3 pos) {
+bool Chunk_AreNeighbourGenerated(Chunk* chunk) {
+    int i = 0;
+    for(i = 0; i < 6; i++) {
+        if(chunk->neighbours[i] != NULL) {
+            if(chunk->neighbours[i]->isLightGenerated == false) return false;
+        }
+    }
+    return true;
+}
+
+bool Chunk_AreNeighbourBuilding(Chunk* chunk) {
+    for(int i = 0; i < 26; i++) {
+        if(chunk->neighbours[i] != NULL) {
+            if(i == 2) {
+                Chunk *top = chunk->neighbours[2];
+                while(top != NULL) {
+                    if(!top->isBuilt || !top->isBuilding) return true;
+                    top = top->neighbours[2];
+                }
+            } else {
+                if(!chunk->neighbours[i]->isBuilt || chunk->neighbours[i]->isBuilding) return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool Chunk_IsValidPos(Vector3 pos) {
     return pos.x >= 0 && pos.x < CHUNK_SIZE_X && pos.y >= 0 && pos.y < CHUNK_SIZE_Y && pos.z >= 0 && pos.z < CHUNK_SIZE_Z;
 }
 

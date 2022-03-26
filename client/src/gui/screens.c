@@ -129,7 +129,7 @@ void Screen_MakePause(void) {
     //Main Menu Button
     if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Main Menu")) {
         Screen_Switch(SCREEN_LOGIN);
-        //Network_threadState = -1; //End network thread
+        Network_threadState = -1; //End network thread
         Screen_cursorEnabled = false;
         World_Unload();
     }
@@ -151,7 +151,10 @@ void Screen_MakeOptions(void) {
     //Draw distance Button
     if(GuiButton((Rectangle) {offsetX, offsetY - 15, 200, 30 }, drawDistanceTxt)) {
         world.drawDistance += 1;
-        if(world.drawDistance > 6) world.drawDistance = 2;
+        if(world.drawDistance > 6) {
+            world.drawDistance = 2;
+            World_Reload();
+        }
     }
 
     //Draw Debug Button

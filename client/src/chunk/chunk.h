@@ -21,9 +21,9 @@
 typedef struct Chunk{
     ChunkMesh *mesh;
     ChunkMesh *meshTransparent;
-    int data[CHUNK_SIZE];
-    int lightData[CHUNK_SIZE];
-    int sunlightData[CHUNK_SIZE];
+    unsigned short data[CHUNK_SIZE];
+    unsigned char lightData[CHUNK_SIZE];
+    unsigned char sunlightData[CHUNK_SIZE];
     int step;
     Vector3 position; //Position of the chunk in chunk unit
     Vector3 blockPosition; //Position of the chunk in block unit
@@ -63,31 +63,33 @@ typedef struct LightDelNode{
 void Chunk_Init(Chunk *chunk, Vector3 pos);
 //Unload a chunk.
 void Chunk_Unload(Chunk *chunk);
-
+//Generate a chunk's map & lightning.
 void Chunk_Generate(Chunk *chunk);
+//Save a chunk to a file.
 void Chunk_SaveFile(Chunk *chunk);
+//Load a chunk from a file.
 bool Chunk_LoadFile(Chunk *chunk);
-
+//Update a chunk's neighbour list.
 void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood);
+//Refresh the mesh of the chunk's neighbours.
 void Chunk_RefreshBorderingChunks(Chunk *chunk, bool sidesOnly);
-
+//Check if the chunk's neighbours are generated.
+bool Chunk_AreNeighbourGenerated(Chunk* chunk);
+//Check if the chunk's neighbours mesh is building.
+bool Chunk_AreNeighbourBuilding(Chunk* chunk);
 //Set a block in a chunk and refresh mesh.
 void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID);
-
 //Get a block ID in a chunk.
 int Chunk_GetBlock(Chunk *chunk, Vector3 pos);
-
 //Check if block position is valid in chunk.
-int Chunk_IsValidPos(Vector3 pos);
-
+bool Chunk_IsValidPos(Vector3 pos);
 //Convert block position to index.
 int Chunk_PosToIndex(Vector3 pos);
-
 //convert index to block position.
 Vector3 Chunk_IndexToPos(int index);
-
-//Chunk Queues
+//Add a chunk to a queue.
 QueuedChunk *Chunk_AddToQueue(QueuedChunk *queue, Chunk* chunk);
+//Remove a chunk from a queue.
 QueuedChunk *Chunk_PopFromQueue(QueuedChunk *queue);
 
 #endif
