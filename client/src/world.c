@@ -6,9 +6,11 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
 #include <raylib.h>
+#include <sys/stat.h>
 #include "chunkMeshGeneration.h"
 #include "world.h"
 #include "rlgl.h"
@@ -29,7 +31,27 @@ void World_Init(void) {
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
     for(int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
 
-    WorldGenerator_Init(1);
+    int seed = rand();
+
+    //Create world directory
+    struct stat st = {0};
+    if (stat("./world", &st) == -1) {
+        mkdir("./world");
+    }
+    
+    if(FileExists("./world/seed.dat")) {
+        unsigned int bytesRead = 0;
+        unsigned char *data = LoadFileData("./world/seed.dat", &bytesRead);
+        seed = (int)(data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]); 
+        UnloadFileData(data);
+    } else {
+        char data[4] = {(char)(seed >> 24), (char)(seed >> 16), (char)(seed >> 8), (char)(seed)};
+        SaveFileData("./world/seed.dat", data, 4);
+    }
+
+    printf("seed:%i\n", seed);
+
+    WorldGenerator_Init(seed);
 
     pthread_create(&chunkThread_id, NULL, World_ReadChunksQueues, NULL);
 }

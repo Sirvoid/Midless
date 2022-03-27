@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <math.h>
 #include <pthread.h>
-#include <sys/stat.h>
 #include <raylib.h>
 #include "rlgl.h"
 #include "player.h"
@@ -37,12 +36,6 @@ int main(void) {
 
     EntityModel_DefineAll();
     Block_BuildDefinition();
-
-    //Create world directory
-    struct stat st = {0};
-    if (stat("./world", &st) == -1) {
-        mkdir("./world");
-    }
 
     // World Initialization
     World_Init();
