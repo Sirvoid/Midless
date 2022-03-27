@@ -173,25 +173,35 @@ void Player_Update() {
 
     //Gravity
     player.velocity.y -= 0.012f * (GetFrameTime() * 60);
+    if(player.velocity.y <= -1) player.velocity.y = -1;
     
     //Calculate velocity with delta time
     Vector3 velXdt = Vector3Scale(player.velocity, GetFrameTime() * 60);
     
+    int steps = 8;
+
     //Move X & Test Collisions
-    player.position.x += velXdt.x;
-    if(Player_TestCollision()) player.position.x -= velXdt.x;
+    for(int i = 0; i < steps; i++) {
+        player.position.x += velXdt.x / steps;
+        if(Player_TestCollision()) player.position.x -= velXdt.x / steps;
+    }
 
     //Move Y & Test Collisions
-    player.position.y += velXdt.y;
-    if(Player_TestCollision()) {
-        player.position.y -= velXdt.y;
-        if(player.velocity.y <= 0) player.canJump = true;
-        player.velocity.y = 0;
+    for(int i = 0; i < steps; i++) {
+        player.position.y += velXdt.y / steps;
+        if(Player_TestCollision()) {
+            player.position.y -= velXdt.y / steps;
+            if(player.velocity.y <= 0) player.canJump = true;
+            player.velocity.y = 0;
+            break;
+        }
     }
 
     //Move Z & Test Collisions
-    player.position.z += velXdt.z;
-    if(Player_TestCollision()) player.position.z -= velXdt.z;
+    for(int i = 0; i < steps; i++) {
+        player.position.z += velXdt.z / steps;
+        if(Player_TestCollision()) player.position.z -= velXdt.z / steps;
+    }
 
     //Place Camera
     player.camera.position = player.position;

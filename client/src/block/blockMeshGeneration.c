@@ -5,6 +5,7 @@
  * https://opensource.org/licenses/MIT
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -20,10 +21,7 @@ int BFH_texI[] = {0, 0};
 int BFH_colorsI[] = {0, 0};
 int BFH_indicesI[] = {0, 0};
 
-float BFH_texCoords[12] = {
-    1, 1,  0, 0,  1, 0,
-    0, 1,  1, 1,  0, 0
-};
+
 
 Vector3 BlockMesh_GetDirection(BlockFace face) {
     switch (face) {
@@ -104,9 +102,8 @@ void BlockMesh_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, Block b, in
 
     int texID = b.textures[(int)face];
     
-    int texI = 0;
-    int textureX = texID % 16;
-    int textureY = texID / 16;
+    int textureX = texID % 16 * 16;
+    int textureY = texID / 16 * 16;
     
     int faceX4 = ((int)face * 4);
     
@@ -147,10 +144,42 @@ void BlockMesh_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, Block b, in
             mesh->colors[BFH_colorsI[translucent]++] = fmax(16, 255 - light);
         }
         
-        mesh->texcoords[BFH_texI[translucent]++] = (unsigned char)((BFH_texCoords[texI++] + textureX));
-        mesh->texcoords[BFH_texI[translucent]++] = (unsigned char)((BFH_texCoords[texI++] + textureY));
     }
 
+    int iMaxX = textureX + 16;
+    int iMaxY = textureY + 16;
+    int iMinX = textureX;
+    int iMinY = textureY;
 
+    if(b.modelType != BlockModelType_Sprite) {
+        if(face == BlockFace_Front || face == BlockFace_Back) {
+            iMaxY -= (16 - b.maxBB.y);
+            iMinY += (b.minBB.y);
+            iMaxX -= 16 - b.maxBB.x;
+            iMinX += b.minBB.x;
+        } else if(face == BlockFace_Left || face == BlockFace_Right) {
+            iMaxX -= 16 - b.maxBB.z;
+            iMinX += b.minBB.z;
+            iMaxY -= 16 - b.maxBB.y;
+            iMinY += b.minBB.y;
+        } else {
+            iMaxX -= 16 - b.maxBB.x;
+            iMinX += b.minBB.x;
+            iMaxY -= 16 - b.maxBB.z;
+            iMinY += b.minBB.z;
+        }
+    }
+
+    mesh->texcoords[BFH_texI[translucent]++] = iMinX;
+    mesh->texcoords[BFH_texI[translucent]++] = iMaxY;
+
+    mesh->texcoords[BFH_texI[translucent]++] = iMaxX;
+    mesh->texcoords[BFH_texI[translucent]++] = iMinY;
+
+    mesh->texcoords[BFH_texI[translucent]++] = iMinX;
+    mesh->texcoords[BFH_texI[translucent]++] = iMinY;
+
+    mesh->texcoords[BFH_texI[translucent]++] = iMaxX;
+    mesh->texcoords[BFH_texI[translucent]++] = iMaxY;
 }
 

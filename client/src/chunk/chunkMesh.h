@@ -18,7 +18,7 @@ typedef struct ChunkMesh {
 
     unsigned char *vertices;
     unsigned short *indices;
-    unsigned char *texcoords;
+    unsigned short *texcoords;
     unsigned char *colors;
 
     unsigned int vaoId;  

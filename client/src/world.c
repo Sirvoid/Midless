@@ -49,8 +49,6 @@ void World_Init(void) {
         SaveFileData("./world/seed.dat", data, 4);
     }
 
-    printf("seed:%i\n", seed);
-
     WorldGenerator_Init(seed);
 
     pthread_create(&chunkThread_id, NULL, World_ReadChunksQueues, NULL);

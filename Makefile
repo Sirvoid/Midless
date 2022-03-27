@@ -29,9 +29,9 @@ OBJ := $(patsubst %.c, %.o, $(SRC_C))
 CC := gcc
 CFLAGS = -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces
 ifdef DEBUG
-	CFLAGS += -g -O0
+	CFLAGS += -g -Og
 else
-	CFLAGS += -s -O1 -Wl,--subsystem,windows
+	CFLAGS += -s -O2 -Wl,--subsystem,windows
 endif
 
 INCLUDE_PATHS = -I$(DIR_INC) -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external

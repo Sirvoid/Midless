@@ -20,20 +20,20 @@ void Chunk_AllocateMeshData(ChunkMesh *mesh, int triangleCount) {
     mesh->vertexCount = triangleCount * 2;
     mesh->triangleCount = triangleCount;
 
-    mesh->vertices = (unsigned char*)MemAlloc(mesh->vertexCount * 3);
-    mesh->texcoords = (unsigned char*)MemAlloc(mesh->vertexCount * 2);
-    mesh->colors = (unsigned char*)MemAlloc(mesh->vertexCount);
-    mesh->indices = (unsigned short*)MemAlloc(mesh->triangleCount * 3 * sizeof(unsigned short));
+    mesh->vertices = MemAlloc(mesh->vertexCount * 3);
+    mesh->texcoords = MemAlloc(mesh->vertexCount * 2 * sizeof(unsigned short));
+    mesh->colors = MemAlloc(mesh->vertexCount);
+    mesh->indices = MemAlloc(mesh->triangleCount * 3 * sizeof(unsigned short));
 }
 
 void Chunk_ReAllocateMeshData(ChunkMesh *mesh, int triangleCount) {
     mesh->vertexCount = triangleCount * 2;
     mesh->triangleCount = triangleCount;
     
-    mesh->vertices = (unsigned char*)MemRealloc(mesh->vertices, mesh->vertexCount * 3);
-    mesh->texcoords = (unsigned char*)MemRealloc(mesh->texcoords, mesh->vertexCount * 2);
-    mesh->colors = (unsigned char*)MemRealloc(mesh->colors, mesh->vertexCount);
-    mesh->indices = (unsigned short*)MemRealloc(mesh->indices ,mesh->triangleCount * 3 * sizeof(unsigned short));
+    mesh->vertices = MemRealloc(mesh->vertices, mesh->vertexCount * 3);
+    mesh->texcoords = MemRealloc(mesh->texcoords, mesh->vertexCount * 2 * sizeof(unsigned short));
+    mesh->colors = MemRealloc(mesh->colors, mesh->vertexCount);
+    mesh->indices = MemRealloc(mesh->indices ,mesh->triangleCount * 3 * sizeof(unsigned short));
 }
 
 
