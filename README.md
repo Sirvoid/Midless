@@ -1,5 +1,5 @@
 ![Image](https://i.imgur.com/4Ku3xak.png)
-[![Chat](https://img.shields.io/badge/chat-on%20discord-7289da.svg)](https://discord.gg/tZthSbpUcV)
+[![Chat](https://img.shields.io/discord/908871478576033832?label=%20chat%20on%20discord)](https://discord.gg/tZthSbpUcV)
 
 Midless is a free and open-source voxel game made in C.
 

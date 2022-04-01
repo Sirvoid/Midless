@@ -59,6 +59,7 @@ void World_LoadSingleplayer(void) {
     Screen_Switch(SCREEN_GAME);
 
     world.loadChunks = true;
+    World_LoadChunks();
 }
 
 pthread_mutex_t generateChunk_mutex;
@@ -167,7 +168,25 @@ void World_RemoveChunk(Vector3 position) {
     MemFree(curChunk);
 }
 
-void World_LoadChunks() {
+void World_UpdateChunks(void) {
+    
+    for(int i = 0; i < 2; i++) {
+        if(world.buildChunksQueue != NULL) {
+            Chunk *chunk = world.buildChunksQueue->chunk;
+            if(chunk->isLightGenerated == true) {
+                if(Chunk_AreNeighbourGenerated(chunk) == true) {
+                    Chunk_BuildMesh(chunk);
+                    chunk->isBuilding = false;
+                    world.buildChunksQueue = Chunk_PopFromQueue(world.buildChunksQueue);
+                }
+                
+            }
+        }
+    }
+
+}
+
+void World_LoadChunks(void) {
 
     if(!world.loadChunks) return;
 
@@ -181,29 +200,15 @@ void World_LoadChunks() {
         }
     }
     
-    Chunk *chunk;
-    for(int i = 0; i < 3; i++) {
-        if(world.buildChunksQueue != NULL) {
-            chunk = world.buildChunksQueue->chunk;
-            if(chunk->isLightGenerated == true) {
-                if(Chunk_AreNeighbourGenerated(chunk) == true) {
-                    Chunk_BuildMesh(chunk);
-                    chunk->isBuilding = false;
-                    world.buildChunksQueue = Chunk_PopFromQueue(world.buildChunksQueue);
-                }
-                
-            }
-        }
-    }
-    
     //destroy far chunks
-    chunk = world.chunks;
+    Chunk *chunk = world.chunks;
     while(chunk != NULL) {
+        
         Chunk *nextChunk = chunk->nextChunk;
 
-        float unloadDist = world.drawDistance * CHUNK_SIZE_X * 2.5f;
-        if(Vector3Distance(chunk->blockPosition, player.position) > unloadDist) {
-            if(chunk->isBuilt == true && chunk->isBuilding == false) {
+        float unloadDist = (world.drawDistance + 2) * CHUNK_SIZE_X;
+        if(chunk->isBuilt == true && chunk->isBuilding == false) {
+            if(Vector3Distance(chunk->blockPosition, player.position) > unloadDist) {
                 if(Chunk_AreNeighbourBuilding(chunk) == false) {
                    World_RemoveChunk(chunk->position);
                 }
@@ -212,12 +217,12 @@ void World_LoadChunks() {
 
         chunk = nextChunk;
     }
-    
 }
 
 void World_Reload(void) {
     World_Unload();
     world.loadChunks = true;
+    World_LoadChunks();
 }
 
 void World_Unload(void) {

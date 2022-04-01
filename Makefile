@@ -36,7 +36,7 @@ endif
 
 INCLUDE_PATHS = -I$(DIR_INC) -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external
 LDFLAGS = -L. -L$(RAYLIB_PATH)/src
-LDLIBS = -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 -lwinmm
+LDLIBS = -static -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 -lwinmm
 
 .PHONY:all
 

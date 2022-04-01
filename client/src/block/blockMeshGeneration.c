@@ -153,8 +153,8 @@ void BlockMesh_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, Block b, in
 
     if(b.modelType != BlockModelType_Sprite) {
         if(face == BlockFace_Front || face == BlockFace_Back) {
-            iMaxY -= (16 - b.maxBB.y);
-            iMinY += (b.minBB.y);
+            iMaxY -= 16 - b.maxBB.y;
+            iMinY += b.minBB.y;
             iMaxX -= 16 - b.maxBB.x;
             iMinX += b.minBB.x;
         } else if(face == BlockFace_Left || face == BlockFace_Right) {

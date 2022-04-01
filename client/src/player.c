@@ -180,6 +180,8 @@ void Player_Update() {
     
     int steps = 8;
 
+    Vector3 oldPosition = player.position;
+
     //Move X & Test Collisions
     for(int i = 0; i < steps; i++) {
         player.position.x += velXdt.x / steps;
@@ -201,6 +203,12 @@ void Player_Update() {
     for(int i = 0; i < steps; i++) {
         player.position.z += velXdt.z / steps;
         if(Player_TestCollision()) player.position.z -= velXdt.z / steps;
+    }
+
+    if(floor(oldPosition.x / 16) != floor(player.position.x / 16) || 
+       floor(oldPosition.y / 16) != floor(player.position.y / 16) ||
+       floor(oldPosition.z / 16) != floor(player.position.z / 16)) {
+        World_LoadChunks();
     }
 
     //Place Camera

@@ -30,8 +30,10 @@ extern World world;
 void World_Init(void);
 //Load singleplayer world.
 void World_LoadSingleplayer(void);
+//Build Chunks mesh in queue
+void World_UpdateChunks(void);
 //Load & Unload Chunks around players.
-void World_LoadChunks();
+void World_LoadChunks(void);
 //Read Queue to generate chunks.
 void *World_ReadChunksQueues(void *state);
 //Queue a chunk to build it.

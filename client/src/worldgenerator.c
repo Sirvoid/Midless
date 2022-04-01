@@ -72,18 +72,23 @@ int WorldGenerator_Generate(Chunk *chunk, Vector3 pos, int index) {
         
         float waterLevel = 58;
 
-        if(ny + 4 < ns) blockID = 1; //Stone
-        else if(ny + 1 < ns) {
+        if( ny < ns &&  nsCave * nsCave2 > 0.6f) {
+            blockID = 0; //Caves
+        } else if(ny + 4 < ns) {
+             blockID = 1; //Stone
+        } else if(ny + 1 < ns) {
             if(chunk->data[(index + CHUNK_SIZE_XZ) % CHUNK_SIZE] == 0) {
                 blockID = 3; //Grass
             } else {
                 blockID = 2; //Dirt
             }
-        } 
-        else if(ny < ns && pos.y < waterLevel) blockID= 6; //Sand
-        else if(pos.y < waterLevel) blockID = 5; //Water
+        } else if(ny < ns && pos.y < waterLevel) {
+            blockID= 6; //Sand
+        } else if(pos.y < waterLevel) {
+            blockID = 5; //Water
+        }
 
-        if( ny < ns &&  nsCave * nsCave2 > 0.6f) blockID = 0; //Caves
+        
     } else {
         blockID = 1;
         if(nsCave * nsCave2 > 0.6f) blockID = 0; //Caves
