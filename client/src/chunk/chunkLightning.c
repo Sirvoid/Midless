@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include "chunkLightning.h"
 #include "../block/block.h"
+#include "world.h"
+#include "player.h"
 
 Vector3 lightDirections[6] = {
     {-1, 0, 0},
@@ -145,7 +147,7 @@ void Chunk_DoSunlight(Chunk *srcChunk) {
             }
         }
     } else {
-        if(srcChunk->position.y >= 5) {
+        if(srcChunk->position.y >= fmax(floorf(player.position.y / CHUNK_SIZE_X) + fmin(world.drawDistance, 4), 5)) {
             for(int i = CHUNK_SIZE - CHUNK_SIZE_XZ; i < CHUNK_SIZE; i++) {
                 Block blockDefinition = Block_GetDefinition(srcChunk->data[i]);
 

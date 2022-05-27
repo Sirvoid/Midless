@@ -151,7 +151,7 @@ void Screen_MakeOptions(void) {
     //Draw distance Button
     if(GuiButton((Rectangle) {offsetX, offsetY - 15, 200, 30 }, drawDistanceTxt)) {
         world.drawDistance += 1;
-        if(world.drawDistance > 6) {
+        if(world.drawDistance > 8) {
             world.drawDistance = 2;
             World_Reload();
         } else {

@@ -34,7 +34,7 @@ else
 	CFLAGS += -s -O2 -Wl,--subsystem,windows
 endif
 
-INCLUDE_PATHS = -I$(DIR_INC) -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external
+INCLUDE_PATHS = -I$(DIR_INC) -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external -I$(RAYLIB_PATH)/src/extras
 LDFLAGS = -L. -L$(RAYLIB_PATH)/src
 LDLIBS = -static -lraylib -lopengl32 -lgdi32 -lwinmm -lpthread -lws2_32 -lwinmm
 

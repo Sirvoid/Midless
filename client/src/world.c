@@ -26,7 +26,7 @@ pthread_t chunkThread_id;
 void World_Init(void) {
     world.mat = LoadMaterialDefault();
     world.loadChunks = false;
-    world.drawDistance = 3;
+    world.drawDistance = 4;
     world.chunks = NULL;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
@@ -180,7 +180,7 @@ void World_UpdateChunks(void) {
         QueuedChunk* curQueued = world.buildChunksQueue;
         QueuedChunk* prevQueued = world.buildChunksQueue;
 
-        int meshUpdatesCount = 16;
+        int meshUpdatesCount = 4;
 
         while(curQueued != NULL) {
             QueuedChunk *nextQueued = curQueued->next;
@@ -191,7 +191,7 @@ void World_UpdateChunks(void) {
                     chunk->isBuilding = false;
                     world.buildChunksQueue = Chunk_RemoveFromQueue(world.buildChunksQueue, prevQueued, curQueued);
 
-                    if(meshUpdatesCount-- == 0) return;
+                    if(--meshUpdatesCount == 0) return;
 
                     curQueued = nextQueued;
                     continue;
@@ -212,7 +212,7 @@ void World_LoadChunks(void) {
     int loadingHeight = fmin(world.drawDistance, 4);
     for(int x = -world.drawDistance ; x <= world.drawDistance; x++) {
         for(int z = -world.drawDistance ; z <= world.drawDistance; z++) {
-            for(int y = loadingHeight ; y >= -loadingHeight; y--) {
+            for(int y = -loadingHeight ; y <= loadingHeight; y++) {
                 World_AddChunk((Vector3) {pos.x + x, pos.y + y, pos.z + z});
             }
         }
