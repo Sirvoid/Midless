@@ -12,7 +12,7 @@
 #include "chunkmesh.h"
 #include "world.h"
 
-void ChunkMesh_Upload(ChunkMesh *mesh) {
+void ChunkMesh_Upload(ChunkMesh *mesh, unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors) {
 
     mesh->drawVertexCount = mesh->vertexCount;
     mesh->drawTriangleCount = mesh->triangleCount;
@@ -31,19 +31,19 @@ void ChunkMesh_Upload(ChunkMesh *mesh) {
     int vertXchar = mesh->vertexCount * sizeof(unsigned char);
     int vertXShort = mesh->vertexCount * sizeof(unsigned short);
 
-    mesh->vboId[0] = rlLoadVertexBuffer(mesh->vertices, vertXchar * 3, false);
+    mesh->vboId[0] = rlLoadVertexBuffer(vertices, vertXchar * 3, false);
     rlSetVertexAttribute(0, 3, RL_UNSIGNED_BYTE, 0, 0, 0);
     rlEnableVertexAttribute(0);
 
-    mesh->vboId[1] = rlLoadVertexBuffer(mesh->texcoords, vertXShort * 2, false);
+    mesh->vboId[1] = rlLoadVertexBuffer(texcoords, vertXShort * 2, false);
     rlSetVertexAttribute(1, 2, 0x1403, 0, 0, 0);
     rlEnableVertexAttribute(1);
 
-    mesh->vboId[2] = rlLoadVertexBuffer(mesh->colors, vertXchar, false);
+    mesh->vboId[2] = rlLoadVertexBuffer(colors, vertXchar, false);
     rlSetVertexAttribute(3, 1, RL_UNSIGNED_BYTE, 0, 0, 0);
     rlEnableVertexAttribute(3);
 
-    mesh->vboId[3] = rlLoadVertexBufferElement(mesh->indices, mesh->drawTriangleCount*3*sizeof(unsigned short), false);
+    mesh->vboId[3] = rlLoadVertexBufferElement(indices, mesh->drawTriangleCount*3*sizeof(unsigned short), false);
 
     rlDisableVertexArray();
 }
@@ -55,15 +55,6 @@ void ChunkMesh_Unload(ChunkMesh *mesh) {
     
     RL_FREE(mesh->vboId);
 
-    RL_FREE(mesh->vertices);
-    RL_FREE(mesh->texcoords);
-    RL_FREE(mesh->colors);
-    RL_FREE(mesh->indices);
-
-    mesh->vertices = NULL;
-    mesh->texcoords = NULL;
-    mesh->colors = NULL;
-    mesh->indices = NULL;
 }
 
 void ChunkMesh_PrepareDrawing(Material mat) {

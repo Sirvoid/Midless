@@ -154,6 +154,8 @@ void Screen_MakeOptions(void) {
         if(world.drawDistance > 6) {
             world.drawDistance = 2;
             World_Reload();
+        } else {
+            World_LoadChunks();
         }
     }
 

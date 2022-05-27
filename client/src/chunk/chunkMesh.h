@@ -16,16 +16,11 @@ typedef struct ChunkMesh {
     int drawTriangleCount;
     int triangleCount;
 
-    unsigned char *vertices;
-    unsigned short *indices;
-    unsigned short *texcoords;
-    unsigned char *colors;
-
     unsigned int vaoId;  
     unsigned int *vboId;
 } ChunkMesh;
 
-void ChunkMesh_Upload(ChunkMesh *mesh);
+void ChunkMesh_Upload(ChunkMesh *mesh, unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors);
 void ChunkMesh_Unload(ChunkMesh *mesh);
 void ChunkMesh_PrepareDrawing(Material mat);
 void ChunkMesh_FinishDrawing(void);

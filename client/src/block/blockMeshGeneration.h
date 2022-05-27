@@ -17,7 +17,7 @@
 void BlockMesh_ResetIndexes(void);
 
 //Add a block face to a given mesh.
-void BlockMesh_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, Block blockDef, int translucent, int light);
+void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors, BlockFace face, Vector3 pos, Block b, int translucent, int light);
 
 //Get facing direction of a block face.
 Vector3 BlockMesh_GetDirection(BlockFace face);

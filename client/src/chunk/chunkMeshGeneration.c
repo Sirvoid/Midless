@@ -15,25 +15,30 @@
 int Chunk_triangleCounter = 0;
 int Chunk_triangleCounterTransparent = 0;
 
-void Chunk_AllocateMeshData(ChunkMesh *mesh, int triangleCount) {
+unsigned char *vertices;
+unsigned short *indices;
+unsigned short *texcoords;
+unsigned char *colors;
 
-    mesh->vertexCount = triangleCount * 2;
-    mesh->triangleCount = triangleCount;
+unsigned char *verticesT;
+unsigned short *indicesT;
+unsigned short *texcoordsT;
+unsigned char *colorsT;
 
-    mesh->vertices = MemAlloc(mesh->vertexCount * 3);
-    mesh->texcoords = MemAlloc(mesh->vertexCount * 2 * sizeof(unsigned short));
-    mesh->colors = MemAlloc(mesh->vertexCount);
-    mesh->indices = MemAlloc(mesh->triangleCount * 3 * sizeof(unsigned short));
-}
+void Chunk_MeshGenerationInit(void) {
 
-void Chunk_ReAllocateMeshData(ChunkMesh *mesh, int triangleCount) {
-    mesh->vertexCount = triangleCount * 2;
-    mesh->triangleCount = triangleCount;
-    
-    mesh->vertices = MemRealloc(mesh->vertices, mesh->vertexCount * 3);
-    mesh->texcoords = MemRealloc(mesh->texcoords, mesh->vertexCount * 2 * sizeof(unsigned short));
-    mesh->colors = MemRealloc(mesh->colors, mesh->vertexCount);
-    mesh->indices = MemRealloc(mesh->indices ,mesh->triangleCount * 3 * sizeof(unsigned short));
+    int vertexCount = 2 * 6 * CHUNK_SIZE * 2;
+    int triangleCount = 2 * 6 * CHUNK_SIZE;
+
+    vertices = MemAlloc(vertexCount * 3);
+    texcoords = MemAlloc(vertexCount * 2 * sizeof(unsigned short));
+    colors = MemAlloc(vertexCount);
+    indices = MemAlloc(triangleCount * 3 * sizeof(unsigned short));
+
+    verticesT = MemAlloc(vertexCount * 3);
+    texcoordsT = MemAlloc(vertexCount * 2 * sizeof(unsigned short));
+    colorsT = MemAlloc(vertexCount);
+    indicesT = MemAlloc(triangleCount * 3 * sizeof(unsigned short));
 }
 
 
@@ -44,9 +49,6 @@ void Chunk_BuildMesh(Chunk *chunk) {
         ChunkMesh_Unload(chunk->meshTransparent);
     }
 
-    Chunk_AllocateMeshData(chunk->mesh, 2 * 6 * CHUNK_SIZE);
-    Chunk_AllocateMeshData(chunk->meshTransparent, 2 * 6 * CHUNK_SIZE);
-    
     BlockMesh_ResetIndexes();
     Chunk_triangleCounter = 0;
     Chunk_triangleCounterTransparent = 0;
@@ -66,11 +68,14 @@ void Chunk_BuildMesh(Chunk *chunk) {
         }
     }
     
-    Chunk_ReAllocateMeshData(chunk->mesh, Chunk_triangleCounter);
-    Chunk_ReAllocateMeshData(chunk->meshTransparent, Chunk_triangleCounterTransparent);
+    chunk->mesh->vertexCount = Chunk_triangleCounter * 2;
+    chunk->mesh->triangleCount = Chunk_triangleCounter;
 
-    ChunkMesh_Upload(chunk->mesh);
-    ChunkMesh_Upload(chunk->meshTransparent);
+    chunk->meshTransparent->vertexCount = Chunk_triangleCounterTransparent * 2;
+    chunk->meshTransparent->triangleCount = Chunk_triangleCounterTransparent;
+
+    ChunkMesh_Upload(chunk->mesh, vertices, indices, texcoords, colors);
+    ChunkMesh_Upload(chunk->meshTransparent, verticesT, indicesT, texcoordsT, colorsT);
 
     chunk->isBuilt = true;
 }
@@ -131,10 +136,10 @@ void Chunk_AddFace(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, BlockFace face, B
     if(bTest || sprite) {
         if(renderType == BlockRenderType_Translucent) { 
             Chunk_triangleCounterTransparent += 2;
-            BlockMesh_AddFace(mesh, face, pos, blockDef, 1, lightLevel);
+            BlockMesh_AddFace(verticesT, indicesT, texcoordsT, colorsT, face, pos, blockDef, 1, lightLevel);
         } else {
             Chunk_triangleCounter += 2;
-            BlockMesh_AddFace(mesh, face, pos, blockDef, 0, lightLevel);
+            BlockMesh_AddFace(vertices, indices, texcoords, colors, face, pos, blockDef, 0, lightLevel);
         }
             
     }

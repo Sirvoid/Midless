@@ -18,6 +18,7 @@
 #include "worldgenerator.h"
 #include "player.h"
 #include "screens.h"
+#include "networkhandler.h"
 
 World world;
 pthread_t chunkThread_id;
@@ -30,6 +31,8 @@ void World_Init(void) {
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
     for(int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
+
+    Chunk_MeshGenerationInit();
 
     int seed = rand();
 
@@ -62,11 +65,13 @@ void World_LoadSingleplayer(void) {
     World_LoadChunks();
 }
 
+clock_t begin;
+
 pthread_mutex_t generateChunk_mutex;
 pthread_mutex_t chunk_mutex;
 void *World_ReadChunksQueues(void *state) {
     while(true) {
-        
+
         pthread_mutex_lock(&chunk_mutex);
         QueuedChunk *queuedChunk = world.generateChunksQueue;
         if(world.loadChunks == true && queuedChunk != NULL) {
@@ -77,13 +82,13 @@ void *World_ReadChunksQueues(void *state) {
             pthread_mutex_unlock(&generateChunk_mutex);
         }
         pthread_mutex_unlock(&chunk_mutex);
-
+        
     }
     return NULL;
 }
 
 void World_QueueChunk(Chunk *chunk) {
- 
+
     if(chunk->hasStartedGenerating == false) {
         pthread_mutex_lock(&generateChunk_mutex);
         world.generateChunksQueue = Chunk_AddToQueue(world.generateChunksQueue, chunk);
@@ -125,8 +130,11 @@ void World_AddChunk(Vector3 position) {
     }
 
     Chunk_Init(newChunk, position);
-    World_QueueChunk(newChunk);
-    Chunk_RefreshBorderingChunks(newChunk, true);
+
+    if(!Network_connectedToServer) {
+        World_QueueChunk(newChunk);
+        Chunk_RefreshBorderingChunks(newChunk, true);
+    }
 }
 
 Chunk* World_GetChunkAt(Vector3 pos) {
@@ -169,21 +177,29 @@ void World_RemoveChunk(Vector3 position) {
 }
 
 void World_UpdateChunks(void) {
-    
-    for(int i = 0; i < 2; i++) {
-        if(world.buildChunksQueue != NULL) {
-            Chunk *chunk = world.buildChunksQueue->chunk;
+        QueuedChunk* curQueued = world.buildChunksQueue;
+        QueuedChunk* prevQueued = world.buildChunksQueue;
+
+        int meshUpdatesCount = 16;
+
+        while(curQueued != NULL) {
+            QueuedChunk *nextQueued = curQueued->next;
+            Chunk *chunk = curQueued->chunk;
             if(chunk->isLightGenerated == true) {
                 if(Chunk_AreNeighbourGenerated(chunk) == true) {
                     Chunk_BuildMesh(chunk);
                     chunk->isBuilding = false;
-                    world.buildChunksQueue = Chunk_PopFromQueue(world.buildChunksQueue);
-                }
-                
-            }
-        }
-    }
+                    world.buildChunksQueue = Chunk_RemoveFromQueue(world.buildChunksQueue, prevQueued, curQueued);
 
+                    if(meshUpdatesCount-- == 0) return;
+
+                    curQueued = nextQueued;
+                    continue;
+                }
+            }
+            prevQueued = curQueued;
+            curQueued = nextQueued;
+        }
 }
 
 void World_LoadChunks(void) {
@@ -192,9 +208,11 @@ void World_LoadChunks(void) {
 
     //Create chunks around
     Vector3 pos = (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
-    for(int y = world.drawDistance ; y >= -world.drawDistance; y--) {
-        for(int x = -world.drawDistance ; x <= world.drawDistance; x++) {
-            for(int z = -world.drawDistance ; z <= world.drawDistance; z++) {
+    
+    int loadingHeight = fmin(world.drawDistance, 4);
+    for(int x = -world.drawDistance ; x <= world.drawDistance; x++) {
+        for(int z = -world.drawDistance ; z <= world.drawDistance; z++) {
+            for(int y = loadingHeight ; y >= -loadingHeight; y--) {
                 World_AddChunk((Vector3) {pos.x + x, pos.y + y, pos.z + z});
             }
         }

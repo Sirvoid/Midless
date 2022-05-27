@@ -91,5 +91,6 @@ Vector3 Chunk_IndexToPos(int index);
 QueuedChunk *Chunk_AddToQueue(QueuedChunk *queue, Chunk* chunk);
 //Remove a chunk from a queue.
 QueuedChunk *Chunk_PopFromQueue(QueuedChunk *queue);
+QueuedChunk *Chunk_RemoveFromQueue(QueuedChunk *head, QueuedChunk* previous, QueuedChunk* chunk);
 
 #endif

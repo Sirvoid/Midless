@@ -12,11 +12,7 @@
 #include "chunk.h"
 #include "../block/block.h"
 
-//Allocate memory for a mesh.
-void Chunk_AllocateMeshData(ChunkMesh *mesh, int triangleCount);
-//Reallocate memory for a mesh.
-void Chunk_ReAllocateMeshData(ChunkMesh *mesh, int triangleCount);
-
+void Chunk_MeshGenerationInit(void);
 //Build/Refresh a chunk's mesh.
 void Chunk_BuildMesh(Chunk *chunk);
 void Chunk_AddCube(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, Block blockDef);

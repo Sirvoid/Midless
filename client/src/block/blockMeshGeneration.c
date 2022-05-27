@@ -53,7 +53,7 @@ void BlockMesh_ResetIndexes(void) {
     BFH_indicesI[1] = 0;
 }
 
-void BlockMesh_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, Block b, int translucent, int light) {
+void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors, BlockFace face, Vector3 pos, Block b, int translucent, int light) {
     
     Vector3 *facesPosition;
 
@@ -109,39 +109,39 @@ void BlockMesh_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, Block b, in
     
     int verticeIndexD3 =  BFH_verticesI[translucent] / 3;
 
-    mesh->indices[BFH_indicesI[translucent]++] = verticeIndexD3;
-    mesh->indices[BFH_indicesI[translucent]++] = verticeIndexD3 + 1;
-    mesh->indices[BFH_indicesI[translucent]++] = verticeIndexD3 + 2;
-    mesh->indices[BFH_indicesI[translucent]++] = verticeIndexD3 + 1;
-    mesh->indices[BFH_indicesI[translucent]++] = verticeIndexD3;
-    mesh->indices[BFH_indicesI[translucent]++] = verticeIndexD3 + 3;
+    indices[BFH_indicesI[translucent]++] = verticeIndexD3;
+    indices[BFH_indicesI[translucent]++] = verticeIndexD3 + 1;
+    indices[BFH_indicesI[translucent]++] = verticeIndexD3 + 2;
+    indices[BFH_indicesI[translucent]++] = verticeIndexD3 + 1;
+    indices[BFH_indicesI[translucent]++] = verticeIndexD3;
+    indices[BFH_indicesI[translucent]++] = verticeIndexD3 + 3;
 
     for(int i = 0; i < 4; i++) {
         int faceIndex = i + faceX4;
         
-        mesh->vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].x / 16 + pos.x) * 15);
-        mesh->vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].y / 16 + pos.y) * 15);
-        mesh->vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].z / 16 + pos.z) * 15);
+        vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].x / 16 + pos.x) * 15);
+        vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].y / 16 + pos.y) * 15);
+        vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].z / 16 + pos.z) * 15);
         
         if(b.modelType != BlockModelType_Sprite) {
             switch(face) {
                 case BlockFace_Bottom:
-                    mesh->colors[BFH_colorsI[translucent]++] = fmin(100, fmax(16, 100 - light));
+                    colors[BFH_colorsI[translucent]++] = fmin(100, fmax(16, 100 - light));
                     break;
                 case BlockFace_Left:
                 case BlockFace_Right:
-                    mesh->colors[BFH_colorsI[translucent]++] = fmin(150, fmax(16, 150 - light));
+                    colors[BFH_colorsI[translucent]++] = fmin(150, fmax(16, 150 - light));
                     break;
                 case BlockFace_Front:
                 case BlockFace_Back:
-                    mesh->colors[BFH_colorsI[translucent]++] = fmin(200, fmax(16, 200 - light));
+                    colors[BFH_colorsI[translucent]++] = fmin(200, fmax(16, 200 - light));
                     break;
                 default:
-                    mesh->colors[BFH_colorsI[translucent]++] = fmin(255, fmax(16, 255 - light));
+                    colors[BFH_colorsI[translucent]++] = fmin(255, fmax(16, 255 - light));
                     break;
             }
         } else {
-            mesh->colors[BFH_colorsI[translucent]++] = fmax(16, 255 - light);
+            colors[BFH_colorsI[translucent]++] = fmax(16, 255 - light);
         }
         
     }
@@ -170,16 +170,16 @@ void BlockMesh_AddFace(ChunkMesh *mesh, BlockFace face, Vector3 pos, Block b, in
         }
     }
 
-    mesh->texcoords[BFH_texI[translucent]++] = iMinX;
-    mesh->texcoords[BFH_texI[translucent]++] = iMaxY;
+    texcoords[BFH_texI[translucent]++] = iMinX;
+    texcoords[BFH_texI[translucent]++] = iMaxY;
 
-    mesh->texcoords[BFH_texI[translucent]++] = iMaxX;
-    mesh->texcoords[BFH_texI[translucent]++] = iMinY;
+    texcoords[BFH_texI[translucent]++] = iMaxX;
+    texcoords[BFH_texI[translucent]++] = iMinY;
 
-    mesh->texcoords[BFH_texI[translucent]++] = iMinX;
-    mesh->texcoords[BFH_texI[translucent]++] = iMinY;
+    texcoords[BFH_texI[translucent]++] = iMinX;
+    texcoords[BFH_texI[translucent]++] = iMinY;
 
-    mesh->texcoords[BFH_texI[translucent]++] = iMaxX;
-    mesh->texcoords[BFH_texI[translucent]++] = iMaxY;
+    texcoords[BFH_texI[translucent]++] = iMaxX;
+    texcoords[BFH_texI[translucent]++] = iMaxY;
 }
 

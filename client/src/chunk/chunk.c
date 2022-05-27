@@ -14,7 +14,6 @@
 #include "chunkMeshGeneration.h"
 #include "world.h"
 #include "chunkMesh.h"
-#include "stb_perlin.h"
 #include "worldgenerator.h"
 #include "networkhandler.h"
 #include "../block/block.h"
@@ -82,7 +81,6 @@ void Chunk_Unload(Chunk *chunk) {
 
 void Chunk_Generate(Chunk *chunk) {
     if(!chunk->isLightGenerated) {
-
         if(!chunk->fromFile) {
             //Map Generation
             for(int i = CHUNK_SIZE - 1; i >= 0; i--) {
@@ -90,11 +88,11 @@ void Chunk_Generate(Chunk *chunk) {
                 chunk->data[i] = WorldGenerator_Generate(chunk, npos, i);
             }
         }
+
         chunk->isMapGenerated = true;
         Chunk_DoSunlight(chunk);
         Chunk_DoLightSources(chunk);
         chunk->isLightGenerated = true;
-        
     }
 }
 
@@ -283,3 +281,13 @@ QueuedChunk *Chunk_PopFromQueue(QueuedChunk *queue) {
     return node;
 }
 
+QueuedChunk *Chunk_RemoveFromQueue(QueuedChunk *head, QueuedChunk* previous, QueuedChunk* chunk) {
+    if(head == NULL) return NULL;
+
+    QueuedChunk *next = chunk->next;
+    MemFree(chunk);
+    if(chunk == head) return next;
+    previous->next = next;
+   
+    return head;
+}
