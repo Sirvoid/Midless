@@ -34,6 +34,7 @@ void Player_CheckInputs(void);
 void Player_Update(void);
 
 bool Player_TestCollision(void);
+bool Player_TestSemiCollision(void);
 Vector3 Player_GetForwardVector(void);
 
 #endif

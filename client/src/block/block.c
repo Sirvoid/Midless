@@ -59,7 +59,7 @@ void Block_BuildDefinition(void) {
     Block_definition[15].lightType = BlockLightType_Emit;
 
     Block_Define(16, "lava", 15, 15, 15);
-    Block_definition[16].colliderType = BlockColliderType_None;
+    Block_definition[16].colliderType = BlockColliderType_Liquid;
     Block_definition[16].lightType = BlockLightType_Emit;
 
     Block_Define(17, "stone_slab", 1, 1, 1);

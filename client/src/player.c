@@ -142,7 +142,7 @@ void Player_CheckInputs() {
         if(player.blockSelected > 18) player.blockSelected = 1;
         if(player.blockSelected < 1) player.blockSelected = 18;
         
-        player.rayResult = Raycast_Do(player.camera.position, (Vector3) { forwardX, forwardY, forwardZ});
+        player.rayResult = Raycast_Do(player.camera.position, (Vector3) { forwardX, forwardY, forwardZ}, true);
 
         if(IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Break Block
             if(player.rayResult.hitBlockID != -1) {
@@ -150,9 +150,29 @@ void Player_CheckInputs() {
                 Network_Send(Packet_SetBlock(0, player.rayResult.hitPos));
             }
         } else if(IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
-            if(player.rayResult.hitBlockID != -1) {
-                World_SetBlock(player.rayResult.prevPos, player.blockSelected, true);
-                Network_Send(Packet_SetBlock(player.blockSelected, player.rayResult.prevPos));
+            switch (player.rayResult.hitBlockID)
+            {
+                case -1: // null
+                case 0: // air
+                    break;
+                
+                case 17: // stone_slab
+                    if (player.rayResult.normal.y == 1 && player.blockSelected == 17) {
+                        World_SetBlock(player.rayResult.hitPos, 1, true);
+                        Network_Send(Packet_SetBlock(1, player.rayResult.hitPos));
+                        break;
+                    }
+                case 18: // wood_slab
+                    if (player.rayResult.normal.y == 1 && player.blockSelected == 18) {
+                        World_SetBlock(player.rayResult.hitPos, 4, true);
+                        Network_Send(Packet_SetBlock(4, player.rayResult.hitPos));
+                        break;
+                    }
+                
+                default:
+                    World_SetBlock(Vector3Add(player.rayResult.hitPos, player.rayResult.normal), player.blockSelected, true);
+                    Network_Send(Packet_SetBlock(player.blockSelected, Vector3Add(player.rayResult.hitPos, player.rayResult.normal)));
+                    break;
             }
         } else if(IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) { //Pick Block
             int pickedID = World_GetBlock(player.rayResult.hitPos);
@@ -182,11 +202,6 @@ void Player_Update() {
 
     Vector3 oldPosition = player.position;
 
-    //Move X & Test Collisions
-    for(int i = 0; i < steps; i++) {
-        player.position.x += velXdt.x / steps;
-        if(Player_TestCollision()) player.position.x -= velXdt.x / steps;
-    }
 
     //Move Y & Test Collisions
     for(int i = 0; i < steps; i++) {
@@ -199,10 +214,30 @@ void Player_Update() {
         }
     }
 
+    //Move X & Test Collisions
+    for(int i = 0; i < steps; i++) {
+        player.position.x += velXdt.x / steps;
+        if(Player_TestCollision()) {
+            if (player.velocity.y != 0 || Player_TestSemiCollision()) {
+                player.position.x -= velXdt.x / steps;
+            }
+            else {
+                player.position.y += 0.51f / steps;
+            }
+        }
+    }
+
     //Move Z & Test Collisions
     for(int i = 0; i < steps; i++) {
         player.position.z += velXdt.z / steps;
-        if(Player_TestCollision()) player.position.z -= velXdt.z / steps;
+            if(Player_TestCollision()) {
+                if (player.velocity.y != 0 || Player_TestSemiCollision()) {
+                    player.position.z -= velXdt.z / steps;
+                }
+                else {
+                    player.position.y += 0.51f / steps;
+            }
+        }
     }
 
     if(floor(oldPosition.x / 16) != floor(player.position.x / 16) || 
@@ -228,6 +263,37 @@ bool Player_TestCollision() {
     BoundingBox pB = player.collisionBox;
     pB.min = Vector3Add(pB.min, player.position);
     pB.max = Vector3Add(pB.max, player.position);
+    
+    for(int x = (int)(pB.min.x - 1); x < (int)(pB.max.x + 1); x++) {
+        for(int z = (int)(pB.min.z - 1); z < (int)(pB.max.z + 1); z++) {
+            for(int y = (int)(pB.min.y - 1); y < (int)(pB.max.y + 1); y++) {
+                
+                Vector3 blockPos = (Vector3) {x, y, z};
+                Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
+                Chunk* chunk = World_GetChunkAt(chunkPos);
+                if(chunk == NULL || chunk->isMapGenerated == false) return true;
+
+                int blockID = World_GetBlock(blockPos);
+                Block blockDef = Block_GetDefinition(blockID);
+                if(blockDef.colliderType != BlockColliderType_Solid) continue;
+                
+                BoundingBox blockB;
+                blockB.min = (Vector3) {x + (blockDef.minBB.x / 16), y + (blockDef.minBB.y / 16), z + (blockDef.minBB.z / 16)};
+                blockB.max = (Vector3) {x + (blockDef.maxBB.x / 16), y + (blockDef.maxBB.y / 16), z + (blockDef.maxBB.z / 16)};
+                
+                if(CheckCollisionBoxes(pB, blockB)) return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+bool Player_TestSemiCollision() {
+    
+    BoundingBox pB = player.collisionBox;
+    pB.min = Vector3Add(Vector3Add(pB.min, player.position), (Vector3){0,0.51f,0});
+    pB.max = Vector3Add(Vector3Add(pB.max, player.position), (Vector3){0,0.51f,0});
     
     for(int x = (int)(pB.min.x - 1); x < (int)(pB.max.x + 1); x++) {
         for(int z = (int)(pB.min.z - 1); z < (int)(pB.max.z + 1); z++) {
