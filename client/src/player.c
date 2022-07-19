@@ -38,7 +38,7 @@ void Player_Init() {
     player.position = (Vector3) { 0, 80, 0 };
     player.speed = 0.125f / 6;
     
-    player.collisionBox.min = (Vector3) { 0, 0, 0 };
+    player.collisionBox.min = (Vector3) { 0.2f, 0, 0.2f };
     player.collisionBox.max = (Vector3) { 0.8f, 1.5f, 0.8f };
 
     player.blockSelected = 15;
