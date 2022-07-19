@@ -44,6 +44,16 @@ void Screens_init(Texture2D terrain, bool *exit) {
     GuiSetStyle(BUTTON, BORDER_COLOR_PRESSED,   0xfcffffff); 
     GuiSetStyle(BUTTON, BASE_COLOR_PRESSED,     0x00000000); 
     GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED,     0xffffffff); 
+
+    GuiSetStyle(SLIDER, BORDER_COLOR_NORMAL,    0xfffcfcff); 
+    GuiSetStyle(SLIDER, BASE_COLOR_NORMAL,      0x00000000); 
+    GuiSetStyle(SLIDER, TEXT_COLOR_NORMAL,      0xffffffff); 
+    GuiSetStyle(SLIDER, BORDER_COLOR_FOCUSED,   0xf1f1f1ff); 
+    GuiSetStyle(SLIDER, TEXT_COLOR_FOCUSED,     0xf1f1f1ff); 
+    GuiSetStyle(SLIDER, BASE_COLOR_PRESSED,     0xfcffffff); 
+    GuiSetStyle(SLIDER, BORDER_COLOR_PRESSED,   0xfcffffff); 
+    GuiSetStyle(SLIDER, TEXT_COLOR_PRESSED,     0xffffffff); 
+    GuiSetStyle(SLIDER, BORDER_WIDTH,           2); 
     
     GuiSetStyle(PROGRESSBAR, BORDER_COLOR_NORMAL,   0xfffdfdff); 
     GuiSetStyle(PROGRESSBAR, BORDER_COLOR_PRESSED,  0xfbf8f8ff); 
@@ -151,13 +161,18 @@ void Screen_MakeOptions(void) {
     const char* drawDistanceTxt = TextFormat("Draw Distance: %i", world.drawDistance);
 
     //Draw distance Button
-    if(GuiButton((Rectangle) {offsetX, offsetY - 15, 200, 30 }, drawDistanceTxt)) {
-        world.drawDistance += 1;
-        if(world.drawDistance > 8) {
-            world.drawDistance = 2;
-            World_Reload();
-        } else {
+    int newDrawDistance = GuiSlider((Rectangle) {offsetX, offsetY - 15, 200, 30 }, "", "", world.drawDistance, 2, 8);
+    Vector2 sizeText = MeasureTextEx(GetFontDefault(), drawDistanceTxt, 10.0f, 1);
+    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2 + 1, offsetY - sizeText.y / 2 + 1}, 10.0f, 1, BLACK);
+    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2, offsetY - sizeText.y / 2}, 10.0f, 1, WHITE);
+
+    if (newDrawDistance != world.drawDistance) {
+        if(newDrawDistance > world.drawDistance) {
+            world.drawDistance = newDrawDistance;
             World_LoadChunks();
+        } else {
+            world.drawDistance = newDrawDistance;
+            World_Reload();
         }
     }
 
