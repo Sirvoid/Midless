@@ -126,18 +126,18 @@ void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigne
         if(b.modelType != BlockModelType_Sprite) {
             switch(face) {
                 case BlockFace_Bottom:
-                    colors[BFH_colorsI[translucent]++] = fmin(100, fmax(16, 100 - light));
+                    colors[BFH_colorsI[translucent]++] = fmin(100, fmax(32, 100 - light));
                     break;
                 case BlockFace_Left:
                 case BlockFace_Right:
-                    colors[BFH_colorsI[translucent]++] = fmin(150, fmax(16, 150 - light));
+                    colors[BFH_colorsI[translucent]++] = fmin(150, fmax(32, 150 - light));
                     break;
                 case BlockFace_Front:
                 case BlockFace_Back:
-                    colors[BFH_colorsI[translucent]++] = fmin(200, fmax(16, 200 - light));
+                    colors[BFH_colorsI[translucent]++] = fmin(200, fmax(32, 200 - light));
                     break;
                 default:
-                    colors[BFH_colorsI[translucent]++] = fmin(255, fmax(16, 255 - light));
+                    colors[BFH_colorsI[translucent]++] = fmin(255, fmax(32, 255 - light));
                     break;
             }
         } else {
