@@ -249,12 +249,11 @@ void Player_Update() {
     //Move X & Test Collisions
     for(int i = 0; i < steps; i++) {
         player.position.x += velXdt.x / steps;
-        if(Player_TestCollision()) {
+            if (Player_TestCollision()) {
             if (player.velocity.y != 0 || Player_TestSemiCollision()) {
                 player.position.x -= velXdt.x / steps;
-            }
-            else {
-                player.position.y += 0.51f / steps;
+                } else {
+                    player.position.y += 0.1f / steps;
             }
         }
     }
@@ -262,12 +261,13 @@ void Player_Update() {
     //Move Z & Test Collisions
     for(int i = 0; i < steps; i++) {
         player.position.z += velXdt.z / steps;
-            if(Player_TestCollision()) {
+            if (Player_TestCollision()) {
                 if (player.velocity.y != 0 || Player_TestSemiCollision()) {
                     player.position.z -= velXdt.z / steps;
+                } else {
+                    player.position.y += 0.1f / steps;
+                    break;
                 }
-                else {
-                    player.position.y += 0.51f / steps;
             }
         }
     }
