@@ -11,7 +11,6 @@
 #include "world.h"
 #include "math.h"
 #include "block/block.h"
-#include <stdio.h>
 
 #define RAYCAST_PRECISION 0.05f
 #define RAYCAST_REACH 8
@@ -29,7 +28,6 @@ RaycastResult Raycast_Do(Vector3 position, Vector3 direction, bool ignoreLiquid)
         position.z += direction.z * RAYCAST_PRECISION;
         
         int blockID = World_GetBlock(position);
-        
         
         if(blockID != 0) {
             Block block = Block_GetDefinition(blockID);

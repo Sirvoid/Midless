@@ -18,6 +18,7 @@
 #include "block/block.h"
 #include "networking/networkhandler.h"
 #include "networking/packet.h"
+#include "vectormath.h"
 
 #define MOUSE_SENSITIVITY 0.003f
 
@@ -115,26 +116,31 @@ void Player_CheckInputs() {
             player.velocity.y += 0.2f;
             player.canJump = false;
         }
+        Vector3 moveDir = { 0 };
         
         if(IsKeyDown(KEY_W)) {
-            player.velocity.z += sx * player.speed;
-            player.velocity.x += cx * player.speed;
+            moveDir.z += sx;
+            moveDir.x += cx;
         }
         
         if(IsKeyDown(KEY_S)) {
-           player.velocity.z -= sx * player.speed;
-           player.velocity.x -= cx * player.speed;
+            moveDir.z -= sx;
+            moveDir.x -= cx;
         }
         
         if(IsKeyDown(KEY_A)) {
-           player.velocity.z -= sx90 * player.speed;
-           player.velocity.x -= cx90 * player.speed;
+            moveDir.z -= sx90;
+            moveDir.x -= cx90;
         }
         
         if(IsKeyDown(KEY_D)) {
-           player.velocity.z += sx90 * player.speed;
-           player.velocity.x += cx90 * player.speed;
+            moveDir.z += sx90;
+            moveDir.x += cx90;
         }
+
+        moveDir = Vector3ClampValue(moveDir, 0.0f, 1.0f); // normalize
+        Vector3 moveVel = Vector3Scale(moveDir, player.speed);
+        player.velocity = Vector3Add(player.velocity, moveVel);
         
         float wheel = GetMouseWheelMove();
         if(wheel > 0.35f) player.blockSelected++;
