@@ -217,6 +217,8 @@ void Player_Update() {
             if(player.velocity.y <= 0) player.canJump = true;
             player.velocity.y = 0;
             break;
+        } else {
+            player.canJump = false;
         }
     }
 
