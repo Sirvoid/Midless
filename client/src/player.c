@@ -156,28 +156,36 @@ void Player_CheckInputs() {
                 Network_Send(Packet_SetBlock(0, player.rayResult.hitPos));
             }
         } else if(IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
-            switch (player.rayResult.hitBlockID)
+            Vector3 placePos = Vector3Add(player.rayResult.hitPos, player.rayResult.normal);
+
+            switch (player.blockSelected)
             {
                 case -1: // null
                 case 0: // air
                     break;
                 
+                case 12:
+                case 13:
+                    int bottomBlockID = World_GetBlock(Vector3Add(placePos, (Vector3){0, -1, 0}));
+                    
+                    if (bottomBlockID == 2 || bottomBlockID == 3 || bottomBlockID == 6) { // dirt, grass, sand
+                        Player_TryPlaceBlock(placePos, player.blockSelected);
+                    }
+                    break;
+                
                 case 17: // stone_slab
-                    if (player.rayResult.normal.y == 1 && player.blockSelected == 17) {
-                        World_SetBlock(player.rayResult.hitPos, 1, true);
-                        Network_Send(Packet_SetBlock(1, player.rayResult.hitPos));
+                    if (player.rayResult.normal.y == 1 && player.rayResult.hitBlockID == 17) {
+                        Player_TryPlaceBlock(player.rayResult.hitPos, 1);
                         break;
                     }
                 case 18: // wood_slab
-                    if (player.rayResult.normal.y == 1 && player.blockSelected == 18) {
-                        World_SetBlock(player.rayResult.hitPos, 4, true);
-                        Network_Send(Packet_SetBlock(4, player.rayResult.hitPos));
+                    if (player.rayResult.normal.y == 1 && player.rayResult.hitBlockID == 18) {
+                        Player_TryPlaceBlock(player.rayResult.hitPos, 4);
                         break;
                     }
                 
                 default:
-                    World_SetBlock(Vector3Add(player.rayResult.hitPos, player.rayResult.normal), player.blockSelected, true);
-                    Network_Send(Packet_SetBlock(player.blockSelected, Vector3Add(player.rayResult.hitPos, player.rayResult.normal)));
+                    Player_TryPlaceBlock(placePos, player.blockSelected);
                     break;
             }
         } else if(IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) { //Pick Block
@@ -191,6 +199,20 @@ void Player_CheckInputs() {
     player.camera.target.z = player.camera.position.z + forwardZ;
     
     UpdateCamera(&player.camera);
+}
+
+bool Player_TryPlaceBlock(Vector3 pos, int blockID)
+{
+    int oldBlock = World_GetBlock(pos);
+    World_SetBlock(pos, blockID, true);
+    if (Player_TestCollision())
+    {
+        World_SetBlock(pos, oldBlock, true);
+        return false;
+    }
+
+    Network_Send(Packet_SetBlock(blockID, pos));
+    return true;
 }
 
 void Player_Update() {

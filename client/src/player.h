@@ -33,6 +33,8 @@ void Player_CheckInputs(void);
 //Update a player.
 void Player_Update(void);
 
+bool Player_TryPlaceBlock(Vector3 pos, int blockID);
+
 bool Player_TestCollision(void);
 bool Player_TestSemiCollision(void);
 Vector3 Player_GetForwardVector(void);
