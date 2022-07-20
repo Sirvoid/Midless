@@ -158,6 +158,7 @@ void Player_CheckInputs() {
         } else if(IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
             Vector3 placePos = Vector3Add(player.rayResult.hitPos, player.rayResult.normal);
 
+            if(player.rayResult.hitBlockID != -1) {
             switch (player.blockSelected)
             {
                 case -1: // null
@@ -187,6 +188,7 @@ void Player_CheckInputs() {
                 default:
                     Player_TryPlaceBlock(placePos, player.blockSelected);
                     break;
+                }
             }
         } else if(IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) { //Pick Block
             int pickedID = World_GetBlock(player.rayResult.hitPos);
