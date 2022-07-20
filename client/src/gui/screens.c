@@ -35,24 +35,36 @@ void Screens_init(Texture2D terrain, bool *exit) {
     exitGame = exit;
 
     //Set UI colors
-    GuiSetStyle(2,0,0xfffcfcff); //BUTTON_BORDER_COLOR_NORMAL 
-    GuiSetStyle(2,1,0x00000000); //BUTTON_BASE_COLOR_NORMAL 
-    GuiSetStyle(2,2,0xffffffff); //BUTTON_TEXT_COLOR_NORMAL 
-    GuiSetStyle(2,3,0x010101ff); //BUTTON_BORDER_COLOR_FOCUSED 
-    GuiSetStyle(2,4,0xfafafa00); //BUTTON_BASE_COLOR_FOCUSED 
-    GuiSetStyle(2,5,0x000000ff); //BUTTON_TEXT_COLOR_FOCUSED 
-    GuiSetStyle(2,6,0xfcffffff); //BUTTON_BORDER_COLOR_PRESSED 
-    GuiSetStyle(2,7,0x00000000); //BUTTON_BASE_COLOR_PRESSED 
-    GuiSetStyle(2,8,0xffffffff); //BUTTON_TEXT_COLOR_PRESSED 
-    GuiSetStyle(5,0,0xfffdfdff); //PROGRESSBAR_BORDER_COLOR_NORMAL 
-    GuiSetStyle(5,6,0xfbf8f8ff); //PROGRESSBAR_BORDER_COLOR_PRESSED 
-    GuiSetStyle(5,7,0xf8fbfbff); //PROGRESSBAR_BASE_COLOR_PRESSED 
-    GuiSetStyle(9,0,0xf9f9f9ff); //TEXTBOX_BORDER_COLOR_NORMAL 
-    GuiSetStyle(9,1,0xfbfbfbff); //TEXTBOX_BASE_COLOR_NORMAL 
-    GuiSetStyle(9,2,0xfdf9f9ff); //TEXTBOX_TEXT_COLOR_NORMAL 
-    GuiSetStyle(9,4,0xc7effeff); //TEXTBOX_BASE_COLOR_FOCUSED 
-    GuiSetStyle(9,6,0x0392c7ff); //TEXTBOX_BORDER_COLOR_PRESSED 
-    GuiSetStyle(9,8,0x338bafff); //TEXTBOX_TEXT_COLOR_PRESSED 
+    GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL,    0xfffcfcff); 
+    GuiSetStyle(BUTTON, BASE_COLOR_NORMAL,      0x00000000); 
+    GuiSetStyle(BUTTON, TEXT_COLOR_NORMAL,      0xffffffff); 
+    GuiSetStyle(BUTTON, BORDER_COLOR_FOCUSED,   0x010101ff); 
+    GuiSetStyle(BUTTON, BASE_COLOR_FOCUSED,     0xfafafa00); 
+    GuiSetStyle(BUTTON, TEXT_COLOR_FOCUSED,     0x000000ff); 
+    GuiSetStyle(BUTTON, BORDER_COLOR_PRESSED,   0xfcffffff); 
+    GuiSetStyle(BUTTON, BASE_COLOR_PRESSED,     0x00000000); 
+    GuiSetStyle(BUTTON, TEXT_COLOR_PRESSED,     0xffffffff); 
+
+    GuiSetStyle(SLIDER, BORDER_COLOR_NORMAL,    0xfffcfcff); 
+    GuiSetStyle(SLIDER, BASE_COLOR_NORMAL,      0x00000000); 
+    GuiSetStyle(SLIDER, TEXT_COLOR_NORMAL,      0xffffffff); 
+    GuiSetStyle(SLIDER, BORDER_COLOR_FOCUSED,   0xf1f1f1ff); 
+    GuiSetStyle(SLIDER, TEXT_COLOR_FOCUSED,     0xf1f1f1ff); 
+    GuiSetStyle(SLIDER, BASE_COLOR_PRESSED,     0xfcffffff); 
+    GuiSetStyle(SLIDER, BORDER_COLOR_PRESSED,   0xfcffffff); 
+    GuiSetStyle(SLIDER, TEXT_COLOR_PRESSED,     0xffffffff); 
+    GuiSetStyle(SLIDER, BORDER_WIDTH,           2); 
+    
+    GuiSetStyle(PROGRESSBAR, BORDER_COLOR_NORMAL,   0xfffdfdff); 
+    GuiSetStyle(PROGRESSBAR, BORDER_COLOR_PRESSED,  0xfbf8f8ff); 
+    GuiSetStyle(PROGRESSBAR, BASE_COLOR_PRESSED,    0xf8fbfbff); 
+    
+    GuiSetStyle(TEXTBOX, BORDER_COLOR_NORMAL,   0xf9f9f9ff); 
+    GuiSetStyle(TEXTBOX, BASE_COLOR_NORMAL,     0xfbfbfbff); 
+    GuiSetStyle(TEXTBOX, TEXT_COLOR_NORMAL,     0xfdf9f9ff); 
+    GuiSetStyle(TEXTBOX, BASE_COLOR_FOCUSED,    0xc7effeff); 
+    GuiSetStyle(TEXTBOX, BORDER_COLOR_PRESSED,  0x0392c7ff); 
+    GuiSetStyle(TEXTBOX, TEXT_COLOR_PRESSED,    0x338bafff); 
 }
 
 void Screen_MakeGame(void) {
@@ -149,13 +161,18 @@ void Screen_MakeOptions(void) {
     const char* drawDistanceTxt = TextFormat("Draw Distance: %i", world.drawDistance);
 
     //Draw distance Button
-    if(GuiButton((Rectangle) {offsetX, offsetY - 15, 200, 30 }, drawDistanceTxt)) {
-        world.drawDistance += 1;
-        if(world.drawDistance > 8) {
-            world.drawDistance = 2;
-            World_Reload();
-        } else {
+    int newDrawDistance = GuiSlider((Rectangle) {offsetX, offsetY - 15, 200, 30 }, "", "", world.drawDistance, 2, 8);
+    Vector2 sizeText = MeasureTextEx(GetFontDefault(), drawDistanceTxt, 10.0f, 1);
+    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2 + 1, offsetY - sizeText.y / 2 + 1}, 10.0f, 1, BLACK);
+    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2, offsetY - sizeText.y / 2}, 10.0f, 1, WHITE);
+
+    if (newDrawDistance != world.drawDistance) {
+        if(newDrawDistance > world.drawDistance) {
+            world.drawDistance = newDrawDistance;
             World_LoadChunks();
+        } else {
+            world.drawDistance = newDrawDistance;
+            World_Reload();
         }
     }
 
