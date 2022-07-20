@@ -87,20 +87,20 @@ void Screen_MakeGame(void) {
     int texY = texI / 16 * 16;
 
     Rectangle texRec = (Rectangle) {
-        texX, 
-        texY, 
-        texX + 16, 
-        texY + 16
+        texX + 16 - blockDef.maxBB.x, 
+        texY + 16 - blockDef.maxBB.y, 
+        (blockDef.maxBB.x - blockDef.minBB.x), 
+        (blockDef.maxBB.y - blockDef.minBB.y)
     };
 
     Rectangle destRec = (Rectangle) { 
-        screenWidth - 80 - (blockDef.minBB.x * 4), 
+        screenWidth - 80 + (blockDef.minBB.x * 4), 
         16 + ((16 - blockDef.maxBB.y) * 4), 
         (blockDef.maxBB.x - blockDef.minBB.x) * 4, 
         (blockDef.maxBB.y - blockDef.minBB.y) * 4
     };
 
-    DrawTextureTiled(mapTerrain, texRec, destRec, (Vector2) {0, 0}, 0, 4, WHITE);
+    DrawTexturePro(mapTerrain, texRec, destRec, (Vector2) {0, 0}, 0, WHITE);
 
     //Draw Chat
     Chat_Draw((Vector2){16, screenHeight - 52}, uiColBg);
