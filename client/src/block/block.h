@@ -67,4 +67,7 @@ void Block_SetTexture(Block *block, BlockFace face, int texIndex);
 //Get texture of a block's face.
 int Block_GetTexture(Block *block, BlockFace face);
 
+//Verify if a block is full size
+bool Block_IsFullSize(Block *block);
+
 #endif

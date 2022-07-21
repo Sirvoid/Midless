@@ -191,7 +191,7 @@ LightNode *Chunk_SpreadLight(LightNode *lightQueue, bool sunlight) {
             int nextLight = Chunk_GetLightLevel(nextChunk, nextIndex, sunlight);
             
             Block blockDefinition = Block_GetDefinition(nextChunk->data[nextIndex]);
-            if(blockDefinition.renderType == BlockRenderType_Opaque) continue;
+            if(blockDefinition.renderType == BlockRenderType_Opaque && Block_IsFullSize(&blockDefinition)) continue;
 
             //Sunlight goes infinitely down
             int subVal = 1;

@@ -108,3 +108,7 @@ void Block_SetTexture(Block *block, BlockFace face, int texIndex) {
 int Block_GetTexture(Block *block, BlockFace face) {
     return block->textures[(int)face];
 }
+
+bool Block_IsFullSize(Block *block) {
+    return block->minBB.x == 0 && block->minBB.z == 0 && block->minBB.y == 0 && block->maxBB.x == 16 && block->maxBB.z == 16 && block->maxBB.y == 16;
+}
