@@ -169,7 +169,7 @@ void Screen_MakeOptions(void) {
     if (newDrawDistance != world.drawDistance) {
         if(newDrawDistance > world.drawDistance) {
             world.drawDistance = newDrawDistance;
-            World_LoadChunks();
+            World_LoadChunks(false);
         } else {
             world.drawDistance = newDrawDistance;
             World_Reload();

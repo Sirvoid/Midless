@@ -69,6 +69,8 @@ void Chunk_Generate(Chunk *chunk);
 void Chunk_SaveFile(Chunk *chunk);
 //Load a chunk from a file.
 bool Chunk_LoadFile(Chunk *chunk);
+//Get a neighbour from a direction
+Chunk* Chunk_GetNeighbour(Chunk* chunk, Vector3 dir);
 //Update a chunk's neighbour list.
 void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood);
 //Refresh the mesh of the chunk's neighbours.
@@ -89,6 +91,7 @@ int Chunk_PosToIndex(Vector3 pos);
 Vector3 Chunk_IndexToPos(int index);
 //Add a chunk to a queue.
 QueuedChunk *Chunk_AddToQueue(QueuedChunk *queue, Chunk* chunk);
+QueuedChunk *Chunk_InsertToQueue(QueuedChunk *queue, QueuedChunk* previous, Chunk* chunk);
 //Remove a chunk from a queue.
 QueuedChunk *Chunk_PopFromQueue(QueuedChunk *queue);
 QueuedChunk *Chunk_RemoveFromQueue(QueuedChunk *head, QueuedChunk* previous, QueuedChunk* chunk);

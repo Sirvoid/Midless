@@ -28,6 +28,8 @@ void World_Init(void) {
     world.loadChunks = false;
     world.drawDistance = 4;
     world.chunks = NULL;
+    world.generateChunksQueue = NULL;
+    world.buildChunksQueue = NULL;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
     for(int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
@@ -62,7 +64,7 @@ void World_LoadSingleplayer(void) {
     Screen_Switch(SCREEN_GAME);
 
     world.loadChunks = true;
-    World_LoadChunks();
+    World_LoadChunks(false);
 }
 
 clock_t begin;
@@ -73,7 +75,9 @@ void *World_ReadChunksQueues(void *state) {
     while(true) {
 
         pthread_mutex_lock(&chunk_mutex);
+        
         QueuedChunk *queuedChunk = world.generateChunksQueue;
+        
         if(world.loadChunks == true && queuedChunk != NULL) {
             Chunk_Generate(queuedChunk->chunk);
 
@@ -81,6 +85,7 @@ void *World_ReadChunksQueues(void *state) {
             world.generateChunksQueue = Chunk_PopFromQueue(queuedChunk);
             pthread_mutex_unlock(&generateChunk_mutex);
         }
+        
         pthread_mutex_unlock(&chunk_mutex);
         
     }
@@ -91,7 +96,7 @@ void World_QueueChunk(Chunk *chunk) {
 
     if(chunk->hasStartedGenerating == false) {
         pthread_mutex_lock(&generateChunk_mutex);
-        world.generateChunksQueue = Chunk_AddToQueue(world.generateChunksQueue, chunk);
+        world.generateChunksQueue = Chunk_AddToQueue(world.generateChunksQueue, chunk);  
         pthread_mutex_unlock(&generateChunk_mutex);
     }
     chunk->hasStartedGenerating = true;
@@ -117,11 +122,15 @@ void World_AddChunk(Vector3 position) {
             break;
         }
     }
-
+    
     Chunk *newChunk = MemAlloc(sizeof(Chunk));
     newChunk->nextChunk = NULL;
 
     if(curChunk != NULL) {
+        if(curChunk->nextChunk != NULL) {
+            curChunk->nextChunk->previousChunk = newChunk;
+            newChunk->nextChunk = curChunk->nextChunk;
+        }
         curChunk->nextChunk = newChunk;
         newChunk->previousChunk = curChunk;
     } else {
@@ -150,20 +159,7 @@ Chunk* World_GetChunkAt(Vector3 pos) {
     return NULL;
 }
 
-void World_RemoveChunk(Vector3 position) {
-
-    Chunk *curChunk = world.chunks;
-
-    bool beenFound = false;
-    while(curChunk != NULL) {
-        if(curChunk->position.x == position.x && curChunk->position.y == position.y && curChunk->position.z == position.z) { 
-            beenFound = true;
-            break;
-        }
-        curChunk = curChunk->nextChunk;
-    }
-
-    if(!beenFound) return;
+void World_RemoveChunk(Chunk *curChunk) {
 
     Chunk* prevChunk = curChunk->previousChunk;
     Chunk *nextChunk = curChunk->nextChunk;
@@ -202,7 +198,7 @@ void World_UpdateChunks(void) {
         }
 }
 
-void World_LoadChunks(void) {
+void World_LoadChunks(bool loadEdges) {
 
     if(!world.loadChunks) return;
 
@@ -213,34 +209,40 @@ void World_LoadChunks(void) {
     for(int x = -world.drawDistance ; x <= world.drawDistance; x++) {
         for(int z = -world.drawDistance ; z <= world.drawDistance; z++) {
             for(int y = -loadingHeight ; y <= loadingHeight; y++) {
-                World_AddChunk((Vector3) {pos.x + x, pos.y + y, pos.z + z});
+                Vector3 chunkPos = (Vector3) {pos.x + x, pos.y + y, pos.z + z};
+                if(!loadEdges) {
+                    World_AddChunk(chunkPos);
+                } else if(Vector3Distance(chunkPos, pos) >= world.drawDistance) {
+                    World_AddChunk(chunkPos);
+                }
             }
         }
     }
     
+
     //destroy far chunks
     Chunk *chunk = world.chunks;
     while(chunk != NULL) {
-        
         Chunk *nextChunk = chunk->nextChunk;
 
-        float unloadDist = (world.drawDistance + 2) * CHUNK_SIZE_X;
         if(chunk->isBuilt == true && chunk->isBuilding == false) {
-            if(Vector3Distance(chunk->blockPosition, player.position) > unloadDist) {
+            if(Vector3Distance(chunk->position, pos) >= world.drawDistance + 2) {
                 if(Chunk_AreNeighbourBuilding(chunk) == false) {
-                   World_RemoveChunk(chunk->position);
+                   World_RemoveChunk(chunk);
                 }
             }
         }
 
         chunk = nextChunk;
     }
+
+
 }
 
 void World_Reload(void) {
     World_Unload();
     world.loadChunks = true;
-    World_LoadChunks();
+    World_LoadChunks(false);
 }
 
 void World_Unload(void) {
@@ -257,7 +259,7 @@ void World_Unload(void) {
 
     Chunk *curChunk = world.chunks;
     while(curChunk != NULL) {
-        World_RemoveChunk(curChunk->position);
+        World_RemoveChunk(curChunk);
         curChunk = world.chunks;
     }
     pthread_mutex_unlock(&chunk_mutex);

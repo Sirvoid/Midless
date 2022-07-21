@@ -123,6 +123,47 @@ int Chunk_GetBlock(Chunk *chunk, Vector3 pos) {
     return 0;
 }
 
+Chunk* Chunk_GetNeighbour(Chunk* chunk, Vector3 dir) {
+    Vector3 directions[26] = {
+        {-1, 0, 0},
+        {1, 0, 0},
+        {0, 1, 0},
+        {0, -1, 0},
+        {0, 0, 1},
+        {0, 0, -1},
+        {-1, -1, -1},
+        {1, 1, 1},
+        {-1, -1, 0},
+        {1, 1, 0},
+        {-1, -1, 1},
+        {1, 1, -1},
+        {-1, 0, -1},
+        {1, 0, 1},
+        {-1, 0, 1},
+        {1, 0, -1},
+        {-1, 1, -1},
+        {1, -1, 1},
+        {-1, 1, 0},
+        {1, -1, 0},
+        {-1, 1, 1},
+        {1, -1, -1},
+        {0, -1, -1},
+        {0, 1, 1},
+        {0, -1, 1},
+        {0, 1, -1}
+    };
+
+    int index = 0;
+    for(int i = 0; i < 26; i++) {
+        if(directions[i].x == dir.x && directions[i].y == dir.y && directions[i].z == dir.z) {
+            index = i;
+            break;
+        }
+    }
+
+    return chunk->neighbours[index];
+}
+
 void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood) {
 
     Vector3 directions[26] = {
@@ -271,6 +312,23 @@ QueuedChunk *Chunk_AddToQueue(QueuedChunk *queue, Chunk* chunk) {
     queue->next = NULL;
 
     return head;
+}
+
+QueuedChunk *Chunk_InsertToQueue(QueuedChunk *queue, QueuedChunk* previous, Chunk* chunk) {
+
+    QueuedChunk *queued =  MemAlloc(sizeof(QueuedChunk));
+    queued->chunk = chunk;
+    queued->next = NULL;
+
+    if(previous == NULL) {
+        if(queue != NULL) queued->next = queue;
+        return queued;
+    } else {
+        if(previous->next != NULL) queued->next = previous->next;
+        previous->next = queued;
+    }
+
+    return queue;
 }
 
 QueuedChunk *Chunk_PopFromQueue(QueuedChunk *queue) {

@@ -274,7 +274,7 @@ void Player_Update() {
     if (floor(oldPosition.x / 16) != floor(player.position.x / 16) || 
         floor(oldPosition.y / 16) != floor(player.position.y / 16) ||
         floor(oldPosition.z / 16) != floor(player.position.z / 16)) {
-        World_LoadChunks();
+        World_LoadChunks(true);
     }
 
     //Place Camera
