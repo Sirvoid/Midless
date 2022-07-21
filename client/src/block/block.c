@@ -43,11 +43,15 @@ void Block_BuildDefinition(void) {
     Block_definition[12].modelType = BlockModelType_Sprite;
     Block_definition[12].renderType = BlockRenderType_Transparent;
     Block_definition[12].colliderType = BlockColliderType_None;
+    Block_definition[12].minBB = (Vector3) {4, 0, 4};
+    Block_definition[12].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(13, "dandelion", 13, 13, 13);
     Block_definition[13].modelType = BlockModelType_Sprite;
     Block_definition[13].renderType = BlockRenderType_Transparent;
     Block_definition[13].colliderType = BlockColliderType_None;
+    Block_definition[13].minBB = (Vector3) {4, 0, 4};
+    Block_definition[13].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(14, "glass", 17, 17, 17);
     Block_definition[14].renderType = BlockRenderType_Transparent;
@@ -59,7 +63,7 @@ void Block_BuildDefinition(void) {
     Block_definition[15].lightType = BlockLightType_Emit;
 
     Block_Define(16, "lava", 15, 15, 15);
-    Block_definition[16].colliderType = BlockColliderType_None;
+    Block_definition[16].colliderType = BlockColliderType_Liquid;
     Block_definition[16].lightType = BlockLightType_Emit;
 
     Block_Define(17, "stone_slab", 1, 1, 1);
