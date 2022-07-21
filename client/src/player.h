@@ -35,8 +35,7 @@ void Player_Update(void);
 
 bool Player_TryPlaceBlock(Vector3 pos, int blockID);
 
-bool Player_TestCollision(void);
-bool Player_TestSemiCollision(void);
+bool Player_TestCollision(Vector3 offset);
 Vector3 Player_GetForwardVector(void);
 
 #endif
