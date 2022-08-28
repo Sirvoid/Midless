@@ -27,8 +27,6 @@ typedef struct Chunk{
     int step;
     Vector3 position; //Position of the chunk in chunk unit
     Vector3 blockPosition; //Position of the chunk in block unit
-    struct Chunk *nextChunk;
-    struct Chunk *previousChunk;
     struct Chunk *neighbours[26];
 
     //Loading/Generation flags
@@ -42,7 +40,6 @@ typedef struct Chunk{
 
 typedef struct QueuedChunk {
     Chunk *chunk;
-    struct QueuedChunk *next;
     int state;
 } QueuedChunk;
 
@@ -89,11 +86,5 @@ bool Chunk_IsValidPos(Vector3 pos);
 int Chunk_PosToIndex(Vector3 pos);
 //convert index to block position.
 Vector3 Chunk_IndexToPos(int index);
-//Add a chunk to a queue.
-QueuedChunk *Chunk_AddToQueue(QueuedChunk *queue, Chunk* chunk);
-QueuedChunk *Chunk_InsertToQueue(QueuedChunk *queue, QueuedChunk* previous, Chunk* chunk);
-//Remove a chunk from a queue.
-QueuedChunk *Chunk_PopFromQueue(QueuedChunk *queue);
-QueuedChunk *Chunk_RemoveFromQueue(QueuedChunk *head, QueuedChunk* previous, QueuedChunk* chunk);
 
 #endif

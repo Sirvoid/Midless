@@ -73,9 +73,12 @@ void Chunk_Unload(Chunk *chunk) {
 
         MemFree(chunk->mesh);
         MemFree(chunk->meshTransparent);
+        chunk->mesh = NULL;
+        chunk->meshTransparent = NULL;
     }
 
     Chunk_UpdateNeighbours(chunk, true);
+    //MemFree(chunk); TODO: Figure out why it crashes when freeing memory here.
 }
 
 
@@ -289,63 +292,3 @@ int Chunk_PosToIndex(Vector3 pos) {
     
 }
 
-/*-------------------------------------------------------------------------------------------------------*
-*-------------------------------------------Chunk Queue----------------------------------------------*
-*--------------------------------------------------------------------------------------------------------*/
-
-QueuedChunk *Chunk_AddToQueue(QueuedChunk *queue, Chunk* chunk) {
-
-    QueuedChunk *head = queue;
-
-    if(queue != NULL) {
-        while(queue->next != NULL) {
-            queue = queue->next;
-        }
-        queue->next = MemAlloc(sizeof(QueuedChunk));
-        queue = queue->next;
-    } else {
-        queue = MemAlloc(sizeof(QueuedChunk));
-        head = queue;
-    }
-
-    queue->chunk = chunk;
-    queue->next = NULL;
-
-    return head;
-}
-
-QueuedChunk *Chunk_InsertToQueue(QueuedChunk *queue, QueuedChunk* previous, Chunk* chunk) {
-
-    QueuedChunk *queued =  MemAlloc(sizeof(QueuedChunk));
-    queued->chunk = chunk;
-    queued->next = NULL;
-
-    if(previous == NULL) {
-        if(queue != NULL) queued->next = queue;
-        return queued;
-    } else {
-        if(previous->next != NULL) queued->next = previous->next;
-        previous->next = queued;
-    }
-
-    return queue;
-}
-
-QueuedChunk *Chunk_PopFromQueue(QueuedChunk *queue) {
-    if(queue == NULL) return NULL;
-
-    QueuedChunk *node = queue->next;
-    MemFree(queue);
-    return node;
-}
-
-QueuedChunk *Chunk_RemoveFromQueue(QueuedChunk *head, QueuedChunk* previous, QueuedChunk* chunk) {
-    if(head == NULL) return NULL;
-
-    QueuedChunk *next = chunk->next;
-    MemFree(chunk);
-    if(chunk == head) return next;
-    previous->next = next;
-   
-    return head;
-}

@@ -161,7 +161,7 @@ void Screen_MakeOptions(void) {
     const char* drawDistanceTxt = TextFormat("Draw Distance: %i", world.drawDistance);
 
     //Draw distance Button
-    int newDrawDistance = GuiSlider((Rectangle) {offsetX, offsetY - 15, 200, 30 }, "", "", world.drawDistance, 2, 8);
+    int newDrawDistance = GuiSlider((Rectangle) {offsetX, offsetY - 15, 200, 30 }, "", "", world.drawDistance, 2, 12);
     Vector2 sizeText = MeasureTextEx(GetFontDefault(), drawDistanceTxt, 10.0f, 1);
     DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2 + 1, offsetY - sizeText.y / 2 + 1}, 10.0f, 1, BLACK);
     DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2, offsetY - sizeText.y / 2}, 10.0f, 1, WHITE);

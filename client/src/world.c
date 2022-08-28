@@ -5,12 +5,16 @@
  * https://opensource.org/licenses/MIT
  */
 
+#define __clang__ true
+#define STB_DS_IMPLEMENTATION
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
 #include <raylib.h>
 #include <sys/stat.h>
+#include <stb_ds.h>
 #include "chunkMeshGeneration.h"
 #include "world.h"
 #include "rlgl.h"
@@ -27,9 +31,6 @@ void World_Init(void) {
     world.mat = LoadMaterialDefault();
     world.loadChunks = false;
     world.drawDistance = 4;
-    world.chunks = NULL;
-    world.generateChunksQueue = NULL;
-    world.buildChunksQueue = NULL;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
     for(int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
@@ -68,8 +69,6 @@ void World_LoadSingleplayer(void) {
 }
 
 clock_t begin;
-
-pthread_mutex_t generateChunk_mutex;
 pthread_mutex_t chunk_mutex;
 void *World_ReadChunksQueues(void *state) {
     while(true) {
@@ -81,9 +80,7 @@ void *World_ReadChunksQueues(void *state) {
         if(world.loadChunks == true && queuedChunk != NULL) {
             Chunk_Generate(queuedChunk->chunk);
 
-            pthread_mutex_lock(&generateChunk_mutex);
-            world.generateChunksQueue = Chunk_PopFromQueue(queuedChunk);
-            pthread_mutex_unlock(&generateChunk_mutex);
+            if(arrlen(world.generateChunksQueue) > 0) arrdel(world.generateChunksQueue, 0);
         }
         
         pthread_mutex_unlock(&chunk_mutex);
@@ -95,106 +92,78 @@ void *World_ReadChunksQueues(void *state) {
 void World_QueueChunk(Chunk *chunk) {
 
     if(chunk->hasStartedGenerating == false) {
-        pthread_mutex_lock(&generateChunk_mutex);
-        world.generateChunksQueue = Chunk_AddToQueue(world.generateChunksQueue, chunk);  
-        pthread_mutex_unlock(&generateChunk_mutex);
+        QueuedChunk *queued = MemAlloc(sizeof(QueuedChunk));
+        queued->chunk = chunk;
+        queued->state = 0;
+        arrput(world.generateChunksQueue, *queued);
+        MemFree(queued);
     }
     chunk->hasStartedGenerating = true;
 
     if(chunk->isBuilding == false) {
-        world.buildChunksQueue = Chunk_AddToQueue(world.buildChunksQueue, chunk);
+        QueuedChunk *queued = MemAlloc(sizeof(QueuedChunk));
+        queued->chunk = chunk;
+        queued->state = 0;
+        arrput(world.buildChunksQueue, *queued);
+        MemFree(queued);
         chunk->isBuilding = true;
     }
 }
 
 void World_AddChunk(Vector3 position) {
 
-    Chunk *curChunk = world.chunks;
+    long long int p = (long long)((int)(position.x)&65535)<<32 | ((int)(position.y)&65535)<<16 | ((int)(position.z)&65535);
+    int index = hmgeti(world.chunks, p);
+    if(index == -1) {
+        //Add chunk to list
+        Chunk *newChunk = MemAlloc(sizeof(Chunk));
+        hmput(world.chunks, p, newChunk);
 
-    while(curChunk != NULL) {
-        if(curChunk->position.x == position.x && curChunk->position.y == position.y && curChunk->position.z == position.z) { 
-            return; //Already exists
+        Chunk_Init(newChunk, position);
+
+        if(!Network_connectedToServer) {
+            World_QueueChunk(newChunk);
+            Chunk_RefreshBorderingChunks(newChunk, true);
         }
-
-        if(curChunk->nextChunk != NULL) {
-            curChunk = curChunk->nextChunk;
-        } else {
-            break;
-        }
-    }
-    
-    Chunk *newChunk = MemAlloc(sizeof(Chunk));
-    newChunk->nextChunk = NULL;
-
-    if(curChunk != NULL) {
-        if(curChunk->nextChunk != NULL) {
-            curChunk->nextChunk->previousChunk = newChunk;
-            newChunk->nextChunk = curChunk->nextChunk;
-        }
-        curChunk->nextChunk = newChunk;
-        newChunk->previousChunk = curChunk;
-    } else {
-        world.chunks = newChunk;
-        newChunk->previousChunk = NULL;
-    }
-
-    Chunk_Init(newChunk, position);
-
-    if(!Network_connectedToServer) {
-        World_QueueChunk(newChunk);
-        Chunk_RefreshBorderingChunks(newChunk, true);
     }
 }
 
-Chunk* World_GetChunkAt(Vector3 pos) {
-    Chunk *chunk = world.chunks;
-    while(chunk != NULL) {
-        if(chunk->position.x == pos.x && chunk->position.y == pos.y && chunk->position.z == pos.z) {
-            return chunk;
-        }
-        
-        chunk = chunk->nextChunk;
+Chunk* World_GetChunkAt(Vector3 position) {
+    long long int p = (long long)((int)(position.x)&65535)<<32 | ((int)(position.y)&65535)<<16 | ((int)(position.z)&65535);
+    int index = hmgeti(world.chunks, p);
+    if(index >= 0) {
+        return world.chunks[index].value;
     }
     
     return NULL;
 }
 
 void World_RemoveChunk(Chunk *curChunk) {
-
-    Chunk* prevChunk = curChunk->previousChunk;
-    Chunk *nextChunk = curChunk->nextChunk;
-
-    if(curChunk == world.chunks) world.chunks = curChunk->nextChunk;
-    if(prevChunk != NULL) prevChunk->nextChunk = nextChunk;
-    if(nextChunk != NULL) nextChunk->previousChunk = prevChunk;
     
+    long long int p = (long long)((int)(curChunk->position.x)&65535)<<32 | ((int)(curChunk->position.y)&65535)<<16 | ((int)(curChunk->position.z)&65535);
+
     Chunk_Unload(curChunk);
-    MemFree(curChunk);
+    hmdel(world.chunks, p);
+    
 }
 
 void World_UpdateChunks(void) {
-        QueuedChunk* curQueued = world.buildChunksQueue;
-        QueuedChunk* prevQueued = world.buildChunksQueue;
 
         int meshUpdatesCount = 4;
 
-        while(curQueued != NULL) {
-            QueuedChunk *nextQueued = curQueued->next;
-            Chunk *chunk = curQueued->chunk;
+        for (int i=0; i < arrlen(world.buildChunksQueue); i++) {
+            Chunk *chunk = world.buildChunksQueue[i].chunk;
             if(chunk->isLightGenerated == true) {
                 if(Chunk_AreNeighbourGenerated(chunk) == true) {
                     Chunk_BuildMesh(chunk);
                     chunk->isBuilding = false;
-                    world.buildChunksQueue = Chunk_RemoveFromQueue(world.buildChunksQueue, prevQueued, curQueued);
+                    arrdel(world.buildChunksQueue, i);
+                    i--;
+                    if(--meshUpdatesCount == 0 || arrlen(world.buildChunksQueue) == 0) return;
 
-                    if(--meshUpdatesCount == 0) return;
-
-                    curQueued = nextQueued;
                     continue;
                 }
             }
-            prevQueued = curQueued;
-            curQueued = nextQueued;
         }
 }
 
@@ -219,21 +188,19 @@ void World_LoadChunks(bool loadEdges) {
         }
     }
     
-
     //destroy far chunks
-    Chunk *chunk = world.chunks;
-    while(chunk != NULL) {
-        Chunk *nextChunk = chunk->nextChunk;
+    for (int i=0; i < hmlen(world.chunks); i++) {
+        Chunk *chunk = world.chunks[i].value;
 
         if(chunk->isBuilt == true && chunk->isBuilding == false) {
             if(Vector3Distance(chunk->position, pos) >= world.drawDistance + 2) {
                 if(Chunk_AreNeighbourBuilding(chunk) == false) {
                    World_RemoveChunk(chunk);
+                   i--;
                 }
             }
         }
 
-        chunk = nextChunk;
     }
 
 
@@ -249,18 +216,11 @@ void World_Unload(void) {
     world.loadChunks = false;
 
     pthread_mutex_lock(&chunk_mutex);
-    while(world.generateChunksQueue != NULL) {
-        world.generateChunksQueue = Chunk_PopFromQueue(world.generateChunksQueue);
-    }
+    arrfree(world.generateChunksQueue);
+    arrfree(world.buildChunksQueue);
 
-    while(world.buildChunksQueue != NULL) {
-        world.buildChunksQueue = Chunk_PopFromQueue(world.buildChunksQueue);
-    }
-
-    Chunk *curChunk = world.chunks;
-    while(curChunk != NULL) {
-        World_RemoveChunk(curChunk);
-        curChunk = world.chunks;
+    while (hmlen(world.chunks) > 0) {
+        World_RemoveChunk(world.chunks[0].value);
     }
     pthread_mutex_unlock(&chunk_mutex);
     
@@ -278,15 +238,9 @@ void World_Draw(Vector3 camPosition) {
 
     ChunkMesh_PrepareDrawing(world.mat);
 
-    int amountChunks = 0;
+    int amountChunks = hmlen(world.chunks);
     float frustumAngle = DEG2RAD * player.camera.fovy + 0.3f;
     Vector3 dirVec = Player_GetForwardVector();
-
-    Chunk *chunk = world.chunks;
-    while(chunk != NULL) {
-        amountChunks++;
-        chunk = chunk->nextChunk;
-    }
     
     Vector3 chunkLocalCenter = (Vector3){CHUNK_SIZE_X / 2, CHUNK_SIZE_Y / 2, CHUNK_SIZE_Z / 2};
 
@@ -294,8 +248,8 @@ void World_Draw(Vector3 camPosition) {
     struct { Chunk *chunk; float dist; } *sortedChunks = MemAlloc(amountChunks * (sizeof(Chunk*) + sizeof(float)));
 
     int sortedLength = 0;
-    chunk = world.chunks;
-    while(chunk != NULL) {
+    for (int i=0; i < hmlen(world.chunks); i++) {
+        Chunk *chunk = world.chunks[i].value;
         Vector3 centerChunk = Vector3Add(chunk->blockPosition, chunkLocalCenter);
         float distFromCam = Vector3Distance(centerChunk, camPosition);
 
@@ -303,14 +257,12 @@ void World_Draw(Vector3 camPosition) {
         Vector3 toChunkVec = Vector3Normalize(Vector3Subtract(centerChunk, camPosition));
        
         if(distFromCam > CHUNK_SIZE_X && Vector3Distance(toChunkVec, dirVec) > frustumAngle) {
-            chunk = chunk->nextChunk;
             continue;
         }
 
         sortedChunks[sortedLength].dist = distFromCam;
         sortedChunks[sortedLength].chunk = chunk;
         sortedLength++;
-        chunk = chunk->nextChunk;
     }
     
     //Sort chunks back to front

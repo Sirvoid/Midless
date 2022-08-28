@@ -5,6 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
+#define GLSL_VERSION 330
+
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
@@ -18,8 +20,6 @@
 #include "block/block.h"
 #include "networking/networkhandler.h"
 #include "chat.h"
-
-#define GLSL_VERSION 330
 
 int main(void) {
     // Initialization
@@ -40,7 +40,7 @@ int main(void) {
 
     // World Initialization
     World_Init();
-    
+
     char *chunkShaderVs = 
         #include "chunk/chunk_shader.vs"
     ;
