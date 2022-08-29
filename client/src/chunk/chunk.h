@@ -19,8 +19,8 @@
 #define CHUNK_SIZE (CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z)
 
 typedef struct Chunk{
-    ChunkMesh *mesh;
-    ChunkMesh *meshTransparent;
+    ChunkMesh mesh;
+    ChunkMesh meshTransparent;
     unsigned short data[CHUNK_SIZE];
     unsigned char lightData[CHUNK_SIZE];
     unsigned char sunlightData[CHUNK_SIZE];
@@ -36,6 +36,7 @@ typedef struct Chunk{
     bool isMapGenerated;
     bool isLightGenerated;
     bool fromFile;
+    bool deleted;
 } Chunk;
 
 typedef struct QueuedChunk {

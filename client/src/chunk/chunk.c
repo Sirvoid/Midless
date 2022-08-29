@@ -21,16 +21,12 @@
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
-    chunk->mesh = MemAlloc(sizeof(ChunkMesh));
-    chunk->meshTransparent = MemAlloc(sizeof(ChunkMesh));
     chunk->fromFile = false;
     chunk->isBuilt = false;
     chunk->isBuilding = false;
     chunk->isMapGenerated = false;
     chunk->isLightGenerated = false;
     chunk->hasStartedGenerating = false;
-    chunk->mesh->vaoId = 0;
-    chunk->meshTransparent->vaoId = 0;
 
     for(int i = 0; i < CHUNK_SIZE; i++) {
         chunk->lightData[i] = 0;
@@ -68,17 +64,12 @@ bool Chunk_LoadFile(Chunk *chunk) {
 void Chunk_Unload(Chunk *chunk) {
 
     if(chunk->isBuilt) {
-        ChunkMesh_Unload(chunk->mesh);
-        ChunkMesh_Unload(chunk->meshTransparent);
-
-        MemFree(chunk->mesh);
-        MemFree(chunk->meshTransparent);
-        chunk->mesh = NULL;
-        chunk->meshTransparent = NULL;
+        ChunkMesh_Unload(&chunk->mesh);
+        ChunkMesh_Unload(&chunk->meshTransparent);
     }
 
     Chunk_UpdateNeighbours(chunk, true);
-    //MemFree(chunk); TODO: Figure out why it crashes when freeing memory here.
+    MemFree(chunk);
 }
 
 

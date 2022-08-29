@@ -16,7 +16,7 @@
 
 typedef struct World{
     Entity *entities;
-    struct { long long int key; Chunk* value; } *chunks;
+    struct { long int key; Chunk* value; } *chunks;
     QueuedChunk *generateChunksQueue;
     QueuedChunk *buildChunksQueue;
     Material mat;

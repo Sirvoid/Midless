@@ -92,27 +92,26 @@ void *World_ReadChunksQueues(void *state) {
 void World_QueueChunk(Chunk *chunk) {
 
     if(chunk->hasStartedGenerating == false) {
-        QueuedChunk *queued = MemAlloc(sizeof(QueuedChunk));
-        queued->chunk = chunk;
-        queued->state = 0;
-        arrput(world.generateChunksQueue, *queued);
-        MemFree(queued);
+        QueuedChunk queued;
+        queued.chunk = chunk;
+        queued.state = 0;
+        arrput(world.generateChunksQueue, queued);
+
     }
     chunk->hasStartedGenerating = true;
 
     if(chunk->isBuilding == false) {
-        QueuedChunk *queued = MemAlloc(sizeof(QueuedChunk));
-        queued->chunk = chunk;
-        queued->state = 0;
-        arrput(world.buildChunksQueue, *queued);
-        MemFree(queued);
+        QueuedChunk queued;
+        queued.chunk = chunk;
+        queued.state = 0;
+        arrput(world.buildChunksQueue, queued);
         chunk->isBuilding = true;
     }
 }
 
 void World_AddChunk(Vector3 position) {
 
-    long long int p = (long long)((int)(position.x)&65535)<<32 | ((int)(position.y)&65535)<<16 | ((int)(position.z)&65535);
+    long int p = (long)((int)(position.x)&1023)<<20 | ((int)(position.y)&1023)<<10 | ((int)(position.z)&1023);
     int index = hmgeti(world.chunks, p);
     if(index == -1) {
         //Add chunk to list
@@ -129,7 +128,7 @@ void World_AddChunk(Vector3 position) {
 }
 
 Chunk* World_GetChunkAt(Vector3 position) {
-    long long int p = (long long)((int)(position.x)&65535)<<32 | ((int)(position.y)&65535)<<16 | ((int)(position.z)&65535);
+    long int p = (long)((int)(position.x)&1023)<<20 | ((int)(position.y)&1023)<<10 | ((int)(position.z)&1023);
     int index = hmgeti(world.chunks, p);
     if(index >= 0) {
         return world.chunks[index].value;
@@ -139,11 +138,13 @@ Chunk* World_GetChunkAt(Vector3 position) {
 }
 
 void World_RemoveChunk(Chunk *curChunk) {
-    
-    long long int p = (long long)((int)(curChunk->position.x)&65535)<<32 | ((int)(curChunk->position.y)&65535)<<16 | ((int)(curChunk->position.z)&65535);
+    long int p = (long)((int)(curChunk->position.x)&1023)<<20 | ((int)(curChunk->position.y)&1023)<<10 | ((int)(curChunk->position.z)&1023);
 
-    Chunk_Unload(curChunk);
-    hmdel(world.chunks, p);
+    int index = hmgeti(world.chunks, p);
+    if(index >= 0) {
+        Chunk_Unload(curChunk);
+        hmdel(world.chunks, p);
+    }
     
 }
 
@@ -151,15 +152,14 @@ void World_UpdateChunks(void) {
 
         int meshUpdatesCount = 4;
 
-        for (int i=0; i < arrlen(world.buildChunksQueue); i++) {
+        for (int i = arrlen(world.buildChunksQueue) - 1; i >= 0; i--) {
             Chunk *chunk = world.buildChunksQueue[i].chunk;
             if(chunk->isLightGenerated == true) {
                 if(Chunk_AreNeighbourGenerated(chunk) == true) {
                     Chunk_BuildMesh(chunk);
                     chunk->isBuilding = false;
                     arrdel(world.buildChunksQueue, i);
-                    i--;
-                    if(--meshUpdatesCount == 0 || arrlen(world.buildChunksQueue) == 0) return;
+                    if(--meshUpdatesCount == 0) return;
 
                     continue;
                 }
@@ -216,12 +216,17 @@ void World_Unload(void) {
     world.loadChunks = false;
 
     pthread_mutex_lock(&chunk_mutex);
+
     arrfree(world.generateChunksQueue);
     arrfree(world.buildChunksQueue);
+    world.generateChunksQueue = NULL;
+    world.buildChunksQueue = NULL;
 
-    while (hmlen(world.chunks) > 0) {
-        World_RemoveChunk(world.chunks[0].value);
+    for(int i = hmlen(world.chunks) - 1; i >= 0; i--) {
+        World_RemoveChunk(world.chunks[i].value);
     }
+    world.chunks = NULL;
+
     pthread_mutex_unlock(&chunk_mutex);
     
 }
@@ -245,7 +250,7 @@ void World_Draw(Vector3 camPosition) {
     Vector3 chunkLocalCenter = (Vector3){CHUNK_SIZE_X / 2, CHUNK_SIZE_Y / 2, CHUNK_SIZE_Z / 2};
 
     //Create the sorted chunk list
-    struct { Chunk *chunk; float dist; } *sortedChunks = MemAlloc(amountChunks * (sizeof(Chunk*) + sizeof(float)));
+    struct { Chunk *chunk; float dist; } sortedChunks[amountChunks];
 
     int sortedLength = 0;
     for (int i=0; i < hmlen(world.chunks); i++) {
@@ -292,15 +297,13 @@ void World_Draw(Vector3 camPosition) {
                                    0, 0, 1, chunk->blockPosition.z,
                                    0, 0, 0, 1 };
         
-        ChunkMesh_Draw(chunk->mesh, world.mat, matrix);
+        ChunkMesh_Draw(&chunk->mesh, world.mat, matrix);
         rlDisableBackfaceCulling();
-        ChunkMesh_Draw(chunk->meshTransparent, world.mat, matrix);
+        ChunkMesh_Draw(&chunk->meshTransparent, world.mat, matrix);
         rlEnableBackfaceCulling();
     }
 
     ChunkMesh_FinishDrawing();
-
-    MemFree(sortedChunks);
 
     //Draw entities
     for(int i = 0; i < WORLD_MAX_ENTITIES; i++) {

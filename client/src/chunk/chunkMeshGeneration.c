@@ -45,8 +45,8 @@ void Chunk_MeshGenerationInit(void) {
 void Chunk_BuildMesh(Chunk *chunk) {
 
     if(chunk->isBuilt == true) {
-        ChunkMesh_Unload(chunk->mesh);
-        ChunkMesh_Unload(chunk->meshTransparent);
+        ChunkMesh_Unload(&chunk->mesh);
+        ChunkMesh_Unload(&chunk->meshTransparent);
     }
 
     BlockMesh_ResetIndexes();
@@ -62,20 +62,20 @@ void Chunk_BuildMesh(Chunk *chunk) {
         bool translucent = blockDef.renderType == BlockRenderType_Translucent;
 
         if(translucent) {
-            Chunk_AddCube(chunk, chunk->meshTransparent, pos, blockDef);
+            Chunk_AddCube(chunk, &chunk->meshTransparent, pos, blockDef);
         } else {
-            Chunk_AddCube(chunk, chunk->mesh, pos, blockDef);
+            Chunk_AddCube(chunk, &chunk->mesh, pos, blockDef);
         }
     }
     
-    chunk->mesh->vertexCount = Chunk_triangleCounter * 2;
-    chunk->mesh->triangleCount = Chunk_triangleCounter;
+    chunk->mesh.vertexCount = Chunk_triangleCounter * 2;
+    chunk->mesh.triangleCount = Chunk_triangleCounter;
 
-    chunk->meshTransparent->vertexCount = Chunk_triangleCounterTransparent * 2;
-    chunk->meshTransparent->triangleCount = Chunk_triangleCounterTransparent;
+    chunk->meshTransparent.vertexCount = Chunk_triangleCounterTransparent * 2;
+    chunk->meshTransparent.triangleCount = Chunk_triangleCounterTransparent;
 
-    ChunkMesh_Upload(chunk->mesh, vertices, indices, texcoords, colors);
-    ChunkMesh_Upload(chunk->meshTransparent, verticesT, indicesT, texcoordsT, colorsT);
+    ChunkMesh_Upload(&chunk->mesh, vertices, indices, texcoords, colors);
+    ChunkMesh_Upload(&chunk->meshTransparent, verticesT, indicesT, texcoordsT, colorsT);
 
     chunk->isBuilt = true;
 }

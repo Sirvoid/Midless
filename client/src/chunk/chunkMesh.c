@@ -54,7 +54,7 @@ void ChunkMesh_Unload(ChunkMesh *mesh) {
     for (int i = 0; i < MAX_CHUNKMESH_VERTEX_BUFFERS; i++) rlUnloadVertexBuffer(mesh->vboId[i]);
     
     RL_FREE(mesh->vboId);
-
+    
 }
 
 void ChunkMesh_PrepareDrawing(Material mat) {
