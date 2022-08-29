@@ -12,16 +12,16 @@
 
 int Chunk_GetLight(Chunk* chunk, Vector3 pos);
 
-LightNode *Chunk_LightQueueAdd(LightNode *queue, int index, Chunk *chunk);
-LightDelNode *Chunk_LightDelQueueAdd(LightDelNode *queue, int index, int val, Chunk *chunk);
-LightNode *Chunk_LightQueuePop(LightNode *lightQueue);
-LightDelNode *Chunk_LightDelQueuePop(LightDelNode *lightDelQueue);
+void Chunk_LightQueueAdd(int index, Chunk *chunk);
+void Chunk_LightDelQueueAdd(int index, int val, Chunk *chunk);
+void Chunk_LightQueuePop(void);
+void Chunk_LightDelQueuePop(void);
 
 void Chunk_DoSunlight(Chunk *chunk);
 void Chunk_DoLightSources(Chunk *srcChunk);
 
-void Chunk_UpdateLight(LightNode *lightQueue, LightDelNode *lightDelQueue, bool sunlight);
-LightNode *Chunk_SpreadLight(LightNode *lightQueue, bool sunlight);
+void Chunk_UpdateLight(bool sunlight);
+void Chunk_SpreadLight(bool sunlight);
 
 void Chunk_AddLightSource(Chunk *srcChunk, Vector3 srcPos, int intensity, bool sunlight);
 void Chunk_RemoveLightSource(Chunk *srcChunk, Vector3 srcPos);

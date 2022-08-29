@@ -8,10 +8,16 @@
 #include <raylib.h>
 #include <raymath.h>
 #include <stdio.h>
+#include <stb_ds.h>
+#include <pthread.h>
 #include "chunkLightning.h"
 #include "../block/block.h"
 #include "world.h"
 #include "player.h"
+
+pthread_mutex_t light_mutex;
+LightNode *lightQueue = NULL;
+LightDelNode *lightDelQueue = NULL;
 
 Vector3 lightDirections[6] = {
     {-1, 0, 0},
@@ -37,65 +43,46 @@ int Chunk_GetLight(Chunk* chunk, Vector3 pos) {
     return 255 - fmin(chunk->lightData[index] + chunk->sunlightData[index], 15) * 17;
 }
 
-LightNode *Chunk_LightQueueAdd(LightNode *queue, int index, Chunk *chunk) {
+void Chunk_LightQueueAdd(int index, Chunk *chunk) {
 
-    LightNode *head = queue;
+    pthread_mutex_lock(&light_mutex);
 
-    if(queue != NULL) {
-        while(queue->next != NULL) {
-            queue = queue->next;
-        }
-        queue->next = MemAlloc(sizeof(LightNode));
-        queue = queue->next;
-    } else {
-        queue = MemAlloc(sizeof(LightNode));
-        head = queue;
-    }
+    LightNode node;
+    node.index = index;
+    node.chunk = chunk;
+    arrput(lightQueue, node);
 
-    queue->chunk = chunk;
-    queue->index = index;
-    queue->next = NULL;
-
-    return head;
+    pthread_mutex_unlock(&light_mutex);
 }
 
-LightDelNode *Chunk_LightDelQueueAdd(LightDelNode *queue, int index, int val, Chunk *chunk) {
+void Chunk_LightDelQueueAdd(int index, int val, Chunk *chunk) {
 
-    LightDelNode *head = queue;
+    pthread_mutex_lock(&light_mutex);
 
-    if(queue != NULL) {
-        while(queue->next != NULL) {
-            queue = queue->next;
-        }
-        queue->next = MemAlloc(sizeof(LightDelNode));
-        queue = queue->next;
-    } else {
-        queue = MemAlloc(sizeof(LightDelNode));
-        head = queue;
-    }
+    LightDelNode node;
+    node.index = index;
+    node.chunk = chunk;
+    node.val = val;
+    arrput(lightDelQueue, node);
 
-    queue->chunk = chunk;
-    queue->index = index;
-    queue->val = val;
-    queue->next = NULL;
-
-    return head;
+    pthread_mutex_unlock(&light_mutex);
 }
 
-LightNode *Chunk_LightQueuePop(LightNode *lightQueue) {
-    if(lightQueue == NULL) return NULL;
+void Chunk_LightQueuePop(void) {
 
-    LightNode *node = lightQueue->next;
-    MemFree(lightQueue);
-    return node;
+    pthread_mutex_lock(&light_mutex);
+
+    if(arrlen(lightQueue) > 0) arrdel(lightQueue, 0);
+
+    pthread_mutex_unlock(&light_mutex);
 }
 
-LightDelNode *Chunk_LightDelQueuePop(LightDelNode *lightDelQueue) {
-    if(lightDelQueue == NULL) return NULL;
+void Chunk_LightDelQueuePop(void) {
+    pthread_mutex_lock(&light_mutex);
 
-    LightDelNode *node = lightDelQueue->next;
-    MemFree(lightDelQueue);
-    return node;
+    if(arrlen(lightDelQueue) > 0) arrdel(lightDelQueue, 0);
+    
+    pthread_mutex_unlock(&light_mutex);
 }
 
 void Chunk_SetLightLevel(Chunk *chunk, int index, int level, bool sunlight) {
@@ -117,25 +104,21 @@ int Chunk_GetLightLevel(Chunk *chunk, int index, bool sunlight) {
 void Chunk_DoLightSources(Chunk *srcChunk) {
     if(srcChunk == NULL) return;
 
-    LightNode *lightQueue = NULL;
-
     for(int i = 0; i < CHUNK_SIZE; i++) { 
         Block blockDefinition = Block_GetDefinition(srcChunk->data[i]);
         if(blockDefinition.lightType != BlockLightType_Emit) continue;
 
         
         Chunk_SetLightLevel(srcChunk, i, 15, false);
-        lightQueue = Chunk_LightQueueAdd(lightQueue, i, srcChunk);
+        Chunk_LightQueueAdd(i, srcChunk);
     }
 
-    lightQueue = Chunk_SpreadLight(lightQueue, false);
+    Chunk_SpreadLight(false);
 }
 
 void Chunk_DoSunlight(Chunk *srcChunk) {
     if(srcChunk == NULL) return;
  
-    LightNode *lightQueue = NULL;
-
     bool isTopLoaded = srcChunk->neighbours[2] != NULL;
     if(isTopLoaded) isTopLoaded = srcChunk->neighbours[2]->isLightGenerated == true;
 
@@ -143,7 +126,7 @@ void Chunk_DoSunlight(Chunk *srcChunk) {
         Chunk* topChunk = srcChunk->neighbours[2];
         for(int i = 0; i < CHUNK_SIZE; i++) {
             if(topChunk->sunlightData[i] != 0) {
-                lightQueue = Chunk_LightQueueAdd(lightQueue, i, topChunk);
+                Chunk_LightQueueAdd(i, topChunk);
             }
         }
     } else {
@@ -153,23 +136,23 @@ void Chunk_DoSunlight(Chunk *srcChunk) {
 
                 if(blockDefinition.renderType == BlockRenderType_Transparent) {
                     Chunk_SetLightLevel(srcChunk, i, 15, true);
-                    lightQueue = Chunk_LightQueueAdd(lightQueue, i, srcChunk);
+                    Chunk_LightQueueAdd(i, srcChunk);
                 }
             }
         }
     }
     
-    lightQueue = Chunk_SpreadLight(lightQueue, true);
+    Chunk_SpreadLight(true);
     
 }
 
-LightNode *Chunk_SpreadLight(LightNode *lightQueue, bool sunlight) {
-    while(lightQueue != NULL) {
-
+void Chunk_SpreadLight(bool sunlight) {
+    int limit = 100000;
+    while(arrlen(lightQueue) > 0  && limit-- > 0) {
         //Get and remove first item in Queue
-        int index = lightQueue->index;
-        Chunk *chunk = lightQueue->chunk;
-        lightQueue = Chunk_LightQueuePop(lightQueue);
+        int index = lightQueue[0].index;
+        Chunk *chunk = lightQueue[0].chunk;
+        Chunk_LightQueuePop();
         if(chunk == NULL) continue;
 
         int lightLevel = Chunk_GetLightLevel(chunk, index, sunlight);
@@ -199,22 +182,22 @@ LightNode *Chunk_SpreadLight(LightNode *lightQueue, bool sunlight) {
 
             if(nextLight + 1 + subVal <= lightLevel) {
                 Chunk_SetLightLevel(nextChunk, nextIndex, lightLevel - subVal, sunlight);
-                lightQueue = Chunk_LightQueueAdd(lightQueue, nextIndex, nextChunk);
+                Chunk_LightQueueAdd(nextIndex, nextChunk);
             }
         }
     }
 
-    return lightQueue;
 }
 
-void Chunk_UpdateLight(LightNode *lightQueue, LightDelNode *lightDelQueue, bool sunlight) {
-    while(lightDelQueue != NULL) {
+void Chunk_UpdateLight(bool sunlight) {
+   int limit = 20000;
+   while(arrlen(lightDelQueue) > 0 && limit-- > 0) {
 
         //Get and remove first item in Queue
-        Chunk *chunk = lightDelQueue->chunk;
-        int index = lightDelQueue->index;
-        int lightLevel = lightDelQueue->val;
-        lightDelQueue = Chunk_LightDelQueuePop(lightDelQueue);
+        Chunk *chunk = lightDelQueue[0].chunk;
+        int index = lightDelQueue[0].index;
+        int lightLevel = lightDelQueue[0].val;
+        Chunk_LightDelQueuePop();
         if(chunk == NULL) continue;
 
         Vector3 pos = Chunk_IndexToPos(index);
@@ -235,14 +218,14 @@ void Chunk_UpdateLight(LightNode *lightQueue, LightDelNode *lightDelQueue, bool 
 
             if((neighborLevel != 0 && neighborLevel < lightLevel) || (lightLevel != 0 && d == 3 && sunlight == true)) {
                 Chunk_SetLightLevel(nextChunk, nextIndex, 0, sunlight);
-                lightDelQueue = Chunk_LightDelQueueAdd(lightDelQueue, nextIndex, neighborLevel, nextChunk);
+                Chunk_LightDelQueueAdd(nextIndex, neighborLevel, nextChunk);
             } else if(neighborLevel >= lightLevel) {
                 
                 Block blockDefinition = Block_GetDefinition(nextChunk->data[nextIndex]);
                 if(blockDefinition.renderType == BlockRenderType_Opaque) continue;
 
-                lightQueue = Chunk_LightQueueAdd(lightQueue, nextIndex, nextChunk);
-                lightQueue = Chunk_SpreadLight(lightQueue, sunlight);
+                Chunk_LightQueueAdd(nextIndex, nextChunk);
+                Chunk_SpreadLight(sunlight);
             } 
             
         }
@@ -252,36 +235,31 @@ void Chunk_UpdateLight(LightNode *lightQueue, LightDelNode *lightDelQueue, bool 
 void Chunk_AddLightSource(Chunk *srcChunk, Vector3 srcPos, int intensity, bool sunlight) {
     if(srcChunk == NULL) return;
 
-    LightNode *lightQueue = NULL;
     int srcIndex = Chunk_PosToIndex(srcPos);
     
     Chunk_SetLightLevel(srcChunk, srcIndex, intensity, sunlight);
-    lightQueue = Chunk_LightQueueAdd(lightQueue, srcIndex, srcChunk);
-    lightQueue = Chunk_SpreadLight(lightQueue, sunlight);
+    Chunk_LightQueueAdd(srcIndex, srcChunk);
+    Chunk_SpreadLight(sunlight);
 }
 
 void Chunk_RemoveLightSource(Chunk *srcChunk, Vector3 srcPos) {
     if(srcChunk == NULL) return;
 
-    LightNode *lightQueue = NULL;
-    LightDelNode *lightDelQueue = NULL;
     int srcIndex = Chunk_PosToIndex(srcPos);
 
     int srcVal = Chunk_GetLightLevel(srcChunk, srcIndex, false);
-    lightDelQueue = Chunk_LightDelQueueAdd(lightDelQueue, srcIndex, srcVal, srcChunk);
+    Chunk_LightDelQueueAdd(srcIndex, srcVal, srcChunk);
     Chunk_SetLightLevel(srcChunk, srcIndex, 0, false);
-    Chunk_UpdateLight(lightQueue, lightDelQueue, false);
+    Chunk_UpdateLight(false);
 }
 
 void Chunk_RemoveSunlight(Chunk *srcChunk, Vector3 srcPos) {
     if(srcChunk == NULL) return;
 
-    LightNode *lightQueue = NULL;
-    LightDelNode *lightDelQueue = NULL;
     int srcIndex = Chunk_PosToIndex(srcPos);
 
     int srcVal = srcVal = Chunk_GetLightLevel(srcChunk, srcIndex, true);
-    lightDelQueue = Chunk_LightDelQueueAdd(lightDelQueue, srcIndex, srcVal, srcChunk);
+    Chunk_LightDelQueueAdd(srcIndex, srcVal, srcChunk);
     Chunk_SetLightLevel(srcChunk, srcIndex, 0, true);
-    Chunk_UpdateLight(lightQueue, lightDelQueue, true);
+    Chunk_UpdateLight(true);
 }
