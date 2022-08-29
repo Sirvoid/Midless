@@ -18,7 +18,6 @@
 #include "block/block.h"
 #include "networking/networkhandler.h"
 #include "networking/packet.h"
-#include "vectormath.h"
 
 #define MOUSE_SENSITIVITY 0.003f
 
