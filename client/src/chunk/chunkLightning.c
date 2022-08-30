@@ -130,13 +130,27 @@ void Chunk_DoSunlight(Chunk *srcChunk) {
             }
         }
     } else {
-        if(srcChunk->position.y >= fmax(floorf(player.position.y / CHUNK_SIZE_X) + fmin(world.drawDistance, 4), 5)) {
+        if(srcChunk->position.y >= 5) {
             for(int i = CHUNK_SIZE - CHUNK_SIZE_XZ; i < CHUNK_SIZE; i++) {
                 Block blockDefinition = Block_GetDefinition(srcChunk->data[i]);
 
                 if(blockDefinition.renderType == BlockRenderType_Transparent) {
                     Chunk_SetLightLevel(srcChunk, i, 15, true);
                     Chunk_LightQueueAdd(i, srcChunk);
+                }
+            }
+        } else {
+            for(int d = 0; d < 6; d++) { 
+                if(srcChunk->neighbours[d] != NULL) {
+                    Chunk* neighbor = srcChunk->neighbours[d];
+                    for(int i = 0; i < CHUNK_SIZE; i++) {
+                        Vector3 pos = Chunk_IndexToPos(i);
+                        if(pos.x == 0 || pos.x == 15 || pos.y == 0 || pos.y == 15 || pos.z == 0 || pos.z == 15) {
+                            if(neighbor->sunlightData[i] != 0) {
+                                Chunk_LightQueueAdd(i, neighbor);
+                            }
+                        }
+                    }
                 }
             }
         }

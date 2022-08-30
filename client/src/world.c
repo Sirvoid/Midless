@@ -171,32 +171,57 @@ void World_LoadChunks(bool loadEdges) {
 
     if(!world.loadChunks) return;
 
-    //Create chunks around
     Vector3 pos = (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
     
+    //Create array of chunks to be loaded
     int loadingHeight = fmin(world.drawDistance, 4);
+    int sortedLength = 0;
+    struct { Vector3 chunkPos; float dist; } sortedChunks[(world.drawDistance + 1) * 2 * (world.drawDistance + 1) * 2 * (loadingHeight + 1) * 2];
     for(int x = -world.drawDistance ; x <= world.drawDistance; x++) {
         for(int z = -world.drawDistance ; z <= world.drawDistance; z++) {
             for(int y = -loadingHeight ; y <= loadingHeight; y++) {
                 Vector3 chunkPos = (Vector3) {pos.x + x, pos.y + y, pos.z + z};
                 if(!loadEdges) {
-                    World_AddChunk(chunkPos);
-                } else if(Vector3Distance(chunkPos, pos) >= world.drawDistance) {
-                    World_AddChunk(chunkPos);
+                    sortedChunks[sortedLength].chunkPos = chunkPos;
+                    sortedChunks[sortedLength].dist = Vector3Distance(chunkPos, pos);
+                } else if(Vector3Distance(chunkPos, pos) >= world.drawDistance - 1) {
+                    sortedChunks[sortedLength].chunkPos = chunkPos;
+                    sortedChunks[sortedLength].dist = Vector3Distance(chunkPos, pos);
                 }
+                sortedLength++;
             }
         }
     }
+
+    //Sort array of chunks front to back
+    for(int i = 1; i < sortedLength; i++) {
+        int j = i;
+        while(j > 0 && sortedChunks[j-1].dist > sortedChunks[j].dist) {
+
+            struct { Vector3 chunkPos; float dist; } tempC;
+            tempC.chunkPos = sortedChunks[j].chunkPos;
+            tempC.dist = sortedChunks[j].dist;
+
+            sortedChunks[j] = sortedChunks[j - 1];
+            sortedChunks[j - 1].chunkPos = tempC.chunkPos;
+            sortedChunks[j - 1].dist = tempC.dist;
+            j = j - 1;
+        }
+    }
+
+    //Create the chunks
+    for(int i = 0; i < sortedLength; i++) {
+        World_AddChunk(sortedChunks[i].chunkPos);
+    }
     
     //destroy far chunks
-    for (int i=0; i < hmlen(world.chunks); i++) {
+    for (int i = hmlen(world.chunks) - 1; i >= 0 ; i--) {
         Chunk *chunk = world.chunks[i].value;
 
         if(chunk->isBuilt == true && chunk->isBuilding == false) {
             if(Vector3Distance(chunk->position, pos) >= world.drawDistance + 2) {
                 if(Chunk_AreNeighbourBuilding(chunk) == false) {
                    World_RemoveChunk(chunk);
-                   i--;
                 }
             }
         }
@@ -275,7 +300,7 @@ void World_Draw(Vector3 camPosition) {
         int j = i;
         while(j > 0 && sortedChunks[j-1].dist <= sortedChunks[j].dist) {
 
-            static struct { Chunk *chunk; float dist; } tempC;
+            struct { Chunk *chunk; float dist; } tempC;
             tempC.chunk = sortedChunks[j].chunk;
             tempC.dist = sortedChunks[j].dist;
 
