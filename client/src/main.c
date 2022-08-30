@@ -91,7 +91,7 @@ int main(void) {
                     Vector3 blockSize = Vector3Subtract(block.maxBB, block.minBB);
                     blockSize = Vector3Scale(blockSize, 1.0f / 16);
                     selectionBoxPos.y += blockSize.y / 2;
-                    DrawCube(selectionBoxPos, blockSize.x + 0.01f, blockSize.y + 0.01f, blockSize.z + 0.01f, (Color){255, 255, 255, 40});
+                    DrawCube(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 40});
                 }
                     
             EndMode3D();

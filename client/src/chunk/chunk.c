@@ -27,6 +27,8 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->isMapGenerated = false;
     chunk->isLightGenerated = false;
     chunk->hasStartedGenerating = false;
+    chunk->hasTransparency = false;
+    chunk->onlyAir = true;
 
     for(int i = 0; i < CHUNK_SIZE; i++) {
         chunk->lightData[i] = 0;

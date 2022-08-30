@@ -293,26 +293,35 @@ void World_Draw(Vector3 camPosition) {
     int sortedLength = 0;
     for (int i=0; i < hmlen(world.chunks); i++) {
         Chunk *chunk = world.chunks[i].value;
-        Vector3 centerChunk = Vector3Add(chunk->blockPosition, chunkLocalCenter);
-        float distFromCam = Vector3Distance(centerChunk, camPosition);
+        if(chunk->onlyAir) continue;
+        if(chunk->hasTransparency) {
+            Vector3 centerChunk = Vector3Add(chunk->blockPosition, chunkLocalCenter);
+            float distFromCam = Vector3Distance(centerChunk, camPosition);
 
-        //Don't draw chunks behind the player
-        Vector3 toChunkVec = Vector3Normalize(Vector3Subtract(centerChunk, camPosition));
-       
-        if(distFromCam > CHUNK_SIZE_X && Vector3Distance(toChunkVec, dirVec) > frustumAngle) {
-            continue;
+            //Don't draw chunks behind the player
+            Vector3 toChunkVec = Vector3Normalize(Vector3Subtract(centerChunk, camPosition));
+        
+            if(distFromCam > CHUNK_SIZE_X && Vector3Distance(toChunkVec, dirVec) > frustumAngle) {
+                continue;
+            }
+
+            sortedChunks[sortedLength].dist = distFromCam;
+            sortedChunks[sortedLength].chunk = chunk;
+            sortedLength++;
+        } else {
+            Matrix matrix = (Matrix) { 1, 0, 0, chunk->blockPosition.x,
+                0, 1, 0, chunk->blockPosition.y,
+                0, 0, 1, chunk->blockPosition.z,
+                0, 0, 0, 1 };
+        
+            ChunkMesh_Draw(&chunk->mesh, world.mat, matrix);
         }
-
-        sortedChunks[sortedLength].dist = distFromCam;
-        sortedChunks[sortedLength].chunk = chunk;
-        sortedLength++;
     }
     
     //Sort chunks back to front
     for(int i = 1; i < sortedLength; i++) {
         int j = i;
         while(j > 0 && sortedChunks[j-1].dist <= sortedChunks[j].dist) {
-
             struct { Chunk *chunk; float dist; } tempC;
             tempC.chunk = sortedChunks[j].chunk;
             tempC.dist = sortedChunks[j].dist;

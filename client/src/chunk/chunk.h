@@ -37,6 +37,10 @@ typedef struct Chunk{
     bool isLightGenerated;
     bool fromFile;
     bool deleted;
+
+    //mesh flags
+    bool hasTransparency;
+    bool onlyAir;
 } Chunk;
 
 typedef struct QueuedChunk {

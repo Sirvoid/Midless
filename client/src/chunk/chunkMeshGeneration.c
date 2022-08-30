@@ -52,16 +52,20 @@ void Chunk_BuildMesh(Chunk *chunk) {
     BlockMesh_ResetIndexes();
     Chunk_triangleCounter = 0;
     Chunk_triangleCounterTransparent = 0;
-    
+    chunk->hasTransparency = false;
+    chunk->onlyAir = true;
+
     for(int i = 0; i < CHUNK_SIZE; i++) {
         int blockID = chunk->data[i];
         Block blockDef = Block_GetDefinition(blockID);
         if(blockDef.modelType == BlockModelType_Gas) continue;
+        chunk->onlyAir = false;
 
         Vector3 pos = Chunk_IndexToPos(i);
         bool translucent = blockDef.renderType == BlockRenderType_Translucent;
 
         if(translucent) {
+            chunk->hasTransparency = true;
             Chunk_AddCube(chunk, &chunk->meshTransparent, pos, blockDef);
         } else {
             Chunk_AddCube(chunk, &chunk->mesh, pos, blockDef);
