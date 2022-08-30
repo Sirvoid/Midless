@@ -31,6 +31,7 @@ void World_Init(void) {
     world.mat = LoadMaterialDefault();
     world.loadChunks = false;
     world.drawDistance = 4;
+    world.time = 0;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
     for(int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
@@ -68,7 +69,18 @@ void World_LoadSingleplayer(void) {
     World_LoadChunks(false);
 }
 
-clock_t begin;
+clock_t updateClock;
+void World_Update(void) { 
+    
+    clock_t newClock = clock();
+    float time_spent = (float)(newClock - updateClock) / CLOCKS_PER_SEC;
+    updateClock = newClock;
+
+    world.time += time_spent;
+    if(world.time >= WORLD_DAY_LENGTH_SECONDS) world.time = 0;
+    World_UpdateChunks();
+}
+
 pthread_mutex_t chunk_mutex;
 void *World_ReadChunksQueues(void *state) {
     while(true) {
@@ -173,7 +185,7 @@ void World_LoadChunks(bool loadEdges) {
 
     Vector3 pos = (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
     
-    //Create array of chunks to be loaded
+    //Create chunks or prepare array of chunks to be sorted
     int loadingHeight = fmin(world.drawDistance, 4);
     int sortedLength = 0;
     struct { Vector3 chunkPos; float dist; } sortedChunks[(world.drawDistance + 1) * 2 * (world.drawDistance + 1) * 2 * (loadingHeight + 1) * 2];
@@ -186,33 +198,33 @@ void World_LoadChunks(bool loadEdges) {
                     sortedChunks[sortedLength].dist = Vector3Distance(chunkPos, pos);
                     sortedLength++;
                 } else if(Vector3Distance(chunkPos, pos) >= world.drawDistance - 1) {
-                    sortedChunks[sortedLength].chunkPos = chunkPos;
-                    sortedChunks[sortedLength].dist = Vector3Distance(chunkPos, pos);
-                    sortedLength++;
+                    World_AddChunk(chunkPos);
                 }
             }
         }
     }
 
-    //Sort array of chunks front to back
-    for(int i = 1; i < sortedLength; i++) {
-        int j = i;
-        while(j > 0 && sortedChunks[j-1].dist > sortedChunks[j].dist) {
+    if(!loadEdges) {
+        //Sort array of chunks front to back
+        for(int i = 1; i < sortedLength; i++) {
+            int j = i;
+            while(j > 0 && sortedChunks[j-1].dist > sortedChunks[j].dist) {
 
-            struct { Vector3 chunkPos; float dist; } tempC;
-            tempC.chunkPos = sortedChunks[j].chunkPos;
-            tempC.dist = sortedChunks[j].dist;
+                struct { Vector3 chunkPos; float dist; } tempC;
+                tempC.chunkPos = sortedChunks[j].chunkPos;
+                tempC.dist = sortedChunks[j].dist;
 
-            sortedChunks[j] = sortedChunks[j - 1];
-            sortedChunks[j - 1].chunkPos = tempC.chunkPos;
-            sortedChunks[j - 1].dist = tempC.dist;
-            j = j - 1;
+                sortedChunks[j] = sortedChunks[j - 1];
+                sortedChunks[j - 1].chunkPos = tempC.chunkPos;
+                sortedChunks[j - 1].dist = tempC.dist;
+                j = j - 1;
+            }
         }
-    }
 
-    //Create the chunks
-    for(int i = 0; i < sortedLength; i++) {
-        World_AddChunk(sortedChunks[i].chunkPos);
+        //Create the chunks
+        for(int i = 0; i < sortedLength; i++) {
+            World_AddChunk(sortedChunks[i].chunkPos);
+        }
     }
     
     //destroy far chunks
@@ -398,6 +410,10 @@ void World_SetBlock(Vector3 blockPos, int blockID, bool immediate) {
         Chunk_RefreshBorderingChunks(chunk, false);
     }
 
+}
+
+float World_GetSunlightStrength(void) {
+    return fmax(abs(world.time - WORLD_DAY_LENGTH_SECONDS / 2.0f) / (WORLD_DAY_LENGTH_SECONDS / 2.0f), 2/16.0f);
 }
 
 /*-------------------------------------------------------------------------------------------------------*

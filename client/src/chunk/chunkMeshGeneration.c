@@ -126,20 +126,23 @@ void Chunk_AddFace(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, BlockFace face, B
     
     //Get Face's Light Level
     int lightLevel = 0;
+    int sunLightLevel = 0;
     if(sprite || renderType == BlockRenderType_Transparent) {
-        lightLevel = Chunk_GetLight(chunk, pos);
+        lightLevel = Chunk_GetLight(chunk, pos, false);
+        sunLightLevel = Chunk_GetLight(chunk, pos, true);
     } else {
-        lightLevel = Chunk_GetLight(nextChunk, nextPos);
+        lightLevel = Chunk_GetLight(nextChunk, nextPos, false);
+        sunLightLevel = Chunk_GetLight(nextChunk, nextPos, true);
     }
     
     //Build face
     if(bTest || sprite) {
         if(renderType == BlockRenderType_Translucent) { 
             Chunk_triangleCounterTransparent += 2;
-            BlockMesh_AddFace(verticesT, indicesT, texcoordsT, colorsT, face, pos, blockDef, 1, lightLevel);
+            BlockMesh_AddFace(verticesT, indicesT, texcoordsT, colorsT, face, pos, blockDef, 1, lightLevel, sunLightLevel);
         } else {
             Chunk_triangleCounter += 2;
-            BlockMesh_AddFace(vertices, indices, texcoords, colors, face, pos, blockDef, 0, lightLevel);
+            BlockMesh_AddFace(vertices, indices, texcoords, colors, face, pos, blockDef, 0, lightLevel, sunLightLevel);
         }
             
     }

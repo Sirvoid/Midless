@@ -53,7 +53,7 @@ void BlockMesh_ResetIndexes(void) {
     BFH_indicesI[1] = 0;
 }
 
-void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors, BlockFace face, Vector3 pos, Block b, int translucent, int light) {
+void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors, BlockFace face, Vector3 pos, Block b, int translucent, int light, int sunlight) {
     
     Vector3 *facesPosition;
 
@@ -126,22 +126,22 @@ void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigne
         if(b.modelType != BlockModelType_Sprite) {
             switch(face) {
                 case BlockFace_Bottom:
-                    colors[BFH_colorsI[translucent]++] = fmin(100, fmax(32, 100 - light));
+                    colors[BFH_colorsI[translucent]++] = ((int)fmax(0, (light - 8) << 4)) | (int)fmax(0, sunlight - 8);
                     break;
                 case BlockFace_Left:
                 case BlockFace_Right:
-                    colors[BFH_colorsI[translucent]++] = fmin(150, fmax(32, 150 - light));
+                    colors[BFH_colorsI[translucent]++] = ((int)fmax(0, (light - 5) << 4)) | (int)fmax(0, sunlight - 5);
                     break;
                 case BlockFace_Front:
                 case BlockFace_Back:
-                    colors[BFH_colorsI[translucent]++] = fmin(200, fmax(32, 200 - light));
+                    colors[BFH_colorsI[translucent]++] = ((int)fmax(0, (light - 3) << 4)) | (int)fmax(0, sunlight - 3);
                     break;
                 default:
-                    colors[BFH_colorsI[translucent]++] = fmin(255, fmax(32, 255 - light));
+                    colors[BFH_colorsI[translucent]++] = (light << 4) | sunlight;
                     break;
             }
         } else {
-            colors[BFH_colorsI[translucent]++] = fmax(16, 255 - light);
+            colors[BFH_colorsI[translucent]++] = (light << 4) | sunlight;
         }
         
     }

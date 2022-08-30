@@ -37,10 +37,14 @@ Vector3 lightDirectionsXChunk[6] = {
     {0, 0, -CHUNK_SIZE_Z }
 };
 
-int Chunk_GetLight(Chunk* chunk, Vector3 pos) {
-    if(!Chunk_IsValidPos(pos)) return 255;
+int Chunk_GetLight(Chunk* chunk, Vector3 pos, bool sunLight) {
+    if(!Chunk_IsValidPos(pos)) return 15;
     int index = Chunk_PosToIndex(pos);
-    return 255 - fmin(chunk->lightData[index] + chunk->sunlightData[index], 15) * 17;
+    if(sunLight) {
+        return chunk->sunlightData[index];
+    } else {
+        return chunk->lightData[index];
+    }
 }
 
 void Chunk_LightQueueAdd(int index, Chunk *chunk) {

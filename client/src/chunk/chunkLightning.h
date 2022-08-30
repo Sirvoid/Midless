@@ -10,7 +10,7 @@
 
 #include "chunk.h"
 
-int Chunk_GetLight(Chunk* chunk, Vector3 pos);
+int Chunk_GetLight(Chunk* chunk, Vector3 pos, bool sunLight);
 
 void Chunk_LightQueueAdd(int index, Chunk *chunk);
 void Chunk_LightDelQueueAdd(int index, int val, Chunk *chunk);

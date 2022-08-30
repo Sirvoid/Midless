@@ -66,7 +66,7 @@ int main(void) {
 
     // Game loop
     while (!WindowShouldClose() && !exitProgram) {
-        
+
         Network_ReadQueue();
 
         screenHeight = GetScreenHeight();
@@ -74,14 +74,15 @@ int main(void) {
         
         // Update
         Player_Update();
-        World_UpdateChunks();
+        World_Update();
         
         Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x) + 0.5f, floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z) + 0.5f};
         
         // Draw
         BeginDrawing();
 
-            ClearBackground((Color) { 140, 210, 240, 255});
+            float sunlightStrength = World_GetSunlightStrength();
+            ClearBackground((Color) { 140 * sunlightStrength, 210 * sunlightStrength, 240 * sunlightStrength, 255});
 
             BeginMode3D(player.camera);
                 World_Draw(player.camera.position);

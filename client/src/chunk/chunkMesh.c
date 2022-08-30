@@ -63,6 +63,9 @@ void ChunkMesh_PrepareDrawing(Material mat) {
 
     float drawDistance = (world.drawDistance + 2) * 16.0f;
     rlSetUniform(rlGetLocationUniform(mat.shader.id, "drawDistance"), &drawDistance, RL_SHADER_UNIFORM_FLOAT, 1);
+
+    float sunlightStrength = World_GetSunlightStrength();
+    rlSetUniform(rlGetLocationUniform(mat.shader.id, "sunlightStrength"), &sunlightStrength, RL_SHADER_UNIFORM_FLOAT, 1);
 }
 
 void ChunkMesh_FinishDrawing(void) {

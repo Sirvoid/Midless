@@ -13,6 +13,7 @@
 #include "entity/entity.h"
 
 #define WORLD_MAX_ENTITIES 1028
+#define WORLD_DAY_LENGTH_SECONDS 24*60
 
 typedef struct World{
     Entity *entities;
@@ -21,6 +22,7 @@ typedef struct World{
     QueuedChunk *buildChunksQueue;
     Material mat;
     int drawDistance;
+    float time;
     bool loadChunks;
 } World;
 
@@ -30,6 +32,8 @@ extern World world;
 void World_Init(void);
 //Load singleplayer world.
 void World_LoadSingleplayer(void);
+//Update World
+void World_Update(void);
 //Build Chunks mesh in queue
 void World_UpdateChunks(void);
 //Load & Unload Chunks around players.
@@ -54,6 +58,8 @@ void World_ApplyShader(Shader shader);
 void World_SetBlock(Vector3 blockPos, int blockID, bool immediate);
 //Get block ID at a given position.
 int World_GetBlock(Vector3 blockPos);
+//Get strength of sunlight based on time.
+float World_GetSunlightStrength(void);
 //Get a Chunk at a given position.
 Chunk* World_GetChunkAt(Vector3 pos);
 //Teleport an Entity in the world
