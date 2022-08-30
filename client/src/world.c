@@ -184,11 +184,12 @@ void World_LoadChunks(bool loadEdges) {
                 if(!loadEdges) {
                     sortedChunks[sortedLength].chunkPos = chunkPos;
                     sortedChunks[sortedLength].dist = Vector3Distance(chunkPos, pos);
+                    sortedLength++;
                 } else if(Vector3Distance(chunkPos, pos) >= world.drawDistance - 1) {
                     sortedChunks[sortedLength].chunkPos = chunkPos;
                     sortedChunks[sortedLength].dist = Vector3Distance(chunkPos, pos);
+                    sortedLength++;
                 }
-                sortedLength++;
             }
         }
     }
