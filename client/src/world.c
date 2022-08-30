@@ -30,7 +30,7 @@ pthread_t chunkThread_id;
 void World_Init(void) {
     world.mat = LoadMaterialDefault();
     world.loadChunks = false;
-    world.drawDistance = 4;
+    world.drawDistance = 8;
     world.time = 0;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
@@ -123,7 +123,7 @@ void World_QueueChunk(Chunk *chunk) {
 
 void World_AddChunk(Vector3 position) {
 
-    long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | ((int)(position.y)&255);
+    long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | (long)((int)(position.y)&255);
     int index = hmgeti(world.chunks, p);
     if(index == -1) {
         //Add chunk to list
@@ -140,7 +140,7 @@ void World_AddChunk(Vector3 position) {
 }
 
 Chunk* World_GetChunkAt(Vector3 position) {
-    long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | ((int)(position.y)&255);
+    long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | (long)((int)(position.y)&255);
     int index = hmgeti(world.chunks, p);
     if(index >= 0) {
         return world.chunks[index].value;
@@ -150,7 +150,7 @@ Chunk* World_GetChunkAt(Vector3 position) {
 }
 
 void World_RemoveChunk(Chunk *curChunk) {
-    long int p = (long)((int)(curChunk->position.x)&4095)<<20 | (long)((int)(curChunk->position.z)&4095)<<8 | ((int)(curChunk->position.y)&255);
+    long int p = (long)((int)(curChunk->position.x)&4095)<<20 | (long)((int)(curChunk->position.z)&4095)<<8 | (long)((int)(curChunk->position.y)&255);
 
     int index = hmgeti(world.chunks, p);
     if(index >= 0) {
