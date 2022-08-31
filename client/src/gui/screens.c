@@ -27,6 +27,8 @@ int screenHeight;
 int screenWidth;
 bool *exitGame;
 Color uiColBg;
+int maxFPSChoice = 0;
+const char* maxFPS = "60";
 
 Texture2D mapTerrain;
 
@@ -155,16 +157,16 @@ void Screen_MakePause(void) {
 void Screen_MakeOptions(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, uiColBg);
 
-    int offsetY = screenHeight / 2 - 30;
+    int offsetY = screenHeight / 2 - 75;
     int offsetX = screenWidth / 2 - 100;
 
     const char* drawDistanceTxt = TextFormat("Draw Distance: %i", world.drawDistance);
 
     //Draw distance Button
-    int newDrawDistance = GuiSlider((Rectangle) {offsetX, offsetY - 15, 200, 30 }, "", "", world.drawDistance, 2, 16);
+    int newDrawDistance = GuiSlider((Rectangle) {offsetX, offsetY, 200, 30 }, "", "", world.drawDistance, 2, 16);
     Vector2 sizeText = MeasureTextEx(GetFontDefault(), drawDistanceTxt, 10.0f, 1);
-    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2 + 1, offsetY - sizeText.y / 2 + 1}, 10.0f, 1, BLACK);
-    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2, offsetY - sizeText.y / 2}, 10.0f, 1, WHITE);
+    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2 + 1, offsetY + 15 - sizeText.y / 2 + 1}, 10.0f, 1, BLACK);
+    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2, offsetY + 15 - sizeText.y / 2}, 10.0f, 1, WHITE);
 
     if (newDrawDistance != world.drawDistance) {
         if(newDrawDistance > world.drawDistance) {
@@ -176,16 +178,39 @@ void Screen_MakeOptions(void) {
         }
     }
 
+    offsetY += 35;
+
     //Draw Debug Button
     const char* debugStateTxt = "OFF";
     if(Screen_showDebug) debugStateTxt = "ON";
     const char* showDebugTxt = TextFormat("Show Debug: %s", debugStateTxt);
-    if(GuiButton((Rectangle) {offsetX, offsetY + 20, 200, 30 }, showDebugTxt)) {
+    if(GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, showDebugTxt)) {
         Screen_showDebug = !Screen_showDebug;
     }
 
+    offsetY += 35;
+
+    //Draw Max FPS
+    const char* maxFPSTxt = TextFormat("Max FPS: %s", maxFPS);
+    if(GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, maxFPSTxt)) {
+        maxFPSChoice++;
+        if(maxFPSChoice == 3) maxFPSChoice = 0;
+        if(maxFPSChoice == 0) {
+            maxFPS = "60";
+            SetTargetFPS(60);
+        } else if(maxFPSChoice == 1) {
+            maxFPS = "120";
+            SetTargetFPS(120);
+        } else if(maxFPSChoice == 2) {
+            maxFPS = "Unlimited";
+            SetTargetFPS(0);
+        }
+    }
+
+    offsetY += 35;
+
     //Back Button
-    if(GuiButton((Rectangle) {offsetX, offsetY + 55, 200, 30 }, "Back")) {
+    if(GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, "Back")) {
         Screen_Switch(SCREEN_PAUSE);
     }
 
