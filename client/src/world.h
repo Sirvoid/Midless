@@ -18,8 +18,8 @@
 typedef struct World{
     Entity *entities;
     struct { long int key; Chunk* value; } *chunks;
-    QueuedChunk *generateChunksQueue;
-    QueuedChunk *buildChunksQueue;
+    Chunk* *generateChunksQueue;
+    Chunk* *buildChunksQueue;
     Material mat;
     int drawDistance;
     float time;
@@ -37,13 +37,15 @@ void World_Update(void);
 //Build Chunks mesh in queue
 void World_UpdateChunks(void);
 //Load & Unload Chunks around players.
-void World_LoadChunks(bool loadEdges);
+void World_LoadChunks(void);
 //Read Queue to generate chunks.
 void *World_ReadChunksQueues(void *state);
 //Queue a chunk to build it.
 void World_QueueChunk(Chunk *chunk);
 //Add a chunk.
 void World_AddChunk(Vector3 position);
+//Get closest chunk from position in array
+int World_GetClosestChunkIndex(Chunk* *array, Vector3 pos);
 //Unload the world.
 void World_Unload(void);
 //Reload chunks.

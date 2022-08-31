@@ -66,7 +66,7 @@ void World_LoadSingleplayer(void) {
     Screen_Switch(SCREEN_GAME);
 
     world.loadChunks = true;
-    World_LoadChunks(false);
+    World_LoadChunks();
 }
 
 clock_t updateClock;
@@ -82,17 +82,24 @@ void World_Update(void) {
 }
 
 pthread_mutex_t chunk_mutex;
+pthread_mutex_t genChunk_mutex;
 void *World_ReadChunksQueues(void *state) {
     while(true) {
 
         pthread_mutex_lock(&chunk_mutex);
         
-        QueuedChunk *queuedChunk = world.generateChunksQueue;
-        
-        if(world.loadChunks == true && queuedChunk != NULL) {
-            Chunk_Generate(queuedChunk->chunk);
+        if(world.loadChunks == true) {
 
-            if(arrlen(world.generateChunksQueue) > 0) arrdel(world.generateChunksQueue, 0);
+            Vector3 pos = (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
+            int index = World_GetClosestChunkIndex(world.generateChunksQueue, pos);
+
+            if(index != -1) {
+                Chunk_Generate(world.generateChunksQueue[index]);
+                pthread_mutex_lock(&genChunk_mutex);
+                arrdel(world.generateChunksQueue, index);
+                pthread_mutex_unlock(&genChunk_mutex);
+            }
+            
         }
         
         pthread_mutex_unlock(&chunk_mutex);
@@ -101,22 +108,35 @@ void *World_ReadChunksQueues(void *state) {
     return NULL;
 }
 
+int World_GetClosestChunkIndex(Chunk* *array, Vector3 pos) {
+    int arrLength = arrlen(array);
+    if(arrLength > 0) {
+        Chunk* queuedChunk = array[0];
+        int index = 0;
+        for(int i = 0; i < arrLength; i++) {
+            if(Vector3Distance(array[i]->position, pos) < Vector3Distance(queuedChunk->position, pos)) {
+                queuedChunk = array[i];
+                index = i;
+            }
+        }
+        return index;
+    }
+
+    return -1;
+}
+
 void World_QueueChunk(Chunk *chunk) {
 
     if(chunk->hasStartedGenerating == false) {
-        QueuedChunk queued;
-        queued.chunk = chunk;
-        queued.state = 0;
-        arrput(world.generateChunksQueue, queued);
+        pthread_mutex_lock(&genChunk_mutex);
+        arrput(world.generateChunksQueue, chunk);
+        pthread_mutex_unlock(&genChunk_mutex);
 
     }
     chunk->hasStartedGenerating = true;
 
     if(chunk->isBuilding == false) {
-        QueuedChunk queued;
-        queued.chunk = chunk;
-        queued.state = 0;
-        arrput(world.buildChunksQueue, queued);
+        arrput(world.buildChunksQueue, chunk);
         chunk->isBuilding = true;
     }
 }
@@ -164,66 +184,38 @@ void World_UpdateChunks(void) {
 
         int meshUpdatesCount = 4;
 
-        for (int i = arrlen(world.buildChunksQueue) - 1; i >= 0; i--) {
-            Chunk *chunk = world.buildChunksQueue[i].chunk;
+        for (int i = 0; i < meshUpdatesCount; i++) {
+            Vector3 pos = (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
+            int index = World_GetClosestChunkIndex(world.buildChunksQueue, pos);
+            if(index == -1) continue;
+            Chunk *chunk = world.buildChunksQueue[index];
             if(chunk->isLightGenerated == true) {
                 if(Chunk_AreNeighbourGenerated(chunk) == true) {
                     Chunk_BuildMesh(chunk);
                     chunk->isBuilding = false;
-                    arrdel(world.buildChunksQueue, i);
-                    if(--meshUpdatesCount == 0) return;
+                    arrdel(world.buildChunksQueue, index);
 
                     continue;
                 }
             }
         }
+        
 }
 
-void World_LoadChunks(bool loadEdges) {
+void World_LoadChunks(void) {
 
     if(!world.loadChunks) return;
 
     Vector3 pos = (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
-    
+
     //Create chunks or prepare array of chunks to be sorted
     int loadingHeight = fmin(world.drawDistance, 4);
-    int sortedLength = 0;
-    struct { Vector3 chunkPos; float dist; } sortedChunks[(world.drawDistance + 1) * 2 * (world.drawDistance + 1) * 2 * (loadingHeight + 1) * 2];
-    for(int x = -world.drawDistance ; x <= world.drawDistance; x++) {
-        for(int z = -world.drawDistance ; z <= world.drawDistance; z++) {
-            for(int y = -loadingHeight ; y <= loadingHeight; y++) {
+    for(int y = loadingHeight; y >= -loadingHeight; y--) {
+        for(int x = -world.drawDistance ; x <= world.drawDistance; x++) {
+            for(int z = -world.drawDistance ; z <= world.drawDistance; z++) {
                 Vector3 chunkPos = (Vector3) {pos.x + x, pos.y + y, pos.z + z};
-                if(!loadEdges) {
-                    sortedChunks[sortedLength].chunkPos = chunkPos;
-                    sortedChunks[sortedLength].dist = Vector3Distance(chunkPos, pos);
-                    sortedLength++;
-                } else if(Vector3Distance(chunkPos, pos) >= world.drawDistance - 1) {
-                    World_AddChunk(chunkPos);
-                }
+                World_AddChunk(chunkPos);
             }
-        }
-    }
-
-    if(!loadEdges) {
-        //Sort array of chunks front to back
-        for(int i = 1; i < sortedLength; i++) {
-            int j = i;
-            while(j > 0 && sortedChunks[j-1].dist > sortedChunks[j].dist) {
-
-                struct { Vector3 chunkPos; float dist; } tempC;
-                tempC.chunkPos = sortedChunks[j].chunkPos;
-                tempC.dist = sortedChunks[j].dist;
-
-                sortedChunks[j] = sortedChunks[j - 1];
-                sortedChunks[j - 1].chunkPos = tempC.chunkPos;
-                sortedChunks[j - 1].dist = tempC.dist;
-                j = j - 1;
-            }
-        }
-
-        //Create the chunks
-        for(int i = 0; i < sortedLength; i++) {
-            World_AddChunk(sortedChunks[i].chunkPos);
         }
     }
     
@@ -247,7 +239,7 @@ void World_LoadChunks(bool loadEdges) {
 void World_Reload(void) {
     World_Unload();
     world.loadChunks = true;
-    World_LoadChunks(false);
+    World_LoadChunks();
 }
 
 void World_Unload(void) {

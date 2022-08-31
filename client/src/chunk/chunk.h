@@ -43,11 +43,6 @@ typedef struct Chunk{
     bool onlyAir;
 } Chunk;
 
-typedef struct QueuedChunk {
-    Chunk *chunk;
-    int state;
-} QueuedChunk;
-
 typedef struct LightNode{
     int index;
     Chunk *chunk;
