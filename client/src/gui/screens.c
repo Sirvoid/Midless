@@ -9,8 +9,8 @@
 #define RAYGUI_SUPPORT_ICONS
 #include <pthread.h>
 #include <math.h>
-#include <raylib.h>
-#include <raygui.h>
+#include "raylib.h"
+#include "raygui.h"
 #include "screens.h"
 #include "chat.h"
 #include "../player.h"

@@ -11,8 +11,8 @@
 #include <stdio.h>
 #include <math.h>
 #include <pthread.h>
-#include <raylib.h>
-#include <raymath.h>
+#include "raylib.h"
+#include "raymath.h"
 #include "rlgl.h"
 #include "player.h"
 #include "world.h"

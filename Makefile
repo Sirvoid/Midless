@@ -8,6 +8,7 @@ ifdef BUILD_SERVER
 
 	DIR_SRC += ./server
 	DIR_SRC += ./server/src
+	DIR_SRC += ./server/src/chunk
 else
 	PROJECT := game.exe
 	BUILD_DIR = client/bin/$(PROJECT)

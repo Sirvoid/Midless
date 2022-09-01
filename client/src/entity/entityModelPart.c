@@ -6,7 +6,7 @@
  */
 
 #include <string.h>
-#include <raylib.h>
+#include "raylib.h"
 #include "entityModelPart.h"
 
 int vCount = 0;

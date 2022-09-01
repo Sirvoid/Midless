@@ -33,7 +33,7 @@ void Server_Do(int *state) {
     address.host = ENET_HOST_ANY;
     address.port = 25565;
     
-    ENetHost * server = enet_host_create(&address, MAX_CLIENTS, 2, 0, 0);
+    ENetHost * server = enet_host_create(&address, MAX_CLIENTS, 1, 0, 0);
     
     puts("Started server.");
     

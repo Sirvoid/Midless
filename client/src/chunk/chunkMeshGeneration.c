@@ -6,8 +6,8 @@
  */
 
 #include <stdio.h>
-#include <raylib.h>
-#include <raymath.h>
+#include "raylib.h"
+#include "raymath.h"
 #include "chunkMeshGeneration.h"
 #include "chunkLightning.h"
 #include "../block/blockMeshGeneration.h"

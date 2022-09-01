@@ -9,9 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <raylib.h>
-#include <rlgl.h>
-#include <raymath.h>
+#include "raylib.h"
+#include "rlgl.h"
+#include "raymath.h"
 #include "block.h"
 #include "../chunk/chunkMesh.h"
 #include "blockMeshGeneration.h"

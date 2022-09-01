@@ -5,11 +5,11 @@
  * https://opensource.org/licenses/MIT
  */
 
-#include "raycast.h"
+#include <math.h>
 #include "raylib.h"
 #include "raymath.h"
+#include "raycast.h"
 #include "world.h"
-#include "math.h"
 #include "block/block.h"
 
 #define RAYCAST_PRECISION 0.05f

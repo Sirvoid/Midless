@@ -7,10 +7,10 @@
 
 #include <limits.h>
 #include <stdio.h>
+#include <math.h>
 #include "raylib.h"
 #include "raymath.h"
 #include "player.h"
-#include "math.h"
 #include "world.h"
 #include "raycast.h"
 #include "screens.h"

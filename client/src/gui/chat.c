@@ -8,9 +8,8 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <raylib.h>
-#include <raygui.h>
-
+#include "raylib.h"
+#include "raygui.h"
 #include "chat.h"
 #include "screens.h"
 #include "../player.h"

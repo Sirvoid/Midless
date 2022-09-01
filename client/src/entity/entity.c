@@ -5,10 +5,9 @@
  * https://opensource.org/licenses/MIT
  */
 
-#include <raylib.h>
-#include <raymath.h>
+#include "raylib.h"
+#include "raymath.h"
 #include "entity.h"
-
 
 void Entity_Draw(Entity *entity) {
     EntityModel *model = &entity->model;

@@ -5,16 +5,22 @@
  * https://opensource.org/licenses/MIT
  */
 
+#define __clang__ true
+#define STB_DS_IMPLEMENTATION
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <math.h>
+#include "raylib.h"
+#include "stb_ds.h"
 #include "world.h"
+#include "chunk/chunk.h"
 #include "networkhandler.h"
 #include "packet.h"
-#include "raylib.h"
-#include "math.h"
 #include "entity.h"
-#include "time.h"
+#include "worldgenerator.h"
 
 #define WORLD_MAX_ENTITIES 1028
 
@@ -22,41 +28,70 @@ World world;
 
 void World_Init(void) {
     world.players = MemAlloc(sizeof(Player*) * 256);
-    
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
+
+    int seed = rand();
+
+    //Create world directory
+    struct stat st = {0};
+    if (stat("./world", &st) == -1) {
+        mkdir("./world");
+    }
+    
+    if(FileExists("./world/seed.dat")) {
+        unsigned int bytesRead = 0;
+        unsigned char *data = LoadFileData("./world/seed.dat", &bytesRead);
+        seed = (int)(data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]); 
+        UnloadFileData(data);
+    } else {
+        char data[4] = {(char)(seed >> 24), (char)(seed >> 16), (char)(seed >> 8), (char)(seed)};
+        SaveFileData("./world/seed.dat", data, 4);
+    }
+
+    WorldGenerator_Init(seed);
+}
+
+Chunk* World_AddChunk(Vector3 position) {
+
+    long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | (long)((int)(position.y)&255);
+    int index = hmgeti(world.chunks, p);
+    Chunk *chunk;
+    if(index == -1) {
+        //Add chunk to list
+        chunk = MemAlloc(sizeof(Chunk));
+        hmput(world.chunks, p, chunk);
+
+        Chunk_Init(chunk, position);
+    } else {
+        chunk = world.chunks[index].value;
+    }
+
+    return chunk;
+}
+
+void World_RemoveChunk(Chunk *curChunk) {
+    long int p = (long)((int)(curChunk->position.x)&4095)<<20 | (long)((int)(curChunk->position.z)&4095)<<8 | (long)((int)(curChunk->position.y)&255);
+
+    int index = hmgeti(world.chunks, p);
+    if(index >= 0) {
+        Chunk_Unload(curChunk);
+        hmdel(world.chunks, p);
+    }
     
 }
 
-unsigned short* Chunk_Compress(unsigned short *data, int currentLength, int *newLength) {
-    
-    //BlockID:UShort, Amount:UShort, ...
-    
-    unsigned short *compressed = MemAlloc(currentLength * 2 * 2);
-    
-    int oldID = data[0];
-    int bCount = 1;
-    int len = 0;
-    for(int i = 1; i <= currentLength; i++) {
-        
-        int curID = 0;
-        if(i != currentLength) curID = data[i];
-        
-        if(oldID != curID || bCount >= USHRT_MAX || i == currentLength) {
-            compressed[len++] = (unsigned short)oldID;
-            compressed[len++] = (unsigned short)bCount;
-
-            bCount = 0;
-            oldID = curID;
-        }
-        
-        bCount++;
-        
+Chunk* World_GetChunkAt(Vector3 position) {
+    long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | (long)((int)(position.y)&255);
+    int index = hmgeti(world.chunks, p);
+    if(index >= 0) {
+        return world.chunks[index].value;
     }
     
-    *newLength = len;
-    
-    compressed = MemRealloc(compressed, *newLength * 2);
-    return compressed;
+    return NULL;
+}
+
+Chunk* World_RequestChunk(Vector3 position) {
+    return World_AddChunk(position);
 }
 
 void World_AddPlayer(void *player) {
@@ -135,11 +170,39 @@ void World_BroadcastExcluding(unsigned char* packet, int excludedPlayerID) {
 }
 
 int World_GetBlock(Vector3 blockPos) {
-    return 0;
+    //Get Chunk
+    Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
+    Chunk* chunk = World_GetChunkAt(chunkPos);
+    
+    if(chunk == NULL) return 0;
+    
+    //Get Block
+    Vector3 blockPosInChunk = (Vector3) { 
+                                floor(blockPos.x) - chunk->blockPosition.x,
+                                floor(blockPos.y) - chunk->blockPosition.y, 
+                                floor(blockPos.z) - chunk->blockPosition.z 
+                               };
+
+    return Chunk_GetBlock(chunk, blockPosInChunk);
 }
 
 void World_SetBlock(Vector3 blockPos, int blockID, bool broadcast) {
     
+    //Get Chunk
+    Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
+    Chunk* chunk = World_GetChunkAt(chunkPos);
+    
+    if(chunk == NULL) return;
+
+    //Set Block
+    Vector3 blockPosInChunk = (Vector3) { 
+                                floor(blockPos.x) - chunkPos.x * CHUNK_SIZE_X, 
+                                floor(blockPos.y) - chunkPos.y * CHUNK_SIZE_Y, 
+                                floor(blockPos.z) - chunkPos.z * CHUNK_SIZE_Z 
+                               };
+    
+    Chunk_SetBlock(chunk, blockPosInChunk, blockID);
+
     if(broadcast) {
         World_Broadcast(Packet_SetBlock(blockID, blockPos));
     }

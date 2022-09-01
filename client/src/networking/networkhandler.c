@@ -10,10 +10,10 @@
 #include <pthread.h>
 #include <math.h>
 #include <string.h>
-#include <stb_ds.h>
+#include "stb_ds.h"
+#include "raylib.h"
 #include "networkhandler.h"
 #include "packet.h"
-#include "raylib.h"
 #include "screens.h"
 #include "world.h"
 
@@ -53,6 +53,8 @@ void Network_Disconnect(void) {
     World_Unload();
 }
 
+pthread_mutex_t queue_mutex;
+
 //Executed on the main thread
 void Network_ReadQueue(void) {
     while(true) {
@@ -68,7 +70,10 @@ void Network_ReadQueue(void) {
         if(startQueuedData[0] < packetsNb) (*packets[startQueuedData[0]].handler)();
 
         MemFree(startQueuedData);
+
+        pthread_mutex_lock(&queue_mutex);
         arrdel(queuedData, 0);
+        pthread_mutex_unlock(&queue_mutex);
         
     }
 }
@@ -80,7 +85,9 @@ void Network_Receive(unsigned char *data, int dataLength) {
     unsigned char* nextData = MemAlloc(dataLength);
     memcpy(nextData, data, dataLength);
 
+    pthread_mutex_lock(&queue_mutex);
     arrput(queuedData, nextData);
+    pthread_mutex_unlock(&queue_mutex);
     
 }
 

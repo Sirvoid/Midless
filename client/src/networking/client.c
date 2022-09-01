@@ -5,10 +5,11 @@
  * https://opensource.org/licenses/MIT
  */
 
+#define ENET_IMPLEMENTATION
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#define ENET_IMPLEMENTATION
 #include "enet.h"
 #include "client.h"
 #include "networkhandler.h"
@@ -32,7 +33,7 @@ void *Client_Init(void *state) {
 void Client_Do(int *state) {
     
     ENetHost* client = { 0 };
-    client = enet_host_create(NULL, 1, 2, 0, 0);
+    client = enet_host_create(NULL, 1, 1, 0, 0);
     if (client == NULL) {
         puts("Couldn't create client.");
         return;
@@ -43,7 +44,7 @@ void Client_Do(int *state) {
     
     enet_address_set_host(&address, Network_ip);
     address.port = Network_port;
-    peer = enet_host_connect(client, &address, 2, 0);
+    peer = enet_host_connect(client, &address, 1, 0);
     Network_Init();
 
     if (enet_host_service(client, &event, CLIENT_TIMEOUT) > 0 &&
@@ -61,7 +62,7 @@ void Client_Do(int *state) {
     
     //read events
     while(*state != -1) {
-        while (enet_host_service(client, &event, CLIENT_TIMEOUT) > 0) {
+        while (enet_host_service(client, &event, 33) > 0) {
             switch (event.type) {
                 case ENET_EVENT_TYPE_RECEIVE:
                     Network_Receive((unsigned char*)event.packet->data, event.packet->dataLength);

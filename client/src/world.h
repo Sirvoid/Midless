@@ -8,7 +8,7 @@
 #ifndef G_WORLD_H
 #define G_WORLD_H
 
-#include <raylib.h>
+#include "raylib.h"
 #include "chunk/chunk.h"
 #include "entity/entity.h"
 

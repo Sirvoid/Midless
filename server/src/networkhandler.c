@@ -7,13 +7,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include "raylib.h"
 #include "player.h"
 #include "networkhandler.h"
 #include "packet.h"
-#include "string.h"
 #include "server.h"
 #include "world.h"
-#include "raylib.h"
 
 PacketDefinition packets[256];
 

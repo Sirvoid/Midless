@@ -5,11 +5,11 @@
  * https://opensource.org/licenses/MIT
  */
 
-#include <raylib.h>
-#include <raymath.h>
 #include <stdio.h>
-#include <stb_ds.h>
 #include <pthread.h>
+#include "raylib.h"
+#include "raymath.h"
+#include "stb_ds.h"
 #include "chunkLightning.h"
 #include "../block/block.h"
 #include "world.h"

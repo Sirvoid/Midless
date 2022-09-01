@@ -11,26 +11,25 @@
 #include "raylib.h"
 #include "player.h"
 #include "entity.h"
-
-#define CHUNK_SIZE_X 16
-#define CHUNK_SIZE_Y 16
-#define CHUNK_SIZE_Z 16
-#define CHUNK_SIZE_XZ (CHUNK_SIZE_X * CHUNK_SIZE_Z)
-#define CHUNK_SIZE_VEC3 CLITERAL(Vector3){ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }
-#define CHUNK_SIZE (CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z)
+#include "chunk/chunk.h"
 
 typedef struct World{
     Player** players;
     Entity* entities;
+    struct { long int key; Chunk* value; } *chunks;
 } World;
 
 extern World world;
 
 void World_Init(void);
+
+Chunk* World_AddChunk(Vector3 position);
+void World_RemoveChunk(Chunk *curChunk);
+Chunk* World_GetChunkAt(Vector3 position);
+Chunk* World_RequestChunk(Vector3 position);
+
 void World_AddPlayer(void *player);
 void World_RemovePlayer(void *player);
-
-unsigned short* Chunk_Compress(unsigned short *data, int currentLength, int *newLength);
 
 void World_TeleportEntity(int ID, Vector3 position, Vector3 rotation);
 void World_AddEntity(int ID, int type, Vector3 position);

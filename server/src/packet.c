@@ -8,11 +8,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "raylib.h"
 #include "packet.h"
 #include "networkhandler.h"
 #include "world.h"
-#include "math.h"
+#include "chunk/chunk.h"
 #include "entity.h"
 
 #define PACKET_STRING_SIZE 64
@@ -170,21 +171,13 @@ void Packet_H_RequestChunk(void) {
     int y = Packet_ReadInt();
     int z = Packet_ReadInt();
 
-    unsigned short *chunk = MemAlloc(CHUNK_SIZE * 2);
-
-    for(int i = 0; i < CHUNK_SIZE; i++) {
-        if(y <= 2) 
-            chunk[i] = 1;
-        else
-            chunk[i] = 0;
-    }
+    Chunk* chunk = World_RequestChunk((Vector3) {x, y ,z});
 
     int compressedLength = 0;
     unsigned short *compressedChunk = Chunk_Compress(chunk, CHUNK_SIZE, &compressedLength);
 
     Network_Send(Packet_player, Packet_MapChunk(compressedChunk, compressedLength, (Vector3) {x, y ,z}));
 
-    MemFree(chunk);
     MemFree(compressedChunk);
 }
 

@@ -8,7 +8,7 @@
 #ifndef G_ENTITYM_H
 #define G_ENTITYM_H
 
-#include <raylib.h>
+#include "raylib.h"
 #include "entityModelPart.h"
 
 typedef enum PartType{

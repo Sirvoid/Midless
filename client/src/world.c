@@ -12,13 +12,13 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
-#include <raylib.h>
 #include <sys/stat.h>
-#include <stb_ds.h>
-#include "chunkMeshGeneration.h"
-#include "world.h"
+#include "raylib.h"
+#include "stb_ds.h"
 #include "rlgl.h"
 #include "raymath.h"
+#include "chunkMeshGeneration.h"
+#include "world.h"
 #include "worldgenerator.h"
 #include "player.h"
 #include "screens.h"
@@ -210,6 +210,11 @@ void World_UpdateChunks(void) {
 void World_LoadChunks(void) {
 
     if(!world.loadChunks) return;
+
+    //Temporary
+    if(Network_connectedToServer && world.drawDistance > 4) {
+        world.drawDistance = 4;
+    }
 
     Vector3 pos = (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
 
