@@ -13,8 +13,8 @@
 #include "rlgl.h"
 #include "raymath.h"
 #include "block.h"
-#include "../chunk/chunkMesh.h"
-#include "blockMeshGeneration.h"
+#include "../chunk/chunkmesh.h"
+#include "blockmeshgeneration.h"
 
 int BFH_verticesI[] = {0, 0};
 int BFH_texI[] = {0, 0};

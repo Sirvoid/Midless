@@ -7,7 +7,7 @@
 
 #include <string.h>
 #include "raylib.h"
-#include "entityModelPart.h"
+#include "entitymodelpart.h"
 
 int vCount = 0;
 int tCount = 0;

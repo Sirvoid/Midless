@@ -5,7 +5,7 @@
  * https://opensource.org/licenses/MIT
  */
 
-#include "entityModel.h"
+#include "entitymodel.h"
 
 EntityModelDef entityModels[256];
 

@@ -8,9 +8,9 @@
 #include <stdio.h>
 #include "raylib.h"
 #include "raymath.h"
-#include "chunkMeshGeneration.h"
-#include "chunkLightning.h"
-#include "../block/blockMeshGeneration.h"
+#include "chunkmeshgeneration.h"
+#include "chunklightning.h"
+#include "../block/blockmeshgeneration.h"
 
 int Chunk_triangleCounter = 0;
 int Chunk_triangleCounterTransparent = 0;

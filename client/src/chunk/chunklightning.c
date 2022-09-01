@@ -10,7 +10,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "stb_ds.h"
-#include "chunkLightning.h"
+#include "chunklightning.h"
 #include "../block/block.h"
 #include "world.h"
 #include "player.h"

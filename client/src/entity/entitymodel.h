@@ -9,7 +9,7 @@
 #define G_ENTITYM_H
 
 #include "raylib.h"
-#include "entityModelPart.h"
+#include "entitymodelpart.h"
 
 typedef enum PartType{
     PartType_None,

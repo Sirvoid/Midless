@@ -17,7 +17,7 @@
 #include "stb_ds.h"
 #include "rlgl.h"
 #include "raymath.h"
-#include "chunkMeshGeneration.h"
+#include "chunkmeshgeneration.h"
 #include "world.h"
 #include "worldgenerator.h"
 #include "player.h"
