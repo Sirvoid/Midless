@@ -13,6 +13,7 @@
 
 extern unsigned char *Packet_data;
 extern Player *Packet_player;
+extern int Packet_LastDynamicLength;
 extern int PacketReader_index;
 
 int Packet_GetLength(unsigned char opcode);
@@ -33,9 +34,10 @@ void Packet_H_Identification(void);
 void Packet_H_SetBlock(void);
 void Packet_H_PlayerPosition(void);
 void Packet_H_Message(void);
+void Packet_H_RequestChunk(void);
 
 unsigned char* Packet_MapInit(void);
-unsigned char* Packet_MapChunk(unsigned char* chunkArray, unsigned short length, Vector3 chunkPosition);
+unsigned char* Packet_MapChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition);
 unsigned char* Packet_SetBlock(unsigned char blockID, Vector3 position);
 unsigned char* Packet_SpawnEntity(Entity *entity);
 unsigned char* Packet_TeleportEntity(Entity *entity, Vector3 position, Vector3 rotation);

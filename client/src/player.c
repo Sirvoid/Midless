@@ -218,7 +218,7 @@ bool Player_TryPlaceBlock(Vector3 pos, int blockID)
 
 void Player_Update() {
     
-    Network_Send(Packet_PlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector2) { Player_cameraAngle.x - PI / 2,  -Player_cameraAngle.y + PI / 2}));
+    Network_Send(Packet_PlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector2) { -Player_cameraAngle.x + PI / 2,  Player_cameraAngle.y - PI / 2}));
 
     //Gravity
     player.velocity.y -= 0.012f * (GetFrameTime() * 60);
@@ -230,7 +230,6 @@ void Player_Update() {
     int steps = 8;
 
     Vector3 oldPosition = player.position;
-
 
     //Move Y & Test Collisions
     for (int i = 0; i < steps; i++) {

@@ -22,6 +22,7 @@ void Network_Init(void) {
     packets[1] = (PacketDefinition) {&Packet_H_SetBlock};
     packets[2] = (PacketDefinition) {&Packet_H_PlayerPosition};
     packets[3] = (PacketDefinition) {&Packet_H_Message};
+    packets[4] = (PacketDefinition) {&Packet_H_RequestChunk};
 }
 
 void* Network_InitPlayer(void* peerPtr) {
@@ -49,6 +50,8 @@ void Network_Receive(void *playerPtr, unsigned char* data) {
 
 void Network_Send(void *playerPtr, unsigned char* packet) {
     Player *player = (Player*)playerPtr;
-    Server_Send(player->peerPtr, packet, Packet_GetLength(packet[0]));
+    int packetLength = Packet_GetLength(packet[0]);
+    if(packetLength == 0) packetLength = Packet_LastDynamicLength;
+    Server_Send(player->peerPtr, packet, packetLength);
 }
 

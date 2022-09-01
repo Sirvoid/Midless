@@ -61,7 +61,7 @@ void Client_Do(int *state) {
     
     //read events
     while(*state != -1) {
-        while (enet_host_service(client, &event, 1) > 0) {
+        while (enet_host_service(client, &event, CLIENT_TIMEOUT) > 0) {
             switch (event.type) {
                 case ENET_EVENT_TYPE_RECEIVE:
                     Network_Receive((unsigned char*)event.packet->data, event.packet->dataLength);

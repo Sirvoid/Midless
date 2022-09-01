@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <math.h>
 #include <string.h>
+#include <stb_ds.h>
 #include "networkhandler.h"
 #include "packet.h"
 #include "raylib.h"
@@ -20,7 +21,7 @@ PacketDefinition packets[256];
 int Network_connectedToServer = 0;
 void (*Network_Internal_Client_Send)(unsigned char*, int);
 
-QueuedData *endQueuedData = NULL;
+unsigned char* *queuedData = NULL;
 int packetsNb;
 
 int Network_ping = 0;
@@ -56,29 +57,18 @@ void Network_Disconnect(void) {
 void Network_ReadQueue(void) {
     while(true) {
 
-        if(!endQueuedData) return;
+        if(arrlen(queuedData) == 0) return;
         
         //Find start of queue.
-        QueuedData* startQueuedData = endQueuedData;
-        while(startQueuedData->prev) { 
-            startQueuedData = startQueuedData->prev;
-        }
+        unsigned char* startQueuedData = queuedData[0];
         
         //Handle packet
-        Packet_data = startQueuedData->data;
+        Packet_data = startQueuedData;
         PacketReader_index = 1;
-        if(startQueuedData->data[0] < packetsNb) (*packets[startQueuedData->data[0]].handler)();
+        if(startQueuedData[0] < packetsNb) (*packets[startQueuedData[0]].handler)();
 
-
-        //Free queue node
-        if(startQueuedData->next) {
-            ((QueuedData*)startQueuedData->next)->prev = NULL;
-        } else if(!startQueuedData->next) {
-            endQueuedData = NULL;
-        }
-   
-        MemFree(startQueuedData->data);
         MemFree(startQueuedData);
+        arrdel(queuedData, 0);
         
     }
 }
@@ -87,19 +77,10 @@ void Network_ReadQueue(void) {
 void Network_Receive(unsigned char *data, int dataLength) {
 
     //Copy received data before enet clears it later.
-    QueuedData* nextData = MemAlloc(sizeof(QueuedData));
-    nextData->data = MemAlloc(dataLength);
-    memcpy(nextData->data, data, dataLength);
-    
-    if(endQueuedData) {
-        nextData->prev = endQueuedData;
-        endQueuedData->next = nextData;
-        endQueuedData = endQueuedData->next;
-    } else {
-        nextData->prev = NULL;
-        nextData->next = NULL;
-        endQueuedData = nextData;
-    }
+    unsigned char* nextData = MemAlloc(dataLength);
+    memcpy(nextData, data, dataLength);
+
+    arrput(queuedData, nextData);
     
 }
 

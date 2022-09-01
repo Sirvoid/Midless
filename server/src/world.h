@@ -30,6 +30,8 @@ void World_Init(void);
 void World_AddPlayer(void *player);
 void World_RemovePlayer(void *player);
 
+unsigned short* Chunk_Compress(unsigned short *data, int currentLength, int *newLength);
+
 void World_TeleportEntity(int ID, Vector3 position, Vector3 rotation);
 void World_AddEntity(int ID, int type, Vector3 position);
 void World_RemoveEntity(int ID);

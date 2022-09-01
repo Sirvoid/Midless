@@ -63,6 +63,18 @@ bool Chunk_LoadFile(Chunk *chunk) {
     return false;
 }
 
+void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength) {
+    int newLength = 0;
+
+    for(int i = 0; i < currentLength; i+=2) {
+        for(int j = 0; j < compressed[i + 1]; j++) {
+            chunk->data[newLength] = compressed[i];
+            newLength += 1;
+        } 
+    }
+    
+}
+
 void Chunk_Unload(Chunk *chunk) {
 
     if(chunk->isBuilt) {
@@ -77,7 +89,7 @@ void Chunk_Unload(Chunk *chunk) {
 
 void Chunk_Generate(Chunk *chunk) {
     if(!chunk->isLightGenerated) {
-        if(!chunk->fromFile) {
+        if(!chunk->fromFile && !Network_connectedToServer) {
             //Map Generation
             for(int i = CHUNK_SIZE - 1; i >= 0; i--) {
                 Vector3 npos = Vector3Add(Chunk_IndexToPos(i), chunk->blockPosition);

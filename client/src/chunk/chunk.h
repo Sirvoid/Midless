@@ -66,6 +66,8 @@ void Chunk_Generate(Chunk *chunk);
 void Chunk_SaveFile(Chunk *chunk);
 //Load a chunk from a file.
 bool Chunk_LoadFile(Chunk *chunk);
+//Decompress chunk
+void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength);
 //Get a neighbour from a direction
 Chunk* Chunk_GetNeighbour(Chunk* chunk, Vector3 dir);
 //Update a chunk's neighbour list.

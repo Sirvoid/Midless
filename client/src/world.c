@@ -23,6 +23,7 @@
 #include "player.h"
 #include "screens.h"
 #include "networkhandler.h"
+#include "packet.h"
 
 World world;
 pthread_t chunkThread_id;
@@ -108,6 +109,34 @@ void *World_ReadChunksQueues(void *state) {
     return NULL;
 }
 
+void World_QueueChunk(Chunk *chunk) {
+
+    if(chunk->hasStartedGenerating == false) {
+        pthread_mutex_lock(&genChunk_mutex);
+        arrput(world.generateChunksQueue, chunk);
+        pthread_mutex_unlock(&genChunk_mutex);
+
+    }
+    chunk->hasStartedGenerating = true;
+
+    if(chunk->isBuilding == false) {
+        arrput(world.buildChunksQueue, chunk);
+        chunk->isBuilding = true;
+    }
+}
+
+
+Chunk* World_GetChunkAt(Vector3 position) {
+    long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | (long)((int)(position.y)&255);
+    int index = hmgeti(world.chunks, p);
+    if(index >= 0) {
+        return world.chunks[index].value;
+    }
+    
+    return NULL;
+}
+
+
 int World_GetClosestChunkIndex(Chunk* *array, Vector3 pos) {
     int arrLength = arrlen(array);
     if(arrLength > 0) {
@@ -125,22 +154,6 @@ int World_GetClosestChunkIndex(Chunk* *array, Vector3 pos) {
     return -1;
 }
 
-void World_QueueChunk(Chunk *chunk) {
-
-    if(chunk->hasStartedGenerating == false) {
-        pthread_mutex_lock(&genChunk_mutex);
-        arrput(world.generateChunksQueue, chunk);
-        pthread_mutex_unlock(&genChunk_mutex);
-
-    }
-    chunk->hasStartedGenerating = true;
-
-    if(chunk->isBuilding == false) {
-        arrput(world.buildChunksQueue, chunk);
-        chunk->isBuilding = true;
-    }
-}
-
 void World_AddChunk(Vector3 position) {
 
     long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | (long)((int)(position.y)&255);
@@ -155,18 +168,10 @@ void World_AddChunk(Vector3 position) {
         if(!Network_connectedToServer) {
             World_QueueChunk(newChunk);
             Chunk_RefreshBorderingChunks(newChunk, true);
+        } else {
+            Network_Send(Packet_RequestChunk(position));
         }
     }
-}
-
-Chunk* World_GetChunkAt(Vector3 position) {
-    long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | (long)((int)(position.y)&255);
-    int index = hmgeti(world.chunks, p);
-    if(index >= 0) {
-        return world.chunks[index].value;
-    }
-    
-    return NULL;
 }
 
 void World_RemoveChunk(Chunk *curChunk) {

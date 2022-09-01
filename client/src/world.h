@@ -42,10 +42,14 @@ void World_LoadChunks(void);
 void *World_ReadChunksQueues(void *state);
 //Queue a chunk to build it.
 void World_QueueChunk(Chunk *chunk);
+//Get chunk at a chunk position.
+Chunk* World_GetChunkAt(Vector3 position);
+//Get closest chunk from position in array.
+int World_GetClosestChunkIndex(Chunk* *array, Vector3 pos);
 //Add a chunk.
 void World_AddChunk(Vector3 position);
-//Get closest chunk from position in array
-int World_GetClosestChunkIndex(Chunk* *array, Vector3 pos);
+//Remove a chunk
+void World_RemoveChunk(Chunk *curChunk);
 //Unload the world.
 void World_Unload(void);
 //Reload chunks.

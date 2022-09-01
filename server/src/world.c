@@ -27,6 +27,38 @@ void World_Init(void) {
     
 }
 
+unsigned short* Chunk_Compress(unsigned short *data, int currentLength, int *newLength) {
+    
+    //BlockID:UShort, Amount:UShort, ...
+    
+    unsigned short *compressed = MemAlloc(currentLength * 2 * 2);
+    
+    int oldID = data[0];
+    int bCount = 1;
+    int len = 0;
+    for(int i = 1; i <= currentLength; i++) {
+        
+        int curID = 0;
+        if(i != currentLength) curID = data[i];
+        
+        if(oldID != curID || bCount >= USHRT_MAX || i == currentLength) {
+            compressed[len++] = (unsigned short)oldID;
+            compressed[len++] = (unsigned short)bCount;
+
+            bCount = 0;
+            oldID = curID;
+        }
+        
+        bCount++;
+        
+    }
+    
+    *newLength = len;
+    
+    compressed = MemRealloc(compressed, *newLength * 2);
+    return compressed;
+}
+
 void World_AddPlayer(void *player) {
     
     Player* p = (Player*)player;

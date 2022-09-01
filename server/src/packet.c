@@ -19,14 +19,15 @@
 
 unsigned char *Packet_data;
 Player *Packet_player;
+int Packet_LastDynamicLength;
 
 int Packet_Lengths[256] = {
     1,  //map init
-    0, //map chunk (Flexible size)
+    0, //map chunk
     14,  //setblock
     16, //spawnEntity
     17, //teleportEntity
-    65
+    65 //Message
 };
 
 int Packet_GetLength(unsigned char opcode) {
@@ -164,6 +165,29 @@ void Packet_H_Message(void) {
     MemFree(sentMessage);
 }
 
+void Packet_H_RequestChunk(void) {
+    int x = Packet_ReadInt();
+    int y = Packet_ReadInt();
+    int z = Packet_ReadInt();
+
+    unsigned short *chunk = MemAlloc(CHUNK_SIZE * 2);
+
+    for(int i = 0; i < CHUNK_SIZE; i++) {
+        if(y <= 2) 
+            chunk[i] = 1;
+        else
+            chunk[i] = 0;
+    }
+
+    int compressedLength = 0;
+    unsigned short *compressedChunk = Chunk_Compress(chunk, CHUNK_SIZE, &compressedLength);
+
+    Network_Send(Packet_player, Packet_MapChunk(compressedChunk, compressedLength, (Vector3) {x, y ,z}));
+
+    MemFree(chunk);
+    MemFree(compressedChunk);
+}
+
 
 /* Packets sent */
 
@@ -175,15 +199,16 @@ unsigned char* Packet_MapInit(void) {
     return packet;
 }
 
-unsigned char* Packet_MapChunk(unsigned char* chunkArray, unsigned short length, Vector3 chunkPosition) {
+unsigned char* Packet_MapChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition) {
     PacketWriter_index = 0;
-    unsigned char* packet = (unsigned char*)MemAlloc(length + 15);
+    Packet_LastDynamicLength = (length * 2) + 15;
+    unsigned char* packet = (unsigned char*)MemAlloc(Packet_LastDynamicLength);
     Packet_WriteByte(packet, 1);
     Packet_WriteInt(packet, (int)chunkPosition.x);
     Packet_WriteInt(packet, (int)chunkPosition.y);
     Packet_WriteInt(packet, (int)chunkPosition.z);
     Packet_WriteUShort(packet, length);
-    Packet_WriteArray(packet, chunkArray, length);
+    Packet_WriteArray(packet, (unsigned char*)chunkArray, length * 2);
     return packet;
 }
 

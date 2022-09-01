@@ -35,13 +35,16 @@ bool Chat_open = false;
 
 void Chat_Draw(Vector2 offset, Color uiColor) {
 
-    if(!Network_connectedToServer) return;
-
     int chatWidth = 352;
     int fontSize = 10;
 
     //Draw Background
     if(Chat_editMode) DrawRectangle(offset.x, offset.y - 184 + 46, chatWidth, 184, uiColor);
+
+    Color textColor = WHITE;
+    if(!Chat_editMode) {
+        textColor.a = 150; 
+    }
 
     //Draw Lines
     int lineAdded = 0;
@@ -65,7 +68,7 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
             }
             for(int i = drawLinesCnt - 1; i >= 0; i--) {
                 if(!drawLines[i]) continue;
-                DrawText(drawLines[i], offset.x + 4, offset.y - lineAdded * fontSize, fontSize, WHITE);
+                DrawText(drawLines[i], offset.x + 4, offset.y - lineAdded * fontSize, fontSize, textColor);
                 lineAdded++;
             }
         }
@@ -85,7 +88,11 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
                 message[i] = Chat_input[i];
                 Chat_input[i] = '\0';
             }
-            Network_Send(Packet_SendMessage(message));
+            if(Network_connectedToServer) {
+                Network_Send(Packet_SendMessage(message));
+            } else {
+                Chat_AddLine(message);
+            }
             DisableCursor();
             Chat_open = false;
             Screen_cursorEnabled = false;

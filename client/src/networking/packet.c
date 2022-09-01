@@ -22,7 +22,8 @@ int Packet_Lengths[256] = {
     66, //0
     14, //1
     15, //2
-    65 //3
+    65, //3
+    13 //4
 };
 int PingCalculation_oldTime = 0;
 
@@ -137,8 +138,18 @@ void Packet_H_MapInit(void) {
 
 
 void Packet_H_MapChunk(void) {
-    
-    
+    int x = Packet_ReadInt();
+    int y = Packet_ReadInt();
+    int z = Packet_ReadInt();
+    int length = Packet_ReadUShort();
+    unsigned short* chunkData = (unsigned short*)Packet_ReadArray(length * 2);
+
+    Chunk* chunk = World_GetChunkAt((Vector3) {x,y,z});
+    Chunk_Decompress(chunk, chunkData, length);
+    MemFree(chunkData);
+
+    World_QueueChunk(chunk);
+    Chunk_RefreshBorderingChunks(chunk, true);
 }
 
 void Packet_H_SetBlock(void) {
@@ -211,5 +222,15 @@ unsigned char *Packet_SendMessage(char *message) {
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[3]);
     Packet_WriteByte(packet, 3);
     Packet_WriteString(packet, message);
+    return packet;
+}
+
+unsigned char *Packet_RequestChunk(Vector3 position) {
+    PacketWriter_index = 0;
+    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
+    Packet_WriteByte(packet, 4);
+    Packet_WriteInt(packet, (int)(position.x));
+    Packet_WriteInt(packet, (int)(position.y));
+    Packet_WriteInt(packet, (int)(position.z));
     return packet;
 }

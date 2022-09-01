@@ -12,12 +12,6 @@ typedef struct PacketDefinition {
     void (*handler)(void);
 } PacketDefinition;
 
-typedef struct QueuedData {
-    void* next;
-    void* prev;
-    unsigned char* data;
-} QueuedData;
-
 extern int Network_ping;
 extern int Network_threadState;
 extern char *Network_name;
