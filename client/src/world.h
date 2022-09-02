@@ -20,6 +20,7 @@ typedef struct World{
     struct { long int key; Chunk* value; } *chunks;
     Chunk* *generateChunksQueue;
     Chunk* *buildChunksQueue;
+    Chunk* *deleteChunksQueue;
     Material mat;
     int drawDistance;
     float time;
@@ -30,6 +31,8 @@ extern World world;
 
 //Initialize the world.
 void World_Init(void);
+//Load multiplayer world.
+void World_LoadMultiplayer(void);
 //Load singleplayer world.
 void World_LoadSingleplayer(void);
 //Update World

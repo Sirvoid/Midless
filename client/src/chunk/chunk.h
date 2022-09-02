@@ -37,6 +37,7 @@ typedef struct Chunk{
     bool isLightGenerated;
     bool fromFile;
     bool deleted;
+    bool beingDeleted;
 
     //mesh flags
     bool hasTransparency;

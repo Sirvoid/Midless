@@ -34,12 +34,13 @@ void Packet_H_Identification(void);
 void Packet_H_SetBlock(void);
 void Packet_H_PlayerPosition(void);
 void Packet_H_Message(void);
-void Packet_H_RequestChunk(void);
 
 unsigned char* Packet_MapInit(void);
-unsigned char* Packet_MapChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition);
+unsigned char* Packet_LoadChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition);
+unsigned char* Packet_UnloadChunk(Vector3 chunkPosition);
 unsigned char* Packet_SetBlock(unsigned char blockID, Vector3 position);
 unsigned char* Packet_SpawnEntity(Entity *entity);
+unsigned char* Packet_DespawnEntity(Entity *entity);
 unsigned char* Packet_TeleportEntity(Entity *entity, Vector3 position, Vector3 rotation);
 unsigned char* Packet_SendMessage(const char* message);
 

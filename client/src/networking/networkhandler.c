@@ -33,11 +33,13 @@ int Network_port = 25565;
 void Network_Init(void) {
     packetsNb = 0;
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_MapInit}; //0
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_MapChunk}; //1
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_LoadChunk}; //1
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_SetBlock}; //2
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_SpawnEntity}; //3
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_TeleportEntity}; //4
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_Message}; //5
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_DespawnEntity}; //6
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_UnloadChunk}; //7
 }
 
 void Network_Connect(void) {

@@ -24,11 +24,13 @@ int Packet_LastDynamicLength;
 
 int Packet_Lengths[256] = {
     1,  //map init
-    0, //map chunk
+    0, //load chunk
     14,  //setblock
     16, //spawnEntity
     17, //teleportEntity
-    65 //Message
+    65, //Message
+    3, //despawnEntity
+    13 //unload chunk
 };
 
 int Packet_GetLength(unsigned char opcode) {
@@ -125,11 +127,27 @@ void Packet_WriteArray(unsigned char* packet, unsigned char* array, int size) {
 /* Packets Received */
 
 void Packet_H_Identification(void) {
-    int protocolVersion = Packet_ReadByte();
+    int protocolVersion = Packet_ReadUShort();
     Packet_player->name = Packet_ReadString();
     printf("%s connected. Protocol version: %i\n", Packet_player->name, protocolVersion);
     World_AddPlayer(Packet_player);
     Network_Send(Packet_player, Packet_MapInit());
+
+    for(int x = -4; x <= 4; x++) {
+        for(int y = -4; y <= 4; y++) {
+            for(int z = -4; z <= 4; z++) {
+                Chunk* chunk = World_RequestChunk((Vector3) {x, 4 + y, z});
+
+                int compressedLength = 0;
+                unsigned short *compressedChunk = Chunk_Compress(chunk, CHUNK_SIZE, &compressedLength);
+
+                Network_Send(Packet_player, Packet_LoadChunk(compressedChunk, compressedLength, (Vector3) {x, 4 + y, z}));
+
+                MemFree(compressedChunk);
+            }
+        }
+    }
+
 }
 
 void Packet_H_SetBlock(void) {
@@ -166,22 +184,6 @@ void Packet_H_Message(void) {
     MemFree(sentMessage);
 }
 
-void Packet_H_RequestChunk(void) {
-    int x = Packet_ReadInt();
-    int y = Packet_ReadInt();
-    int z = Packet_ReadInt();
-
-    Chunk* chunk = World_RequestChunk((Vector3) {x, y ,z});
-
-    int compressedLength = 0;
-    unsigned short *compressedChunk = Chunk_Compress(chunk, CHUNK_SIZE, &compressedLength);
-
-    Network_Send(Packet_player, Packet_MapChunk(compressedChunk, compressedLength, (Vector3) {x, y ,z}));
-
-    MemFree(compressedChunk);
-}
-
-
 /* Packets sent */
 
 unsigned char* Packet_MapInit(void) {
@@ -192,7 +194,7 @@ unsigned char* Packet_MapInit(void) {
     return packet;
 }
 
-unsigned char* Packet_MapChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition) {
+unsigned char* Packet_LoadChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition) {
     PacketWriter_index = 0;
     Packet_LastDynamicLength = (length * 2) + 15;
     unsigned char* packet = (unsigned char*)MemAlloc(Packet_LastDynamicLength);
@@ -202,6 +204,16 @@ unsigned char* Packet_MapChunk(unsigned short* chunkArray, unsigned short length
     Packet_WriteInt(packet, (int)chunkPosition.z);
     Packet_WriteUShort(packet, length);
     Packet_WriteArray(packet, (unsigned char*)chunkArray, length * 2);
+    return packet;
+}
+
+unsigned char* Packet_UnloadChunk(Vector3 chunkPosition) {
+    PacketWriter_index = 0;
+    unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[7]);
+    Packet_WriteByte(packet, 7);
+    Packet_WriteInt(packet, (int)chunkPosition.x);
+    Packet_WriteInt(packet, (int)chunkPosition.y);
+    Packet_WriteInt(packet, (int)chunkPosition.z);
     return packet;
 }
 
@@ -225,6 +237,14 @@ unsigned char* Packet_SpawnEntity(Entity *entity) {
     Packet_WriteInt(packet, (int)(entity->position.x * 64));
     Packet_WriteInt(packet, (int)(entity->position.y * 64));
     Packet_WriteInt(packet, (int)(entity->position.z * 64));
+    return packet;
+}
+
+unsigned char* Packet_DespawnEntity(Entity *entity) {
+    PacketWriter_index = 0;
+    unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[6]);
+    Packet_WriteByte(packet, 6);
+    Packet_WriteUShort(packet, entity->ID);
     return packet;
 }
 

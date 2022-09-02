@@ -228,9 +228,7 @@ void Player_Update() {
     Vector3 velXdt = Vector3Scale(player.velocity, GetFrameTime() * 60);
     
     int steps = 8;
-
-    Vector3 oldPosition = player.position;
-
+    
     //Move Y & Test Collisions
     for (int i = 0; i < steps; i++) {
         player.position.y += velXdt.y / steps;
@@ -269,11 +267,7 @@ void Player_Update() {
         }
     }
 
-    if (floor(oldPosition.x / 16) != floor(player.position.x / 16) || 
-        floor(oldPosition.y / 16) != floor(player.position.y / 16) ||
-        floor(oldPosition.z / 16) != floor(player.position.z / 16)) {
-        World_LoadChunks();
-    }
+    World_LoadChunks();
 
     //Place Camera
     player.camera.position = player.position;

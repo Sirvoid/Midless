@@ -19,11 +19,10 @@
 
 unsigned char *Packet_data;
 int Packet_Lengths[256] = {
-    66, //0
+    67, //0
     14, //1
     15, //2
-    65, //3
-    13 //4
+    65 //3
 };
 int PingCalculation_oldTime = 0;
 
@@ -127,29 +126,34 @@ void Packet_WriteString(unsigned char *packet, char *string) {
 /*-------------------------------------------------------------------------------------------------------*
 *------------------------------------------Packets Received----------------------------------------------*
 *--------------------------------------------------------------------------------------------------------*/
-int mapLoadingChunkCnt = 0;
-int compressedLength = 0;
-unsigned char *compressedMap;
-void Packet_H_MapInit(void) {
 
-    World_LoadSingleplayer();
-    
+void Packet_H_MapInit(void) {
+    World_LoadMultiplayer();
 }
 
 
-void Packet_H_MapChunk(void) {
+void Packet_H_LoadChunk(void) {
     int x = Packet_ReadInt();
     int y = Packet_ReadInt();
     int z = Packet_ReadInt();
     int length = Packet_ReadUShort();
     unsigned short* chunkData = (unsigned short*)Packet_ReadArray(length * 2);
 
-    Chunk* chunk = World_GetChunkAt((Vector3) {x,y,z});
+    Vector3 position = (Vector3) {x,y,z};
+    World_AddChunk(position);
+    Chunk* chunk = World_GetChunkAt(position);
     Chunk_Decompress(chunk, chunkData, length);
     MemFree(chunkData);
+}
 
-    World_QueueChunk(chunk);
-    Chunk_RefreshBorderingChunks(chunk, true);
+void Packet_H_UnloadChunk(void) {
+    int x = Packet_ReadInt();
+    int y = Packet_ReadInt();
+    int z = Packet_ReadInt();
+
+    Vector3 position = (Vector3) {x,y,z};
+    Chunk* chunk = World_GetChunkAt(position);
+    World_RemoveChunk(chunk);
 }
 
 void Packet_H_SetBlock(void) {
@@ -165,6 +169,11 @@ void Packet_H_SpawnEntity(void) {
     int y = Packet_ReadInt();
     int z = Packet_ReadInt();
     World_AddEntity(ID, type, (Vector3) { x / 64.0f, y / 64.0f, z / 64.0f }, (Vector3) {0, 0, 0});
+}
+
+void Packet_H_DespawnEntity(void) {
+    int ID = Packet_ReadUShort();
+    World_RemoveEntity(ID);
 }
 
 void Packet_H_TeleportEntity(void) {
@@ -185,11 +194,11 @@ void Packet_H_Message(void) {
 /*-------------------------------------------------------------------------------------------------------*
 *--------------------------------------------Packets Sent------------------------------------------------*
 *--------------------------------------------------------------------------------------------------------*/
-unsigned char *Packet_Identification(char version, char *name) {
+unsigned char *Packet_Identification(unsigned short version, char *name) {
     PacketWriter_index = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[0]);
     Packet_WriteByte(packet, 0);
-    Packet_WriteByte(packet, version);
+    Packet_WriteUShort(packet, version);
     Packet_WriteString(packet, name);
     return packet;
 }
@@ -222,15 +231,5 @@ unsigned char *Packet_SendMessage(char *message) {
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[3]);
     Packet_WriteByte(packet, 3);
     Packet_WriteString(packet, message);
-    return packet;
-}
-
-unsigned char *Packet_RequestChunk(Vector3 position) {
-    PacketWriter_index = 0;
-    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
-    Packet_WriteByte(packet, 4);
-    Packet_WriteInt(packet, (int)(position.x));
-    Packet_WriteInt(packet, (int)(position.y));
-    Packet_WriteInt(packet, (int)(position.z));
     return packet;
 }

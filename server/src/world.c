@@ -142,6 +142,7 @@ void World_AddEntity(int ID, int type, Vector3 position) {
 
 void World_RemoveEntity(int ID) {
     world.entities[ID].type = 0;
+    World_BroadcastExcluding(Packet_DespawnEntity(&world.entities[ID]), ID);
 }
 
 void World_SendMessage(const char* message) {

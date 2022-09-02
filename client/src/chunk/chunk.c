@@ -29,6 +29,7 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->hasStartedGenerating = false;
     chunk->hasTransparency = false;
     chunk->onlyAir = true;
+    chunk->beingDeleted = false;
 
     for(int i = 0; i < CHUNK_SIZE; i++) {
         chunk->lightData[i] = 0;
@@ -49,6 +50,8 @@ void Chunk_SaveFile(Chunk *chunk) {
 }
 
 bool Chunk_LoadFile(Chunk *chunk) {
+    if(Network_connectedToServer) return false;
+
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     if(FileExists(fileName)) {
 
@@ -270,7 +273,7 @@ bool Chunk_AreNeighbourBuilding(Chunk* chunk) {
             if(i == 2) {
                 Chunk *top = chunk->neighbours[2];
                 while(top != NULL) {
-                    if(!top->isBuilt || !top->isBuilding) return true;
+                    if(!top->isBuilt || top->isBuilding) return true;
                     top = top->neighbours[2];
                 }
             } else {

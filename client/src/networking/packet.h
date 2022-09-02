@@ -29,16 +29,17 @@ void Packet_WriteUShort(unsigned char* packet, unsigned short value);
 void Packet_WriteInt(unsigned char* packet, int value);
 
 void Packet_H_MapInit(void);
-void Packet_H_MapChunk(void);
+void Packet_H_LoadChunk(void);
+void Packet_H_UnloadChunk(void);
 void Packet_H_SetBlock(void);
 void Packet_H_SpawnEntity(void);
 void Packet_H_TeleportEntity(void);
+void Packet_H_DespawnEntity(void);
 void Packet_H_Message(void);
 
-unsigned char* Packet_Identification(char version, char* name);
+unsigned char* Packet_Identification(unsigned short version, char* name);
 unsigned char* Packet_SetBlock(unsigned char blockID, Vector3 position);
 unsigned char* Packet_PlayerPosition(Vector3 position, Vector2 rotation);
 unsigned char* Packet_SendMessage(char* message);
-unsigned char *Packet_RequestChunk(Vector3 position);
 
 #endif

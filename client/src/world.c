@@ -62,8 +62,12 @@ void World_Init(void) {
     pthread_create(&chunkThread_id, NULL, World_ReadChunksQueues, NULL);
 }
 
-void World_LoadSingleplayer(void) {
+void World_LoadMultiplayer(void) {
+    Screen_Switch(SCREEN_GAME);
+    world.loadChunks = true;
+}
 
+void World_LoadSingleplayer(void) {
     Screen_Switch(SCREEN_GAME);
 
     world.loadChunks = true;
@@ -165,22 +169,20 @@ void World_AddChunk(Vector3 position) {
 
         Chunk_Init(newChunk, position);
 
-        if(!Network_connectedToServer) {
-            World_QueueChunk(newChunk);
-            Chunk_RefreshBorderingChunks(newChunk, true);
-        } else {
-            Network_Send(Packet_RequestChunk(position));
-        }
+        World_QueueChunk(newChunk);
+        Chunk_RefreshBorderingChunks(newChunk, true);
     }
 }
 
 void World_RemoveChunk(Chunk *curChunk) {
-    long int p = (long)((int)(curChunk->position.x)&4095)<<20 | (long)((int)(curChunk->position.z)&4095)<<8 | (long)((int)(curChunk->position.y)&255);
+    if(curChunk->beingDeleted) return;
 
+    long int p = (long)((int)(curChunk->position.x)&4095)<<20 | (long)((int)(curChunk->position.z)&4095)<<8 | (long)((int)(curChunk->position.y)&255);
+    
     int index = hmgeti(world.chunks, p);
     if(index >= 0) {
-        Chunk_Unload(curChunk);
-        hmdel(world.chunks, p);
+        curChunk->beingDeleted = true;
+        arrput(world.deleteChunksQueue, curChunk);
     }
     
 }
@@ -199,22 +201,28 @@ void World_UpdateChunks(void) {
                     Chunk_BuildMesh(chunk);
                     chunk->isBuilding = false;
                     arrdel(world.buildChunksQueue, index);
-
                     continue;
                 }
             }
         }
-        
+
+        for(int i = arrlen(world.deleteChunksQueue) - 1; i >= 0 ; i--) {
+            Chunk* chunk = world.deleteChunksQueue[i];
+            if(chunk->isBuilt == true && chunk->isBuilding == false) {
+                if(Chunk_AreNeighbourBuilding(chunk) == false) {
+                    long int p = (long)((int)(chunk->position.x)&4095)<<20 | (long)((int)(chunk->position.z)&4095)<<8 | (long)((int)(chunk->position.y)&255);
+                    Chunk_Unload(chunk);
+                    hmdel(world.chunks, p);
+                    arrdel(world.deleteChunksQueue, i);
+                    continue;
+                }
+            }
+        }
 }
 
 void World_LoadChunks(void) {
 
-    if(!world.loadChunks) return;
-
-    //Temporary
-    if(Network_connectedToServer && world.drawDistance > 4) {
-        world.drawDistance = 4;
-    }
+    if(!world.loadChunks || Network_connectedToServer) return;
 
     Vector3 pos = (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
 
@@ -232,24 +240,16 @@ void World_LoadChunks(void) {
     //destroy far chunks
     for (int i = hmlen(world.chunks) - 1; i >= 0 ; i--) {
         Chunk *chunk = world.chunks[i].value;
-
-        if(chunk->isBuilt == true && chunk->isBuilding == false) {
-            if(Vector3Distance(chunk->position, pos) >= world.drawDistance + 2) {
-                if(Chunk_AreNeighbourBuilding(chunk) == false) {
-                   World_RemoveChunk(chunk);
-                }
-            }
+        if(Vector3Distance(chunk->position, pos) >= world.drawDistance + 2) {
+            World_RemoveChunk(chunk);
         }
-
     }
-
-
+    
 }
 
 void World_Reload(void) {
-    World_Unload();
+    if(!Network_connectedToServer) World_Unload();
     world.loadChunks = true;
-    World_LoadChunks();
 }
 
 void World_Unload(void) {
