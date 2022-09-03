@@ -24,6 +24,7 @@
 #include "worldgenerator.h"
 
 #define WORLD_MAX_ENTITIES 1028
+#define WORLD_MAX_PLAYERS 256
 
 World world;
 
@@ -53,6 +54,12 @@ void World_Init(void) {
 }
 
 void World_Update(void) {
+
+    for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+        Player *player = world.players[i];
+        if(player != NULL) Player_LoadChunks(player);
+    }
+
     for(int i = 0; i < hmlen(world.chunks); i++) {
         Chunk *chunk = world.chunks[i].value; 
 
@@ -63,12 +70,12 @@ void World_Update(void) {
             if(Vector3Distance(chunk->position, playerChunkPos) >= player->drawDistance + 3) {
                 Network_Send(player, Packet_UnloadChunk(chunk->position));
                 Chunk_RemovePlayer(chunk, j);
-                if(arrlen(chunk->players) == 0) {
-                    World_RemoveChunk(chunk);
-                }
             }
         }
 
+        if(arrlen(chunk->players) == 0) {
+            World_RemoveChunk(chunk);
+        }
     }
 }
 
@@ -80,11 +87,6 @@ void World_RemovePlayerFromChunks(Player *playerToRemove) {
             Player *player = chunk->players[j];
             if(player != playerToRemove) continue;
             Chunk_RemovePlayer(chunk, j);
-            if(arrlen(chunk->players) == 0) {
-                World_RemoveChunk(chunk);
-                i--;
-                break;
-            }
         }
 
     }

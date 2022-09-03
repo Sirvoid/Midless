@@ -18,7 +18,6 @@
 
 void Player_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation) {
     World_TeleportEntity(player->id, position, rotation);
-    Player_LoadChunks(player);
 }
 
 void Player_LoadChunks(Player* player) {
@@ -49,6 +48,5 @@ void Player_LoadChunks(Player* player) {
         }
     }
     
-    World_Update();
 }
 

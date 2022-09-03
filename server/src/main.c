@@ -25,7 +25,16 @@ int main(void) {
     pthread_t serverThread_id;
     pthread_create(&serverThread_id, NULL, Server_Init, (void*)&serverThread_state);
     
+    int WUCount = 0;
+
     while (!WindowShouldClose()) {
+
+        if(WUCount++ == 0) {
+            World_Update();
+        } else {
+            WUCount = 0;
+        }
+
         BeginDrawing();
             ClearBackground(BLACK);
             DrawText("Server Running", 16, 16, 20, WHITE);
