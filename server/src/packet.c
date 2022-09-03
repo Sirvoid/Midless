@@ -132,22 +132,6 @@ void Packet_H_Identification(void) {
     printf("%s connected. Protocol version: %i\n", Packet_player->name, protocolVersion);
     World_AddPlayer(Packet_player);
     Network_Send(Packet_player, Packet_MapInit());
-
-    for(int x = -4; x <= 4; x++) {
-        for(int y = -4; y <= 4; y++) {
-            for(int z = -4; z <= 4; z++) {
-                Chunk* chunk = World_RequestChunk((Vector3) {x, 4 + y, z});
-
-                int compressedLength = 0;
-                unsigned short *compressedChunk = Chunk_Compress(chunk, CHUNK_SIZE, &compressedLength);
-
-                Network_Send(Packet_player, Packet_LoadChunk(compressedChunk, compressedLength, (Vector3) {x, 4 + y, z}));
-
-                MemFree(compressedChunk);
-            }
-        }
-    }
-
 }
 
 void Packet_H_SetBlock(void) {
@@ -159,7 +143,7 @@ void Packet_H_SetBlock(void) {
 void Packet_H_PlayerPosition(void) {
     Vector3 position = (Vector3) { Packet_ReadInt() / 64.0f, Packet_ReadInt() / 64.0f, Packet_ReadInt() / 64.0f };
     Vector3 rotation = (Vector3) {Packet_ReadByte(), Packet_ReadByte(), 0};
-    World_TeleportEntity(Packet_player->id, position, rotation);
+    Player_UpdatePositionRotation(Packet_player, position, rotation);
 }
 
 void Packet_H_Message(void) {

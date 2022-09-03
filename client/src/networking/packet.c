@@ -153,7 +153,9 @@ void Packet_H_UnloadChunk(void) {
 
     Vector3 position = (Vector3) {x,y,z};
     Chunk* chunk = World_GetChunkAt(position);
-    World_RemoveChunk(chunk);
+    if(chunk != NULL) {
+        World_RemoveChunk(chunk);
+    }
 }
 
 void Packet_H_SetBlock(void) {

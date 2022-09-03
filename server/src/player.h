@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_PLAYER_H
-#define G_PLAYER_H
+#ifndef S_PLAYER_H
+#define S_PLAYER_H
 
 #include "raylib.h"
 
@@ -14,8 +14,10 @@ typedef struct Player {
     unsigned char id;
     void *peerPtr;
     char *name;
-    Vector3 position;
-    Vector2 rotation;
+    int drawDistance;
 } Player;
+
+void Player_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation);
+void Player_LoadChunks(Player* player);
 
 #endif

@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_WORLDGEN_H
-#define G_WORLDGEN_H
+#ifndef S_WORLDGEN_H
+#define S_WORLDGEN_H
 
 #include "raylib.h"
 #include "chunk/chunk.h"

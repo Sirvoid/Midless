@@ -232,7 +232,9 @@ void World_LoadChunks(void) {
         for(int x = -world.drawDistance ; x <= world.drawDistance; x++) {
             for(int z = -world.drawDistance ; z <= world.drawDistance; z++) {
                 Vector3 chunkPos = (Vector3) {pos.x + x, pos.y + y, pos.z + z};
-                World_AddChunk(chunkPos);
+                if(Vector3Distance(chunkPos, pos) < world.drawDistance + 3) {
+                    World_AddChunk(chunkPos);
+                }
             }
         }
     }
@@ -240,7 +242,7 @@ void World_LoadChunks(void) {
     //destroy far chunks
     for (int i = hmlen(world.chunks) - 1; i >= 0 ; i--) {
         Chunk *chunk = world.chunks[i].value;
-        if(Vector3Distance(chunk->position, pos) >= world.drawDistance + 2) {
+        if(Vector3Distance(chunk->position, pos) >= world.drawDistance + 3) {
             World_RemoveChunk(chunk);
         }
     }

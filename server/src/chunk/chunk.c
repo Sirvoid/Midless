@@ -8,10 +8,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "stb_ds.h"
 #include "raylib.h"
 #include "raymath.h"
 #include "chunk.h"
-#include "worldgenerator.h"
+#include "../worldgenerator.h"
 
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
@@ -90,6 +91,21 @@ unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength) 
     
     compressed = MemRealloc(compressed, *newLength * 2);
     return compressed;
+}
+
+bool Chunk_PlayerInChunk(Chunk* chunk, Player* player) {
+    for(int i = 0; i < arrlen(chunk->players); i++) {
+        if(chunk->players[i] == player) return true;
+    }
+    return false;
+}
+
+void Chunk_AddPlayer(Chunk* chunk, Player* player) {
+    arrput(chunk->players, player);
+}
+
+void Chunk_RemovePlayer(Chunk* chunk, int index) {
+    arrdel(chunk->players, index);
 }
 
 void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {

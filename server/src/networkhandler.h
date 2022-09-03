@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_NETWORK_H
-#define G_NETWORK_H
+#ifndef S_NETWORK_H
+#define S_NETWORK_H
 
 typedef struct PacketDefinition {
     void (*handler)(void);

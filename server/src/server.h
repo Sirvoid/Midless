@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_SERVER_H
-#define G_SERVER_H
+#ifndef S_SERVER_H
+#define S_SERVER_H
 
 void *Server_Init(void *state);
 void Server_Do(int *state);

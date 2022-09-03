@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_PACKET_H
-#define G_PACKET_H
+#ifndef S_PACKET_H
+#define S_PACKET_H
 
 #include "player.h"
 #include "entity.h"

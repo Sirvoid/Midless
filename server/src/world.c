@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <math.h>
 #include "raylib.h"
+#include "raymath.h"
 #include "stb_ds.h"
 #include "world.h"
 #include "chunk/chunk.h"
@@ -49,6 +50,44 @@ void World_Init(void) {
     }
 
     WorldGenerator_Init(seed);
+}
+
+void World_Update(void) {
+    for(int i = 0; i < hmlen(world.chunks); i++) {
+        Chunk *chunk = world.chunks[i].value; 
+
+        for(int j = arrlen(chunk->players) - 1; j >= 0; j--) {
+            Player *player = chunk->players[j];
+            Entity entity = world.entities[player->id];
+            Vector3 playerChunkPos = (Vector3) {(int)floor(entity.position.x / CHUNK_SIZE_X), (int)floor(entity.position.y / CHUNK_SIZE_Y), (int)floor(entity.position.z / CHUNK_SIZE_Z)};
+            if(Vector3Distance(chunk->position, playerChunkPos) >= player->drawDistance + 3) {
+                Network_Send(player, Packet_UnloadChunk(chunk->position));
+                Chunk_RemovePlayer(chunk, j);
+                if(arrlen(chunk->players) == 0) {
+                    World_RemoveChunk(chunk);
+                }
+            }
+        }
+
+    }
+}
+
+void World_RemovePlayerFromChunks(Player *playerToRemove) {
+    for(int i = 0; i < hmlen(world.chunks); i++) {
+        Chunk *chunk = world.chunks[i].value; 
+
+        for(int j = arrlen(chunk->players) - 1; j >= 0; j--) {
+            Player *player = chunk->players[j];
+            if(player != playerToRemove) continue;
+            Chunk_RemovePlayer(chunk, j);
+            if(arrlen(chunk->players) == 0) {
+                World_RemoveChunk(chunk);
+                i--;
+                break;
+            }
+        }
+
+    }
 }
 
 Chunk* World_AddChunk(Vector3 position) {
@@ -115,15 +154,17 @@ void World_AddPlayer(void *player) {
 }
 
 void World_RemovePlayer(void *player) {
+    World_RemovePlayerFromChunks(player);
     Player* curPlayer = (Player*)player;
     for(int i = 0; i < 256; i++) {
-        if(!world.players[i]) continue;
-        if(world.players[i]->id == curPlayer->id) {
+        if(world.players[i] == NULL) continue;
+        if(world.players[i] == curPlayer) {
             world.players[i] = NULL;
             World_RemoveEntity(i);
             break;
         }
     }
+    MemFree(player);
 }
 
 void World_TeleportEntity(int ID, Vector3 position, Vector3 rotation) {

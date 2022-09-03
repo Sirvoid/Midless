@@ -27,6 +27,7 @@ void Network_Init(void) {
 void* Network_InitPlayer(void* peerPtr) {
     Player *player = MemAlloc(sizeof(Player));
     player->peerPtr = peerPtr;
+    player->drawDistance = 3;
     return (void*)player;
 }
 
@@ -37,7 +38,6 @@ void Network_Disconnect(void *playerPtr) {
     Player *player = (Player*)playerPtr;
     printf("%s disconnected.\n", player->name);
     World_RemovePlayer(player);
-    MemFree(playerPtr);
 }
 
 void Network_Receive(void *playerPtr, unsigned char* data) {

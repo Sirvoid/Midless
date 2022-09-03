@@ -12,10 +12,11 @@
 #include "raylib.h"
 #include "server.h"
 #include "world.h"
+#include "stb_ds.h"
 
 int main(void) {
     
-    InitWindow(320, 320, "Server");
+    InitWindow(400, 400, "Server");
     SetTargetFPS(60);
     
     World_Init();
@@ -28,6 +29,7 @@ int main(void) {
         BeginDrawing();
             ClearBackground(BLACK);
             DrawText("Server Running", 16, 16, 20, WHITE);
+            DrawText(TextFormat("Chunks: %i", hmlen(world.chunks)), 200, 48, 12, WHITE);
             DrawText("Players:", 16, 48, 12, WHITE);
             for(int i = 0; i < 256; i++) {
                 if(world.players[i]) {

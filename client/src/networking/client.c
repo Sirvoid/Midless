@@ -80,6 +80,7 @@ void Client_Do(int *state) {
     }
 
     if (!disconnected) {
+        enet_peer_disconnect_now(peer, 0);
         enet_peer_reset(peer);
     }
 

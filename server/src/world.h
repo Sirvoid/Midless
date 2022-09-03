@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_WORLD_H
-#define G_WORLD_H
+#ifndef S_WORLD_H
+#define S_WORLD_H
 
 #include "raylib.h"
 #include "player.h"
@@ -22,6 +22,9 @@ typedef struct World{
 extern World world;
 
 void World_Init(void);
+void World_Update(void);
+
+void World_RemovePlayerFromChunks(Player *playerToRemove);
 
 Chunk* World_AddChunk(Vector3 position);
 void World_RemoveChunk(Chunk *curChunk);

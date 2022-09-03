@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_ENTITY_H
-#define G_ENTITY_H
+#ifndef S_ENTITY_H
+#define S_ENTITY_H
 
 #include "raylib.h"
 
