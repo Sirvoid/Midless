@@ -22,6 +22,7 @@ void Network_Init(void) {
     packets[1] = (PacketDefinition) {&Packet_H_SetBlock};
     packets[2] = (PacketDefinition) {&Packet_H_PlayerPosition};
     packets[3] = (PacketDefinition) {&Packet_H_Message};
+    packets[4] = (PacketDefinition) {&Packet_H_SetDrawDistance};
 }
 
 void* Network_InitPlayer(void* peerPtr) {

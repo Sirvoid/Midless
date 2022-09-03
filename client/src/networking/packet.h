@@ -41,5 +41,6 @@ unsigned char* Packet_Identification(unsigned short version, char* name);
 unsigned char* Packet_SetBlock(unsigned char blockID, Vector3 position);
 unsigned char* Packet_PlayerPosition(Vector3 position, Vector2 rotation);
 unsigned char* Packet_SendMessage(char* message);
+unsigned char *Packet_SetDrawDistance(unsigned char distance);
 
 #endif

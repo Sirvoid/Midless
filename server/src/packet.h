@@ -34,6 +34,7 @@ void Packet_H_Identification(void);
 void Packet_H_SetBlock(void);
 void Packet_H_PlayerPosition(void);
 void Packet_H_Message(void);
+void Packet_H_SetDrawDistance(void);
 
 unsigned char* Packet_MapInit(void);
 unsigned char* Packet_LoadChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition);

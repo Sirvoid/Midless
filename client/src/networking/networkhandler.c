@@ -45,6 +45,7 @@ void Network_Init(void) {
 void Network_Connect(void) {
     Network_connectedToServer = true;
     Network_Send(Packet_Identification(1, Network_name));
+    Network_Send(Packet_SetDrawDistance(world.drawDistance));
 }
 
 void Network_Disconnect(void) {

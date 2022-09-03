@@ -17,6 +17,7 @@
 #include "../world.h"
 #include "../block/block.h"
 #include "../networking/networkhandler.h"
+#include "../networking/packet.h"
 #include "../networking/client.h"
 #include "../worldgenerator.h"
 
@@ -178,6 +179,10 @@ void Screen_MakeOptions(void) {
         } else {
             world.drawDistance = newDrawDistance;
             World_Reload();
+        }
+
+        if(Network_connectedToServer) {
+            Network_Send(Packet_SetDrawDistance(world.drawDistance));
         }
     }
 

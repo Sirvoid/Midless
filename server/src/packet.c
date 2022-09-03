@@ -168,6 +168,12 @@ void Packet_H_Message(void) {
     MemFree(sentMessage);
 }
 
+void Packet_H_SetDrawDistance(void) {
+    unsigned char distance = Packet_ReadByte();
+    if(distance > WORLD_MAX_DRAW_DISTANCE) distance = WORLD_MAX_DRAW_DISTANCE;
+    Packet_player->drawDistance = distance;
+}
+
 /* Packets sent */
 
 unsigned char* Packet_MapInit(void) {

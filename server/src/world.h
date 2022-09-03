@@ -8,6 +8,10 @@
 #ifndef S_WORLD_H
 #define S_WORLD_H
 
+#define WORLD_MAX_ENTITIES 1028
+#define WORLD_MAX_PLAYERS 256
+#define WORLD_MAX_DRAW_DISTANCE 4
+
 #include "raylib.h"
 #include "player.h"
 #include "entity.h"

@@ -23,9 +23,6 @@
 #include "entity.h"
 #include "worldgenerator.h"
 
-#define WORLD_MAX_ENTITIES 1028
-#define WORLD_MAX_PLAYERS 256
-
 World world;
 
 void World_Init(void) {

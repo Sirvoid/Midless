@@ -42,7 +42,7 @@ void Server_Do(int *state) {
     Network_Init();
     
     while(*state != -1) {
-        while (enet_host_service(server, &event, 1) > 0) {
+        while (enet_host_service(server, &event, 33) > 0) {
             switch (event.type) {
                 case ENET_EVENT_TYPE_CONNECT:
                     event.peer->data = Network_InitPlayer(event.peer);

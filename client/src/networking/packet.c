@@ -22,7 +22,8 @@ int Packet_Lengths[256] = {
     67, //0
     14, //1
     15, //2
-    65 //3
+    65, //3
+    2, //4
 };
 int PingCalculation_oldTime = 0;
 
@@ -233,5 +234,13 @@ unsigned char *Packet_SendMessage(char *message) {
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[3]);
     Packet_WriteByte(packet, 3);
     Packet_WriteString(packet, message);
+    return packet;
+}
+
+unsigned char *Packet_SetDrawDistance(unsigned char distance) {
+    PacketWriter_index = 0;
+    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
+    Packet_WriteByte(packet, 4);
+    Packet_WriteByte(packet, distance);
     return packet;
 }
