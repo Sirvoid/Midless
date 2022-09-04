@@ -68,11 +68,14 @@ void Client_Do(int *state) {
                     Network_Receive((unsigned char*)event.packet->data, event.packet->dataLength);
                     enet_packet_destroy(event.packet);
                     break;
+
                 case ENET_EVENT_TYPE_DISCONNECT:
+                case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT:
                     puts("disconnected.");
                     Network_Disconnect();
                     disconnected = true;
                     break;
+
                 default:
                     break;
             }

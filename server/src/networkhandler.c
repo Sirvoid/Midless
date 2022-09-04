@@ -16,13 +16,14 @@
 #include "world.h"
 
 PacketDefinition packets[256];
+int packetsNb = 0;
 
 void Network_Init(void) {
-    packets[0] = (PacketDefinition) {&Packet_H_Identification};
-    packets[1] = (PacketDefinition) {&Packet_H_SetBlock};
-    packets[2] = (PacketDefinition) {&Packet_H_PlayerPosition};
-    packets[3] = (PacketDefinition) {&Packet_H_Message};
-    packets[4] = (PacketDefinition) {&Packet_H_SetDrawDistance};
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_Identification};
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_SetBlock};
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_PlayerPosition};
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_Message};
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_SetDrawDistance};
 }
 
 void* Network_InitPlayer(void* peerPtr) {
@@ -45,7 +46,9 @@ void Network_Receive(void *playerPtr, unsigned char* data) {
     Packet_player = (Player*)playerPtr;
     Packet_data = data;
     PacketReader_index = 1;
-    (*packets[data[0]].handler)();
+    if(data[0] < packetsNb) {
+        (*packets[data[0]].handler)();
+    }
 }
 
 void Network_Send(void *playerPtr, unsigned char* packet) {
