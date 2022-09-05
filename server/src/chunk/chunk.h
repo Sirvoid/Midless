@@ -23,6 +23,7 @@ typedef struct Chunk{
     Vector3 position; //Position of the chunk in chunk unit
     Vector3 blockPosition; //Position of the chunk in block unit
     bool fromFile;
+    bool modified;
     Player* *players;
 } Chunk;
 

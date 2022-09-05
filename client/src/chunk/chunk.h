@@ -38,6 +38,7 @@ typedef struct Chunk{
     bool fromFile;
     bool deleted;
     bool beingDeleted;
+    bool modified;
 
     //mesh flags
     bool hasTransparency;

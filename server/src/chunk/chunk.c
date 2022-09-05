@@ -18,6 +18,7 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
     chunk->fromFile = false;
+    chunk->modified = false;
 
     if(Chunk_LoadFile(chunk)) {
         chunk->fromFile = true;
@@ -28,7 +29,7 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
 }
 
 void Chunk_Unload(Chunk *chunk) {
-    Chunk_SaveFile(chunk);
+    if(chunk->modified) Chunk_SaveFile(chunk);
     MemFree(chunk);
 }
 
@@ -114,6 +115,7 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
         int index = Chunk_PosToIndex(pos);
 
         chunk->data[index] = blockID;
+        chunk->modified = true;
     }
 }
 

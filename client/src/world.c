@@ -69,7 +69,10 @@ void World_LoadMultiplayer(void) {
 }
 
 void World_LoadSingleplayer(void) {
+
+    //Prevent multiplayer chunks from being unloaded during a singleplayer game which causes them to be saved locally.
     if(hmlen(world.chunks) != 0) return;
+
     player.position = (Vector3) { 0, 80, 0 };
     Network_connectedToServer = false;
     Screen_Switch(SCREEN_GAME);

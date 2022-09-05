@@ -30,6 +30,7 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->hasTransparency = false;
     chunk->onlyAir = true;
     chunk->beingDeleted = false;
+    chunk->modified = false;
 
     for(int i = 0; i < CHUNK_SIZE; i++) {
         chunk->lightData[i] = 0;
@@ -45,6 +46,7 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
 
 void Chunk_SaveFile(Chunk *chunk) {
     if(Network_connectedToServer) return;
+    
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     SaveFileData(fileName, chunk->data, CHUNK_SIZE * 2);
 }
@@ -80,7 +82,7 @@ void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLengt
 
 void Chunk_Unload(Chunk *chunk) {
 
-    Chunk_SaveFile(chunk);
+    if(chunk->modified) Chunk_SaveFile(chunk);
 
     if(chunk->isBuilt) {
         ChunkMesh_Unload(&chunk->mesh);
@@ -116,6 +118,7 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
         int index = Chunk_PosToIndex(pos);
 
         chunk->data[index] = blockID;
+        chunk->modified = true;
 
         Block blockDef = Block_GetDefinition(blockID);
         if(blockDef.lightType == BlockLightType_Emit) {
