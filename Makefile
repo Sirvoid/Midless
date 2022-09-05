@@ -2,7 +2,7 @@ RAYLIB_PATH=C:\raylib\raylib
 COMPILER_PATH ?= C:\raylib\w64devkit\bin
 export PATH := $(COMPILER_PATH):$(PATH)
 
-ifdef BUILD_SERVER
+ifeq ($(BUILD_SERVER), TRUE)
 	PROJECT := server.exe
 	BUILD_DIR = server/bin/$(PROJECT)
 
@@ -29,7 +29,7 @@ OBJ := $(patsubst %.c, %.o, $(SRC_C))
 
 CC := gcc
 CFLAGS = -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces
-ifdef DEBUG
+ifeq ($(DEBUG), TRUE)
 	CFLAGS += -g -Og
 else
 	CFLAGS += -s -O2 -Wl,--subsystem,windows

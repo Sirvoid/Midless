@@ -25,6 +25,19 @@ Midless is a free and open-source voxel game made in C.
 | [stb_ds](https://github.com/nothings/stb/blob/master/stb_ds.h) | -       |
 
 
+## Compiling for Windows using MinGW
+
+1. [Download and Build Raylib](https://github.com/raysan5/raylib/wiki/Working-on-Windows)
+2. Download/Place the other dependencies inside client/src and server/src.
+3. Run mingw32-make inside the Midless folder where the MakeFile is located. 
+
+Make arguments:
+```
+BUILD_SERVER=TRUE       - Build Midless Server (Doesn't build the client)
+DEBUG=TRUE              - Debug build
+```
+
+
 ## License
 
 All code in this repository is licensed under the [MIT License](https://github.com/Sirvoid/Midless/blob/main/LICENSE).
