@@ -3,8 +3,6 @@
 
 Midless is a free and open-source voxel game made in C.
 
-*Multiplayer not fully functional yet*
-
 ## Controls
 
 | Input                        | Action                |

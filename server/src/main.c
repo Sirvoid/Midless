@@ -18,6 +18,7 @@ int main(void) {
     
     InitWindow(400, 400, "Server");
     SetTargetFPS(60);
+    SetTraceLogLevel(LOG_WARNING);
     
     World_Init();
     
@@ -49,6 +50,9 @@ int main(void) {
     }
 
     serverThread_state = -1;
+
+    World_Unload();
+
     CloseWindow();
     
     return 0;

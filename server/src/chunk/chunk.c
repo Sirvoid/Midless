@@ -28,6 +28,7 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
 }
 
 void Chunk_Unload(Chunk *chunk) {
+    Chunk_SaveFile(chunk);
     MemFree(chunk);
 }
 
@@ -113,7 +114,6 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
         int index = Chunk_PosToIndex(pos);
 
         chunk->data[index] = blockID;
-        Chunk_SaveFile(chunk);
     }
 }
 

@@ -51,7 +51,6 @@ void Server_Do(int *state) {
 
                 case ENET_EVENT_TYPE_RECEIVE:
                     Network_Receive(event.peer->data, (unsigned char*)event.packet->data);
-                    enet_host_flush(server);
                     enet_packet_destroy(event.packet);
                     break;
 
@@ -63,6 +62,7 @@ void Server_Do(int *state) {
                 case ENET_EVENT_TYPE_NONE:
                     break;
             }
+            enet_host_flush(server);
         }
     }
     

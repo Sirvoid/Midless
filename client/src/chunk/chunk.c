@@ -80,6 +80,8 @@ void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLengt
 
 void Chunk_Unload(Chunk *chunk) {
 
+    Chunk_SaveFile(chunk);
+
     if(chunk->isBuilt) {
         ChunkMesh_Unload(&chunk->mesh);
         ChunkMesh_Unload(&chunk->meshTransparent);
@@ -114,7 +116,6 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
         int index = Chunk_PosToIndex(pos);
 
         chunk->data[index] = blockID;
-        Chunk_SaveFile(chunk);
 
         Block blockDef = Block_GetDefinition(blockID);
         if(blockDef.lightType == BlockLightType_Emit) {

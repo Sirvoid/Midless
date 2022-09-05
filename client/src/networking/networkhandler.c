@@ -50,10 +50,9 @@ void Network_Connect(void) {
 
 void Network_Disconnect(void) {
     Screen_Switch(SCREEN_LOGIN);
-    Network_connectedToServer = false;
+    World_Unload();
     Network_threadState = -1; //End network thread
     Screen_cursorEnabled = false;
-    World_Unload();
 }
 
 pthread_mutex_t queue_mutex;

@@ -63,13 +63,16 @@ void World_Init(void) {
 }
 
 void World_LoadMultiplayer(void) {
+    player.position = (Vector3) { 0, 80, 0 };
     Screen_Switch(SCREEN_GAME);
     world.loadChunks = true;
 }
 
 void World_LoadSingleplayer(void) {
+    if(hmlen(world.chunks) != 0) return;
+    player.position = (Vector3) { 0, 80, 0 };
+    Network_connectedToServer = false;
     Screen_Switch(SCREEN_GAME);
-
     world.loadChunks = true;
     World_LoadChunks();
 }
@@ -267,6 +270,7 @@ void World_Unload(void) {
     for(int i = hmlen(world.chunks) - 1; i >= 0; i--) {
         World_RemoveChunk(world.chunks[i].value);
     }
+
     world.chunks = NULL;
 
     pthread_mutex_unlock(&chunk_mutex);

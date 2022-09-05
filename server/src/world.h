@@ -26,6 +26,7 @@ typedef struct World{
 extern World world;
 
 void World_Init(void);
+void World_Unload(void);
 void World_Update(void);
 
 void World_RemovePlayerFromChunks(Player *playerToRemove);

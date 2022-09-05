@@ -50,6 +50,14 @@ void World_Init(void) {
     WorldGenerator_Init(seed);
 }
 
+void World_Unload(void) {
+
+    for(int i = hmlen(world.chunks) - 1; i >= 0; i--) {
+        World_RemoveChunk(world.chunks[i].value);
+    }
+    
+}
+
 void World_Update(void) {
 
     for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
