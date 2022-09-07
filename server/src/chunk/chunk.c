@@ -20,7 +20,7 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->fromFile = false;
     chunk->modified = false;
 
-    if(Chunk_LoadFile(chunk)) {
+    if (Chunk_LoadFile(chunk)) {
         chunk->fromFile = true;
     } else {
         Chunk_Generate(chunk);
@@ -29,7 +29,7 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
 }
 
 void Chunk_Unload(Chunk *chunk) {
-    if(chunk->modified) Chunk_SaveFile(chunk);
+    if (chunk->modified) Chunk_SaveFile(chunk);
     MemFree(chunk);
 }
 
@@ -40,8 +40,7 @@ void Chunk_SaveFile(Chunk *chunk) {
 
 bool Chunk_LoadFile(Chunk *chunk) {
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
-    if(FileExists(fileName)) {
-
+    if (FileExists(fileName)) {
         unsigned int length = 0;
         unsigned char *saveFile = LoadFileData(fileName, &length);
 
@@ -54,9 +53,9 @@ bool Chunk_LoadFile(Chunk *chunk) {
 }
 
 void Chunk_Generate(Chunk *chunk) {
-    if(!chunk->fromFile) {
+    if (!chunk->fromFile) {
         //Map Generation
-        for(int i = CHUNK_SIZE - 1; i >= 0; i--) {
+        for (int i = CHUNK_SIZE - 1; i >= 0; i--) {
             Vector3 npos = Vector3Add(Chunk_IndexToPos(i), chunk->blockPosition);
             chunk->data[i] = WorldGenerator_Generate(chunk, npos, i);
         }
@@ -72,12 +71,12 @@ unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength) 
     int oldID = chunk->data[0];
     int bCount = 1;
     int len = 0;
-    for(int i = 1; i <= currentLength; i++) {
+    for (int i = 1; i <= currentLength; i++) {
         
         int curID = 0;
-        if(i != currentLength) curID = chunk->data[i];
+        if (i != currentLength) curID = chunk->data[i];
         
-        if(oldID != curID || bCount >= USHRT_MAX || i == currentLength) {
+        if (oldID != curID || bCount >= USHRT_MAX || i == currentLength) {
             compressed[len++] = (unsigned short)oldID;
             compressed[len++] = (unsigned short)bCount;
 
@@ -96,8 +95,8 @@ unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength) 
 }
 
 bool Chunk_PlayerInChunk(Chunk* chunk, Player* player) {
-    for(int i = 0; i < arrlen(chunk->players); i++) {
-        if(chunk->players[i] == player) return true;
+    for (int i = 0; i < arrlen(chunk->players); i++) {
+        if (chunk->players[i] == player) return true;
     }
     return false;
 }
@@ -111,7 +110,7 @@ void Chunk_RemovePlayer(Chunk* chunk, int index) {
 }
 
 void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
-    if(Chunk_IsValidPos(pos)) {
+    if (Chunk_IsValidPos(pos)) {
         int index = Chunk_PosToIndex(pos);
 
         chunk->data[index] = blockID;
@@ -120,7 +119,7 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
 }
 
 int Chunk_GetBlock(Chunk *chunk, Vector3 pos) {
-    if(Chunk_IsValidPos(pos)) {
+    if (Chunk_IsValidPos(pos)) {
         return chunk->data[Chunk_PosToIndex(pos)];
     }
     return 0;

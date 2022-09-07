@@ -66,7 +66,7 @@ int Packet_ReadInt(void) {
 char* Packet_ReadString(void) {
     char *string = MemAlloc(PACKET_STRING_SIZE + 1);
     
-    for(int i = 0; i < PACKET_STRING_SIZE; i++) {
+    for (int i = 0; i < PACKET_STRING_SIZE; i++) {
         string[i] = Packet_data[PacketReader_index++];
     }
     
@@ -109,8 +109,8 @@ void Packet_WriteInt(unsigned char* packet, int value) {
 
 void Packet_WriteString(unsigned char *packet, const char *string) {
     int length = TextLength(string);
-    for(int i = 0; i < PACKET_STRING_SIZE; i++) {
-        if(i < length) {
+    for (int i = 0; i < PACKET_STRING_SIZE; i++) {
+        if (i < length) {
             packet[PacketWriter_index++] = string[i];
         } else {
             packet[PacketWriter_index++] = 0;
@@ -119,7 +119,7 @@ void Packet_WriteString(unsigned char *packet, const char *string) {
 }
 
 void Packet_WriteArray(unsigned char* packet, unsigned char* array, int size) {
-    for(int i = 0; i < size; i++) {
+    for (int i = 0; i < size; i++) {
         packet[PacketWriter_index++] = array[i];
     }
 }
@@ -170,7 +170,7 @@ void Packet_H_Message(void) {
 
 void Packet_H_SetDrawDistance(void) {
     unsigned char distance = Packet_ReadByte();
-    if(distance > WORLD_MAX_DRAW_DISTANCE) distance = WORLD_MAX_DRAW_DISTANCE;
+    if (distance > WORLD_MAX_DRAW_DISTANCE) distance = WORLD_MAX_DRAW_DISTANCE;
     Packet_player->drawDistance = distance;
 }
 

@@ -19,7 +19,7 @@ RaycastResult Raycast_Do(Vector3 position, Vector3 direction, bool ignoreLiquid)
     float i = 0;
     Vector3 oldPos = position;
     
-    while(i < RAYCAST_REACH / RAYCAST_PRECISION) {
+    while (i < RAYCAST_REACH / RAYCAST_PRECISION) {
         i += 1;
         
         oldPos = position;
@@ -29,7 +29,7 @@ RaycastResult Raycast_Do(Vector3 position, Vector3 direction, bool ignoreLiquid)
         
         int blockID = World_GetBlock(position);
         
-        if(blockID != 0) {
+        if (blockID != 0) {
             Block block = Block_GetDefinition(blockID);
             if (ignoreLiquid && block.colliderType == BlockColliderType_Liquid) {
                 continue;

@@ -94,7 +94,7 @@ void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigne
     };
 
 
-    if(b.modelType == BlockModelType_Sprite) {
+    if (b.modelType == BlockModelType_Sprite) {
         facesPosition = facesPositionSprite;
     } else {
         facesPosition = facesPositionBlock;
@@ -116,15 +116,15 @@ void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigne
     indices[BFH_indicesI[translucent]++] = verticeIndexD3;
     indices[BFH_indicesI[translucent]++] = verticeIndexD3 + 3;
 
-    for(int i = 0; i < 4; i++) {
+    for (int i = 0; i < 4; i++) {
         int faceIndex = i + faceX4;
         
         vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].x / 16 + pos.x) * 15);
         vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].y / 16 + pos.y) * 15);
         vertices[BFH_verticesI[translucent]++] =  (unsigned char)((facesPosition[faceIndex].z / 16 + pos.z) * 15);
         
-        if(b.modelType != BlockModelType_Sprite) {
-            switch(face) {
+        if (b.modelType != BlockModelType_Sprite) {
+            switch (face) {
                 case BlockFace_Bottom:
                     colors[BFH_colorsI[translucent]++] = ((int)fmax(0, (light - 8) << 4)) | (int)fmax(0, sunlight - 8);
                     break;
@@ -151,13 +151,13 @@ void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigne
     int iMinX = textureX;
     int iMinY = textureY;
 
-    if(b.modelType != BlockModelType_Sprite) {
-        if(face == BlockFace_Front || face == BlockFace_Back) {
+    if (b.modelType != BlockModelType_Sprite) {
+        if (face == BlockFace_Front || face == BlockFace_Back) {
             iMaxY -= 16 - b.maxBB.y;
             iMinY += b.minBB.y;
             iMaxX -= 16 - b.maxBB.x;
             iMinX += b.minBB.x;
-        } else if(face == BlockFace_Left || face == BlockFace_Right) {
+        } else if (face == BlockFace_Left || face == BlockFace_Right) {
             iMaxX -= 16 - b.maxBB.z;
             iMinX += b.minBB.z;
             iMaxY -= 16 - b.maxBB.y;

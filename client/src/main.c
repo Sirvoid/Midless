@@ -86,7 +86,7 @@ int main(void) {
 
             BeginMode3D(player.camera);
                 World_Draw(player.camera.position);
-                if(player.rayResult.hitBlockID != -1) {
+                if (player.rayResult.hitBlockID != -1) {
                     Block block = Block_GetDefinition(player.rayResult.hitBlockID);
                     Vector3 blockSize = Vector3Subtract(block.maxBB, block.minBB);
                     blockSize = Vector3Scale(blockSize, 1.0f / 16);

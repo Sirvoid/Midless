@@ -12,7 +12,7 @@ Block Block_definition[256];
 
 void Block_BuildDefinition(void) {
 
-    for(int i = 0; i < 256; i++) {
+    for (int i = 0; i < 256; i++) {
         Block_Define(i, "invalid", 0, 0, 0);
         Block_definition[i].colliderType = BlockColliderType_None;
     }
@@ -74,7 +74,7 @@ void Block_BuildDefinition(void) {
 }
 
 Block Block_GetDefinition(int ID) {
-    if(ID >= 0 && ID <= 255) {
+    if (ID >= 0 && ID <= 255) {
         return Block_definition[ID];
     }
     return Block_definition[0];

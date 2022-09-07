@@ -65,33 +65,33 @@ int WorldGenerator_Generate(Chunk *chunk, Vector3 pos, int index) {
 
     float biomeElevation = (fnlGetNoise2D(&heightNoise, pos.x * 0.05f, pos.z * 0.05f) + 1.0f);
 
-    if(pos.y >= 32 * biomeElevation) {
+    if (pos.y >= 32 * biomeElevation) {
         float nsOff = fnlGetNoise3D(&offsetNoise, pos.x * 2.0f, pos.y * 2.0f, pos.z * 2.0f) * 12.0f * (biomeElevation - 1);
         float ns = (fnlGetNoise3D(&noise, (pos.x + nsOff) * 2.5f, nsOff, (pos.z + nsOff) * 2.5f) * nsOff + 1.0f) / 2.0f * 64 * biomeElevation;
         float ny = pos.y - 32;
         
         float waterLevel = 58;
 
-        if( ny < ns &&  nsCave * nsCave2 > 0.6f) {
+        if ( ny < ns &&  nsCave * nsCave2 > 0.6f) {
             blockID = 0; //Caves
-        } else if(ny + 4 < ns) {
+        } else if (ny + 4 < ns) {
              blockID = 1; //Stone
-        } else if(ny + 1 < ns) {
-            if(chunk->data[(index + CHUNK_SIZE_XZ) % CHUNK_SIZE] == 0) {
+        } else if (ny + 1 < ns) {
+            if (chunk->data[(index + CHUNK_SIZE_XZ) % CHUNK_SIZE] == 0) {
                 blockID = 3; //Grass
             } else {
                 blockID = 2; //Dirt
             }
-        } else if(ny < ns && pos.y < waterLevel) {
+        } else if (ny < ns && pos.y < waterLevel) {
             blockID= 6; //Sand
-        } else if(pos.y < waterLevel) {
+        } else if (pos.y < waterLevel) {
             blockID = 5; //Water
         }
 
         
     } else {
         blockID = 1;
-        if(nsCave * nsCave2 > 0.6f) blockID = 0; //Caves
+        if (nsCave * nsCave2 > 0.6f) blockID = 0; //Caves
     }
 
     return blockID;

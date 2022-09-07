@@ -90,5 +90,7 @@ bool Chunk_IsValidPos(Vector3 pos);
 int Chunk_PosToIndex(Vector3 pos);
 //convert index to block position.
 Vector3 Chunk_IndexToPos(int index);
+//Pack chunk position into a 32 bit number.
+long int Chunk_GetPackedPos(Vector3 pos);
 
 #endif

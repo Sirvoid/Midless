@@ -29,15 +29,15 @@ void World_Init(void) {
     world.players = MemAlloc(sizeof(Player*) * 256);
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
 
-    int seed = rand();
-
     //Create world directory
     struct stat st = {0};
     if (stat("./world", &st) == -1) {
         mkdir("./world");
     }
     
-    if(FileExists("./world/seed.dat")) {
+    int seed = rand();
+        
+    if (FileExists("./world/seed.dat")) {
         unsigned int bytesRead = 0;
         unsigned char *data = LoadFileData("./world/seed.dat", &bytesRead);
         seed = (int)(data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]); 
@@ -52,7 +52,7 @@ void World_Init(void) {
 
 void World_Unload(void) {
 
-    for(int i = hmlen(world.chunks) - 1; i >= 0; i--) {
+    for (int i = hmlen(world.chunks) - 1; i >= 0; i--) {
         World_RemoveChunk(world.chunks[i].value);
     }
     
@@ -60,25 +60,26 @@ void World_Unload(void) {
 
 void World_Update(void) {
 
-    for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         Player *player = world.players[i];
-        if(player != NULL) Player_LoadChunks(player);
+        if (player != NULL) Player_LoadChunks(player);
     }
 
-    for(int i = 0; i < hmlen(world.chunks); i++) {
+    for (int i = 0; i < hmlen(world.chunks); i++) {
         Chunk *chunk = world.chunks[i].value; 
 
-        for(int j = arrlen(chunk->players) - 1; j >= 0; j--) {
+        for (int j = arrlen(chunk->players) - 1; j >= 0; j--) {
             Player *player = chunk->players[j];
+            
             Entity entity = world.entities[player->id];
             Vector3 playerChunkPos = (Vector3) {(int)floor(entity.position.x / CHUNK_SIZE_X), (int)floor(entity.position.y / CHUNK_SIZE_Y), (int)floor(entity.position.z / CHUNK_SIZE_Z)};
-            if(Vector3Distance(chunk->position, playerChunkPos) >= player->drawDistance + 3) {
+            if (Vector3Distance(chunk->position, playerChunkPos) >= player->drawDistance + 3) {
                 Network_Send(player, Packet_UnloadChunk(chunk->position));
                 Chunk_RemovePlayer(chunk, j);
             }
         }
 
-        if(arrlen(chunk->players) == 0) {
+        if (arrlen(chunk->players) == 0) {
             World_RemoveChunk(chunk);
         }
     }
@@ -90,6 +91,7 @@ void World_RemovePlayerFromChunks(Player *playerToRemove) {
 
         for(int j = arrlen(chunk->players) - 1; j >= 0; j--) {
             Player *player = chunk->players[j];
+
             if(player != playerToRemove) continue;
             Chunk_RemovePlayer(chunk, j);
         }
@@ -106,7 +108,6 @@ Chunk* World_AddChunk(Vector3 position) {
         //Add chunk to list
         chunk = MemAlloc(sizeof(Chunk));
         hmput(world.chunks, p, chunk);
-
         Chunk_Init(chunk, position);
     } else {
         chunk = world.chunks[index].value;

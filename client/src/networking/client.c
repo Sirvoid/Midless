@@ -61,7 +61,7 @@ void Client_Do(int *state) {
     uint8_t disconnected = false;
     
     //read events
-    while(*state != -1) {
+    while (*state != -1) {
         while (enet_host_service(client, &event, 33) > 0) {
             switch (event.type) {
                 case ENET_EVENT_TYPE_RECEIVE:

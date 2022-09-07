@@ -65,7 +65,7 @@ int Packet_ReadInt(void) {
 char *Packet_ReadString(void) {
     char *string = MemAlloc(PACKET_STRING_SIZE + 1);
     
-    for(int i = 0; i < PACKET_STRING_SIZE; i++) {
+    for (int i = 0; i < PACKET_STRING_SIZE; i++) {
         string[i] = Packet_data[PacketReader_index++];
     }
     
@@ -114,8 +114,8 @@ void Packet_WriteInt(unsigned char *packet, int value) {
 
 void Packet_WriteString(unsigned char *packet, char *string) {
     int length = TextLength(string);
-    for(int i = 0; i < PACKET_STRING_SIZE; i++) {
-        if(i < length) {
+    for (int i = 0; i < PACKET_STRING_SIZE; i++) {
+        if (i < length) {
             packet[PacketWriter_index++] = string[i];
         } else {
             packet[PacketWriter_index++] = 0;
@@ -154,7 +154,7 @@ void Packet_H_UnloadChunk(void) {
 
     Vector3 position = (Vector3) {x,y,z};
     Chunk* chunk = World_GetChunkAt(position);
-    if(chunk != NULL) {
+    if (chunk != NULL) {
         World_RemoveChunk(chunk);
     }
 }

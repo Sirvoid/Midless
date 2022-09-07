@@ -59,9 +59,9 @@ pthread_mutex_t queue_mutex;
 
 //Executed on the main thread
 void Network_ReadQueue(void) {
-    while(true) {
+    while (true) {
 
-        if(arrlen(queuedData) == 0) return;
+        if (arrlen(queuedData) == 0) return;
         
         //Find start of queue.
         unsigned char* startQueuedData = queuedData[0];
@@ -69,7 +69,7 @@ void Network_ReadQueue(void) {
         //Handle packet
         Packet_data = startQueuedData;
         PacketReader_index = 1;
-        if(startQueuedData[0] < packetsNb) (*packets[startQueuedData[0]].handler)();
+        if (startQueuedData[0] < packetsNb) (*packets[startQueuedData[0]].handler)();
 
         MemFree(startQueuedData);
 
@@ -94,6 +94,6 @@ void Network_Receive(unsigned char *data, int dataLength) {
 }
 
 void Network_Send(unsigned char *packet) {
-    if(!Network_connectedToServer) return;
+    if (!Network_connectedToServer) return;
     Network_Internal_Client_Send(packet, Packet_GetLength(packet[0]));
 }

@@ -54,7 +54,7 @@ void EntityModelPart_AddFace(Mesh *mesh, int face, BoundingBox box, Rectangle uv
 
     unsigned char lightning = 255;
 
-    switch(face) {
+    switch (face) {
         case 0: //left
         case 1: //right
             lightning = 150;
@@ -73,7 +73,7 @@ void EntityModelPart_AddFace(Mesh *mesh, int face, BoundingBox box, Rectangle uv
             break;
     }
 
-    for(int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6; i++) {
         int faceIndex = i + face * 6;
         
         mesh->vertices[vCount++] =  facesPosition[faceIndex].x / 16;
@@ -115,7 +115,7 @@ void EntityModelPart_Build(EntityModelPart *part, BoundingBox box, Rectangle *uv
     vCount = 0;
     tCount = 0;
     cCount = 0;
-    for(int i = 0; i < 6; i++) {
+    for (int i = 0; i < 6; i++) {
         EntityModelPart_AddFace(mesh, i, box, uvs[i], textureSize);
     }
 

@@ -30,7 +30,7 @@ int main(void) {
 
     while (!WindowShouldClose()) {
 
-        if(WUCount++ == 0) {
+        if (WUCount++ == 0) {
             World_Update();
         } else {
             WUCount = 0;
@@ -41,8 +41,8 @@ int main(void) {
             DrawText("Server Running", 16, 16, 20, WHITE);
             DrawText(TextFormat("Chunks: %i", hmlen(world.chunks)), 200, 48, 12, WHITE);
             DrawText("Players:", 16, 48, 12, WHITE);
-            for(int i = 0; i < 256; i++) {
-                if(world.players[i]) {
+            for (int i = 0; i < 256; i++) {
+                if (world.players[i]) {
                     DrawText(TextFormat("%s (ping: %2i ms)", world.players[i]->name, 0), 16, 64 + (i * 16), 12, WHITE);
                 }
             }

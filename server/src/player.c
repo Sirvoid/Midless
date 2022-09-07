@@ -27,13 +27,14 @@ void Player_LoadChunks(Player* player) {
     Vector3 playerChunkPos = (Vector3) {(int)floor(entity.position.x / CHUNK_SIZE_X), (int)floor(entity.position.y / CHUNK_SIZE_Y), (int)floor(entity.position.z / CHUNK_SIZE_Z)};
 
     int loadingHeight = fmin(player->drawDistance, 4);
-    for(int y = loadingHeight; y >= -loadingHeight; y--) {
-        for(int x = -player->drawDistance; x <= player->drawDistance; x++) {
-            for(int z = -player->drawDistance; z <= player->drawDistance; z++) {
+    for (int y = loadingHeight; y >= -loadingHeight; y--) {
+        for (int x = -player->drawDistance; x <= player->drawDistance; x++) {
+            for (int z = -player->drawDistance; z <= player->drawDistance; z++) {
                 Vector3 chunkPos = (Vector3) {playerChunkPos.x + x, playerChunkPos.y + y, playerChunkPos.z + z};
-                if(Vector3Distance(chunkPos, playerChunkPos) < player->drawDistance + 3) {
+                
+                if (Vector3Distance(chunkPos, playerChunkPos) < player->drawDistance + 3) {
                     Chunk* chunk = World_RequestChunk(chunkPos);
-                    if(!Chunk_PlayerInChunk(chunk, player)) {
+                    if (!Chunk_PlayerInChunk(chunk, player)) {
                         Chunk_AddPlayer(chunk, player);
 
                         int compressedLength = 0;

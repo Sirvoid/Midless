@@ -46,7 +46,7 @@ void Network_Receive(void *playerPtr, unsigned char* data) {
     Packet_player = (Player*)playerPtr;
     Packet_data = data;
     PacketReader_index = 1;
-    if(data[0] < packetsNb) {
+    if (data[0] < packetsNb) {
         (*packets[data[0]].handler)();
     }
 }
@@ -54,7 +54,7 @@ void Network_Receive(void *playerPtr, unsigned char* data) {
 void Network_Send(void *playerPtr, unsigned char* packet) {
     Player *player = (Player*)playerPtr;
     int packetLength = Packet_GetLength(packet[0]);
-    if(packetLength == 0) packetLength = Packet_LastDynamicLength;
+    if (packetLength == 0) packetLength = Packet_LastDynamicLength;
     Server_Send(player->peerPtr, packet, packetLength);
 }
 

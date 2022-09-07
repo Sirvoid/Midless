@@ -124,14 +124,14 @@ void EntityModel_Build(EntityModel *model, EntityModelDef modelDef) {
     model->mat = LoadMaterialDefault();
     SetMaterialTexture(&model->mat, MATERIAL_MAP_DIFFUSE, modelDef.defaultTexture);
     
-    for(int i = 0; i < modelDef.amountBoxes; i++) {
+    for (int i = 0; i < modelDef.amountBoxes; i++) {
         model->parts[i].type = modelDef.types[i];
         EntityModelPart_Build(&model->parts[i], modelDef.boxes[i], modelDef.uvs[i], (Vector2) {modelDef.defaultTexture.width, modelDef.defaultTexture.height}, modelDef.positions[i]);
     }
 }
 
 void EntityModel_Free(EntityModel *model) {
-    for(int i = 0; i < model->amountParts; i++) { 
+    for (int i = 0; i < model->amountParts; i++) { 
         UnloadMesh(model->parts[i].mesh);
     }
     MemFree(model->parts);

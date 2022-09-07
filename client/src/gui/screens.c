@@ -73,21 +73,24 @@ void Screens_init(Texture2D terrain, bool *exit) {
 void Screen_MakeGame(void) {
 
     //Draw debug infos
-    const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
-    const char* debugText;
+    if (Screen_showDebug) {
+        const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
+        const char* debugText;
 
-    if(Screen_showDebug) {
-        if(Network_connectedToServer) {
+        if (Network_connectedToServer) {
             debugText = TextFormat("%2i FPS %2i PING", GetFPS(), Network_ping);
         } else {
             debugText = TextFormat("%2i FPS", GetFPS());
         }
     
-        int backgroundWidth = fmax(MeasureText(coordText, 20), MeasureText(debugText, 20));
+        const char* versionText = "Midless Pre-Alpha 1.3 dev";
+        DrawText(versionText, 9, 9, 20, BLACK);
+        DrawText(versionText, 8, 8, 20, WHITE);
 
-        DrawRectangle(13, 15, backgroundWidth + 6, 39, uiColBg);
-        DrawText(debugText, 16, 16, 20, WHITE);
-        DrawText(coordText, 16, 36, 20, WHITE);
+        DrawText(debugText, 9, 29, 20, BLACK);
+        DrawText(coordText, 9, 49, 20, BLACK);
+        DrawText(debugText, 8, 28, 20, WHITE);
+        DrawText(coordText, 8, 48, 20, WHITE);
     }
 
     //Draw crosshair
@@ -130,20 +133,20 @@ void Screen_MakePause(void) {
     int index = 0;
 
     //Continue Button
-    if(GuiButton((Rectangle) {offsetX , offsetY + (index++ * 35), 200, 30 }, "Continue")) {
+    if (GuiButton((Rectangle) {offsetX , offsetY + (index++ * 35), 200, 30 }, "Continue")) {
         Screen_Switch(SCREEN_GAME);
         DisableCursor();
         Screen_cursorEnabled = false;
     }
 
     //Options Button
-    if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Options")) {
+    if (GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Options")) {
         Screen_Switch(SCREEN_OPTIONS);
     }
 
     //Main Menu Button
-    if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Main Menu")) {
-        if(Network_connectedToServer) {
+    if (GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Main Menu")) {
+        if (Network_connectedToServer) {
             Network_Disconnect();
         } else {
             Screen_Switch(SCREEN_LOGIN);
@@ -153,7 +156,7 @@ void Screen_MakePause(void) {
     }
 
     //Quit Button
-    if(GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Quit")) {
+    if (GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Quit")) {
         *exitGame = true;
     }
 }
@@ -173,7 +176,7 @@ void Screen_MakeOptions(void) {
     DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2, offsetY + 15 - sizeText.y / 2}, 10.0f, 1, WHITE);
 
     if (newDrawDistance != world.drawDistance) {
-        if(newDrawDistance > world.drawDistance) {
+        if (newDrawDistance > world.drawDistance) {
             world.drawDistance = newDrawDistance;
             World_LoadChunks();
         } else {
@@ -181,7 +184,7 @@ void Screen_MakeOptions(void) {
             World_Reload();
         }
 
-        if(Network_connectedToServer) {
+        if (Network_connectedToServer) {
             Network_Send(Packet_SetDrawDistance(world.drawDistance));
         }
     }
@@ -190,9 +193,9 @@ void Screen_MakeOptions(void) {
 
     //Draw Debug Button
     const char* debugStateTxt = "OFF";
-    if(Screen_showDebug) debugStateTxt = "ON";
+    if (Screen_showDebug) debugStateTxt = "ON";
     const char* showDebugTxt = TextFormat("Show Debug: %s", debugStateTxt);
-    if(GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, showDebugTxt)) {
+    if (GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, showDebugTxt)) {
         Screen_showDebug = !Screen_showDebug;
     }
 
@@ -200,16 +203,16 @@ void Screen_MakeOptions(void) {
 
     //Draw Max FPS
     const char* maxFPSTxt = TextFormat("Max FPS: %s", maxFPS);
-    if(GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, maxFPSTxt)) {
+    if (GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, maxFPSTxt)) {
         maxFPSChoice++;
-        if(maxFPSChoice == 3) maxFPSChoice = 0;
-        if(maxFPSChoice == 0) {
+        if (maxFPSChoice == 3) maxFPSChoice = 0;
+        if (maxFPSChoice == 0) {
             maxFPS = "60";
             SetTargetFPS(60);
-        } else if(maxFPSChoice == 1) {
+        } else if (maxFPSChoice == 1) {
             maxFPS = "120";
             SetTargetFPS(120);
-        } else if(maxFPSChoice == 2) {
+        } else if (maxFPSChoice == 2) {
             maxFPS = "Unlimited";
             SetTargetFPS(0);
         }
@@ -218,7 +221,7 @@ void Screen_MakeOptions(void) {
     offsetY += 35;
 
     //Back Button
-    if(GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, "Back")) {
+    if (GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, "Back")) {
         Screen_Switch(SCREEN_PAUSE);
     }
 
@@ -248,22 +251,22 @@ void Screen_MakeLogin(void) {
     DrawText(title, offsetX - (MeasureText(title, 80) / 2), offsetY - 100, 80, WHITE);
 
     //Name Input
-    if(GuiTextBox((Rectangle) { offsetX - 80, offsetY - 15, 160, 30 }, name_input, 16, login_editMode)) {
+    if (GuiTextBox((Rectangle) { offsetX - 80, offsetY - 15, 160, 30 }, name_input, 16, login_editMode)) {
         login_editMode = !login_editMode;
     }
 
     //IP Input
-    if(GuiTextBox((Rectangle) { offsetX - 80, offsetY + 20, 116, 30 }, ip_input, 16, ip_editMode)) {
+    if (GuiTextBox((Rectangle) { offsetX - 80, offsetY + 20, 116, 30 }, ip_input, 16, ip_editMode)) {
         ip_editMode = !ip_editMode;
     }
 
     //Port Input
-    if(GuiTextBox((Rectangle) { offsetX + 40, offsetY + 20, 40, 30 }, port_input, 5, port_editMode)) {
+    if (GuiTextBox((Rectangle) { offsetX + 40, offsetY + 20, 40, 30 }, port_input, 5, port_editMode)) {
         port_editMode = !port_editMode;
     }
 
     //Login button
-    if(GuiButton((Rectangle) { offsetX - 80, offsetY + 55, 160, 30 }, "Login")) {
+    if (GuiButton((Rectangle) { offsetX - 80, offsetY + 55, 160, 30 }, "Login")) {
         DisableCursor();
         Screen_Switch(SCREEN_JOINING);
         Network_threadState = 0;
@@ -277,7 +280,7 @@ void Screen_MakeLogin(void) {
     }
     
     //Singleplayer Button
-    if(GuiButton((Rectangle) { offsetX - 80, offsetY + 90, 160, 30 }, "Singleplayer")) {
+    if (GuiButton((Rectangle) { offsetX - 80, offsetY + 90, 160, 30 }, "Singleplayer")) {
         DisableCursor();
         World_LoadSingleplayer();
     }
@@ -290,15 +293,15 @@ void Screen_Make(void) {
     
     uiColBg = (Color){ 0, 0, 0, 80 };
     
-    if(Screen_Current == SCREEN_GAME)
+    if (Screen_Current == SCREEN_GAME)
         Screen_MakeGame();
-    else if(Screen_Current == SCREEN_PAUSE)
+    else if (Screen_Current == SCREEN_PAUSE)
         Screen_MakePause();
-    else if(Screen_Current == SCREEN_JOINING)
+    else if (Screen_Current == SCREEN_JOINING)
         Screen_MakeJoining();
-    else if(Screen_Current == SCREEN_LOGIN)
+    else if (Screen_Current == SCREEN_LOGIN)
         Screen_MakeLogin();
-    else if(Screen_Current == SCREEN_OPTIONS)
+    else if (Screen_Current == SCREEN_OPTIONS)
         Screen_MakeOptions();
 }
 

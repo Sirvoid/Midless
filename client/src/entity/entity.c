@@ -11,7 +11,7 @@
 
 void Entity_Draw(Entity *entity) {
     EntityModel *model = &entity->model;
-    for(int i = 0; i < model->amountParts; i++) {
+    for (int i = 0; i < model->amountParts; i++) {
         
         EntityModelPart *part = &model->parts[i];
 
@@ -37,7 +37,7 @@ void Entity_Draw(Entity *entity) {
 }
 
 void Entity_Remove(Entity *entity) {
-    if(entity->type == 0) return;
+    if (entity->type == 0) return;
     entity->type = 0;
     EntityModel_Free(&entity->model);
 }

@@ -290,8 +290,8 @@ bool Player_TestCollision(Vector3 offset) {
     for (int x = (int)(pB.min.x - 1); x < (int)(pB.max.x + 1); x++) {
         for (int z = (int)(pB.min.z - 1); z < (int)(pB.max.z + 1); z++) {
             for (int y = (int)(pB.min.y - 1); y < (int)(pB.max.y + 1); y++) {
-                
                 Vector3 blockPos = (Vector3) {x, y, z};
+
                 Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
                 Chunk* chunk = World_GetChunkAt(chunkPos);
                 if (chunk == NULL || chunk->isMapGenerated == false) return true;
@@ -321,4 +321,8 @@ Vector3 Player_GetForwardVector(void) {
     float cy = cosf(Player_cameraAngle.y);
     
     return (Vector3) {cx * sy, cy, sx * sy};
+}
+
+Vector3 Player_GetChunkPosition(void) {
+    return (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
 }

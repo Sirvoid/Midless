@@ -32,12 +32,12 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->beingDeleted = false;
     chunk->modified = false;
 
-    for(int i = 0; i < CHUNK_SIZE; i++) {
+    for (int i = 0; i < CHUNK_SIZE; i++) {
         chunk->lightData[i] = 0;
         chunk->sunlightData[i] = 0;
     }
  
-    if(Chunk_LoadFile(chunk)) {
+    if (Chunk_LoadFile(chunk)) {
         chunk->fromFile = true;
     }
 
@@ -45,18 +45,17 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
 }
 
 void Chunk_SaveFile(Chunk *chunk) {
-    if(Network_connectedToServer) return;
+    if (Network_connectedToServer) return;
     
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     SaveFileData(fileName, chunk->data, CHUNK_SIZE * 2);
 }
 
 bool Chunk_LoadFile(Chunk *chunk) {
-    if(Network_connectedToServer) return false;
+    if (Network_connectedToServer) return false;
 
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
-    if(FileExists(fileName)) {
-
+    if (FileExists(fileName)) {
         unsigned int length = 0;
         unsigned char *saveFile = LoadFileData(fileName, &length);
 
@@ -71,8 +70,8 @@ bool Chunk_LoadFile(Chunk *chunk) {
 void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength) {
     int newLength = 0;
 
-    for(int i = 0; i < currentLength; i+=2) {
-        for(int j = 0; j < compressed[i + 1]; j++) {
+    for (int i = 0; i < currentLength; i+=2) {
+        for (int j = 0; j < compressed[i + 1]; j++) {
             chunk->data[newLength] = compressed[i];
             newLength += 1;
         } 
@@ -82,9 +81,9 @@ void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLengt
 
 void Chunk_Unload(Chunk *chunk) {
 
-    if(chunk->modified) Chunk_SaveFile(chunk);
+    if (chunk->modified) Chunk_SaveFile(chunk);
 
-    if(chunk->isBuilt) {
+    if (chunk->isBuilt) {
         ChunkMesh_Unload(&chunk->mesh);
         ChunkMesh_Unload(&chunk->meshTransparent);
     }
@@ -95,10 +94,10 @@ void Chunk_Unload(Chunk *chunk) {
 
 
 void Chunk_Generate(Chunk *chunk) {
-    if(!chunk->isLightGenerated) {
-        if(!chunk->fromFile && !Network_connectedToServer) {
+    if (!chunk->isLightGenerated) {
+        if (!chunk->fromFile && !Network_connectedToServer) {
             //Map Generation
-            for(int i = CHUNK_SIZE - 1; i >= 0; i--) {
+            for (int i = CHUNK_SIZE - 1; i >= 0; i--) {
                 Vector3 npos = Vector3Add(Chunk_IndexToPos(i), chunk->blockPosition);
                 chunk->data[i] = WorldGenerator_Generate(chunk, npos, i);
             }
@@ -114,14 +113,14 @@ void Chunk_Generate(Chunk *chunk) {
 
 
 void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
-    if(Chunk_IsValidPos(pos)) {
+    if (Chunk_IsValidPos(pos)) {
         int index = Chunk_PosToIndex(pos);
 
         chunk->data[index] = blockID;
         chunk->modified = true;
 
         Block blockDef = Block_GetDefinition(blockID);
-        if(blockDef.lightType == BlockLightType_Emit) {
+        if (blockDef.lightType == BlockLightType_Emit) {
             Chunk_AddLightSource(chunk,pos, 15, false);
         } else {
             Chunk_RemoveLightSource(chunk,pos);
@@ -132,7 +131,7 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
 }
 
 int Chunk_GetBlock(Chunk *chunk, Vector3 pos) {
-    if(Chunk_IsValidPos(pos)) {
+    if (Chunk_IsValidPos(pos)) {
         return chunk->data[Chunk_PosToIndex(pos)];
     }
     return 0;
@@ -169,8 +168,8 @@ Chunk* Chunk_GetNeighbour(Chunk* chunk, Vector3 dir) {
     };
 
     int index = 0;
-    for(int i = 0; i < 26; i++) {
-        if(directions[i].x == dir.x && directions[i].y == dir.y && directions[i].z == dir.z) {
+    for (int i = 0; i < 26; i++) {
+        if (directions[i].x == dir.x && directions[i].y == dir.y && directions[i].z == dir.z) {
             index = i;
             break;
         }
@@ -210,11 +209,11 @@ void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood) {
         {0, 1, -1}
     };
 
-    if(leaveNeighbourhood) {
-        for(int i = 0; i < 26; i++) {
+    if (leaveNeighbourhood) {
+        for (int i = 0; i < 26; i++) {
             Chunk *neighbour = chunk->neighbours[i];
-            if(neighbour != NULL) {
-                
+
+            if (neighbour != NULL) {
                 int j = i;
                 if(i % 2 == 0) { 
                     j = i + 1;
@@ -226,12 +225,12 @@ void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood) {
             }
         }
     } else {
-        for(int i = 0; i < 26; i++) {
+        for (int i = 0; i < 26; i++) {
             Chunk *borderingChunk = World_GetChunkAt(Vector3Add(chunk->position, directions[i]));
 
-            if(borderingChunk != NULL) {
+            if (borderingChunk != NULL) {
                 int j = i;
-                if(i % 2 == 0) { 
+                if (i % 2 == 0) { 
                     j = i + 1;
                 } else {
                     j = i - 1;
@@ -252,36 +251,36 @@ void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood) {
 void Chunk_RefreshBorderingChunks(Chunk *chunk, bool sidesOnly) {
 
      int nb = 6;
-     if(!sidesOnly) nb = 26;
+     if (!sidesOnly) nb = 26;
 
-     for(int i = 0; i < nb; i++) {
-        if(chunk->neighbours[i] == NULL) continue;
-        if(!chunk->neighbours[i]->isBuilt) continue;
+     for (int i = 0; i < nb; i++) {
+        if (chunk->neighbours[i] == NULL) continue;
+        if (!chunk->neighbours[i]->isBuilt) continue;
         World_QueueChunk(chunk->neighbours[i]);
      }
 }
 
 bool Chunk_AreNeighbourGenerated(Chunk* chunk) {
     int i = 0;
-    for(i = 0; i < 6; i++) {
-        if(chunk->neighbours[i] != NULL) {
-            if(chunk->neighbours[i]->isLightGenerated == false) return false;
+    for (i = 0; i < 6; i++) {
+        if (chunk->neighbours[i] != NULL) {
+            if (chunk->neighbours[i]->isLightGenerated == false) return false;
         }
     }
     return true;
 }
 
 bool Chunk_AreNeighbourBuilding(Chunk* chunk) {
-    for(int i = 0; i < 26; i++) {
-        if(chunk->neighbours[i] != NULL) {
-            if(i == 2) {
+    for (int i = 0; i < 26; i++) {
+        if (chunk->neighbours[i] != NULL) {
+            if (i == 2) {
                 Chunk *top = chunk->neighbours[2];
-                while(top != NULL) {
-                    if(!top->isBuilt || top->isBuilding) return true;
+                while (top != NULL) {
+                    if (!top->isBuilt || top->isBuilding) return true;
                     top = top->neighbours[2];
                 }
             } else {
-                if(!chunk->neighbours[i]->isBuilt || chunk->neighbours[i]->isBuilding) return true;
+                if (!chunk->neighbours[i]->isBuilt || chunk->neighbours[i]->isBuilding) return true;
             }
         }
     }
@@ -301,6 +300,9 @@ Vector3 Chunk_IndexToPos(int index) {
 
 int Chunk_PosToIndex(Vector3 pos) {
     return ((int)pos.y * CHUNK_SIZE_Z + (int)pos.z) * CHUNK_SIZE_X + (int)pos.x;
-    
+}
+
+long int Chunk_GetPackedPos(Vector3 pos) {
+    return (long)((int)(pos.x)&4095)<<20 | (long)((int)(pos.z)&4095)<<8 | (long)((int)(pos.y)&255);
 }
 
