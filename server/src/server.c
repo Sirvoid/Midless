@@ -32,25 +32,20 @@ void Server_Do(int *state) {
     ENetAddress address = {0};
     address.host = ENET_HOST_ANY;
     address.port = 25565;
-    
+
     ENetHost * server = enet_host_create(&address, MAX_CLIENTS, 1, 0, 0);
-    
-    puts("Started server.");
-    
     ENetEvent event;
-    
-    Network_Init();
     
     while (*state != -1) {
         while (enet_host_service(server, &event, 33) > 0) {
             switch (event.type) {
                 case ENET_EVENT_TYPE_CONNECT:
-                    event.peer->data = Network_InitPlayer(event.peer);
+                    event.peer->data = Network_InitPlayer(event.peer, false);
                     Network_Connect(event.peer->data);
                     break;
 
                 case ENET_EVENT_TYPE_RECEIVE:
-                    Network_Receive(event.peer->data, (unsigned char*)event.packet->data);
+                    Network_Receive(event.peer->data, (unsigned char*)event.packet->data, event.packet->dataLength);
                     enet_packet_destroy(event.packet);
                     break;
 

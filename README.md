@@ -17,24 +17,34 @@ Midless is a free and open-source voxel game made in C.
 
 ## Dependencies
 
-| Dependency    | Version |
-|---------------|---------|
-| [Raylib](https://github.com/raysan5/raylib/)        | 4.2     |
-| [Zpl-c/ENet](https://github.com/zpl-c/enet)    | 2.3.0   |
-| [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) | -       |
-| [stb_ds](https://github.com/nothings/stb/blob/master/stb_ds.h) | -       |
+| Dependency    | Version | Type      | Used By|
+|---------------|---------|-----------|--------|
+| [Raylib](https://github.com/raysan5/raylib/)        | 4.2     | Single-File | Client / Server
+| [Zpl-c/ENet](https://github.com/zpl-c/enet)    | 2.3.6   | Single-File | Client / Server
+| [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) | -       | Single-File | Client / Server
+| [stb_ds](https://github.com/nothings/stb/blob/master/stb_ds.h) | -       | Single-File | Client / Server
+| [MiniLua](https://github.com/edubart/minilua) | -       | Single-File | Server
+| For Optional Server's Websocket Support:
+| [mongoose](https://github.com/cesanta/mongoose/) | 7.8       | Single-Files (.c, .h) | Server
+| [OpenSSL](https://github.com/openssl/openssl) | -       | Linked | Server
 
 
 ## Compiling for Windows using MinGW
 
 1. [Download and Build Raylib](https://github.com/raysan5/raylib/wiki/Working-on-Windows)
-2. Download/Place the other dependencies inside client/src and server/src.
+2. Place single-files dependencies inside /libs
+4. Edit the makefile's properties if needed
 3. Run mingw32-make inside the Midless folder where the MakeFile is located. 
 
 Make arguments:
 ```
 BUILD_SERVER=TRUE       - Build Midless Server (Doesn't build the client)
+SERVER_HEADLESS=TRUE    - Compile server without graphics
+SERVER_WEB_SUPPORT=TRUE - Compile server with websocket support
+
 DEBUG=TRUE              - Debug build
+
+PLATFORM=PLATFORM_WEB   - Build for the web (Client only)
 ```
 
 

@@ -12,9 +12,9 @@
 #include "raygui.h"
 #include "chat.h"
 #include "screens.h"
-#include "../player.h"
-#include "../networking/networkhandler.h"
-#include "../networking/packet.h"
+#include "player.h"
+#include "networkhandler.h"
+#include "packet.h"
 
 char* chatLines[64];
 int currentLine = 0;

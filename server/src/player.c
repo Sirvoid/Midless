@@ -12,7 +12,7 @@
 #include "raymath.h"
 #include "player.h"
 #include "world.h"
-#include "chunk/chunk.h"
+#include "chunk.h"
 #include "networkhandler.h"
 #include "packet.h"
 

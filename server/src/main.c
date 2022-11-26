@@ -9,26 +9,60 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/time.h>
+#include <unistd.h>
 #include "raylib.h"
 #include "server.h"
+#include "serverwss.h"
 #include "world.h"
 #include "stb_ds.h"
+#include "networkhandler.h"
+#include "luaengine.h"
+#include "luadefinition.h"
+#include "logger.h"
+#include "utils.h"
 
 int main(void) {
-    
-    InitWindow(400, 400, "Server");
-    SetTargetFPS(60);
+
+    #if !defined(SERVER_HEADLESS)
+        InitWindow(400, 400, "Server");
+        SetWindowState(FLAG_WINDOW_ALWAYS_RUN);
+        SetTargetFPS(60);
+    #endif
+
     SetTraceLogLevel(LOG_WARNING);
-    
+
+    Logger_Log("Started Server.");
+
+    Lua_Init();
+    LuaDefinition_Init();
+    Lua_Run();
+
     World_Init();
-    
+    Network_Init();
+
     int serverThread_state = 0;
     pthread_t serverThread_id;
     pthread_create(&serverThread_id, NULL, Server_Init, (void*)&serverThread_state);
     
+    #if defined(SERVER_WEB_SUPPORT)
+    ServerWSS_Init();
+    #endif
+    
     int WUCount = 0;
 
+    #if !defined(SERVER_HEADLESS)
     while (!WindowShouldClose()) {
+    #else
+    while(true) {
+        usleep(16 * 1000);
+    #endif
+
+        #if defined(SERVER_WEB_SUPPORT)
+        ServerWSS_Poll();
+        #endif
+
+        Network_ReadIncomingPackets();
 
         if (WUCount++ == 0) {
             World_Update();
@@ -36,6 +70,7 @@ int main(void) {
             WUCount = 0;
         }
 
+        #if !defined(SERVER_HEADLESS)
         BeginDrawing();
             ClearBackground(BLACK);
             DrawText("Server Running", 16, 16, 20, WHITE);
@@ -47,13 +82,18 @@ int main(void) {
                 }
             }
         EndDrawing();
+        #endif
     }
 
     serverThread_state = -1;
 
     World_Unload();
 
+    Lua_Stop();
+
+    #if !defined(SERVER_HEADLESS)
     CloseWindow();
+    #endif
     
     return 0;
 }

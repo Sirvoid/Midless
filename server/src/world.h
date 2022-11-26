@@ -10,17 +10,17 @@
 
 #define WORLD_MAX_ENTITIES 1028
 #define WORLD_MAX_PLAYERS 256
-#define WORLD_MAX_DRAW_DISTANCE 4
 
 #include "raylib.h"
 #include "player.h"
 #include "entity.h"
-#include "chunk/chunk.h"
+#include "chunk.h"
 
 typedef struct World{
     Player** players;
     Entity* entities;
     struct { long int key; Chunk* value; } *chunks;
+    int maxDrawDistance;
 } World;
 
 extern World world;

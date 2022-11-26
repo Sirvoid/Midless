@@ -15,9 +15,9 @@
 #include "raycast.h"
 #include "screens.h"
 #include "chat.h"
-#include "block/block.h"
-#include "networking/networkhandler.h"
-#include "networking/packet.h"
+#include "block.h"
+#include "networkhandler.h"
+#include "packet.h"
 
 #define MOUSE_SENSITIVITY 0.003f
 
@@ -25,7 +25,7 @@ Vector2 Player_oldMousePos = {0.0f, 0.0f};
 Vector2 Player_cameraAngle = {0.0f, 0.0f};
 Player player;
 
-void Player_Init() {
+void Player_Init(void) {
 
     Camera camera = { 0 };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
@@ -156,37 +156,37 @@ void Player_CheckInputs() {
             }
         } else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
             Vector3 placePos = Vector3Add(player.rayResult.hitPos, player.rayResult.normal);
-
+            
             if (player.rayResult.hitBlockID != -1) {
-            switch (player.blockSelected)
-            {
-                case -1: // null
-                case 0: // air
-                    break;
-                
-                case 12:
-                case 13:
-                    int bottomBlockID = World_GetBlock(Vector3Add(placePos, (Vector3){0, -1, 0}));
-                    
-                    if (bottomBlockID == 2 || bottomBlockID == 3 || bottomBlockID == 6) { // dirt, grass, sand
+                int bottomBlockID = World_GetBlock(Vector3Add(placePos, (Vector3){0, -1, 0}));
+                switch (player.blockSelected)
+                {
+                    case -1: // null
+                    case 0: // air
+                        break;
+
+                    case 12:
+                    case 13:
+                        if (bottomBlockID == 2 || bottomBlockID == 3 || bottomBlockID == 6) { // dirt, grass, sand
+                            Player_TryPlaceBlock(placePos, player.blockSelected);
+                        }
+                        break;
+                        
+                    case 17: // stone_slab
+                        if (player.rayResult.normal.y == 1 && player.rayResult.hitBlockID == 17) {
+                            Player_TryPlaceBlock(player.rayResult.hitPos, 1);
+                            break;
+                        }
+
+                    case 18: // wood_slab
+                        if (player.rayResult.normal.y == 1 && player.rayResult.hitBlockID == 18) {
+                            Player_TryPlaceBlock(player.rayResult.hitPos, 4);
+                            break;
+                        }
+
+                    default:
                         Player_TryPlaceBlock(placePos, player.blockSelected);
-                    }
-                    break;
-                
-                case 17: // stone_slab
-                    if (player.rayResult.normal.y == 1 && player.rayResult.hitBlockID == 17) {
-                        Player_TryPlaceBlock(player.rayResult.hitPos, 1);
                         break;
-                    }
-                case 18: // wood_slab
-                    if (player.rayResult.normal.y == 1 && player.rayResult.hitBlockID == 18) {
-                        Player_TryPlaceBlock(player.rayResult.hitPos, 4);
-                        break;
-                    }
-                
-                default:
-                    Player_TryPlaceBlock(placePos, player.blockSelected);
-                    break;
                 }
             }
         } else if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) { //Pick Block
@@ -216,7 +216,7 @@ bool Player_TryPlaceBlock(Vector3 pos, int blockID)
     return true;
 }
 
-void Player_Update() {
+void Player_Update(void) {
     
     Network_Send(Packet_PlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector2) { -Player_cameraAngle.x + PI / 2,  Player_cameraAngle.y - PI / 2}));
 

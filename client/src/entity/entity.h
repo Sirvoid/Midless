@@ -9,7 +9,7 @@
 #define G_ENTITY_H
 
 #include "raylib.h"
-#include "entityModel.h"
+#include "entitymodel.h"
 
 typedef struct Entity{
     char type;

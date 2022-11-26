@@ -10,8 +10,8 @@
 
 #include "raylib.h"
 #include "block.h"
-#include "../chunk/chunk.h"
-#include "../chunk/chunkmesh.h"
+#include "chunk.h"
+#include "chunkmesh.h"
 
 //Reset memory counters.
 void BlockMesh_ResetIndexes(void);

@@ -13,8 +13,10 @@
 #include "packet.h"
 #include "networkhandler.h"
 #include "world.h"
-#include "chunk/chunk.h"
+#include "chunk.h"
 #include "entity.h"
+#include "logger.h"
+#include "luadefinition.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -127,9 +129,10 @@ void Packet_WriteArray(unsigned char* packet, unsigned char* array, int size) {
 /* Packets Received */
 
 void Packet_H_Identification(void) {
+    if(Packet_player->name != NULL) return;
     int protocolVersion = Packet_ReadUShort();
     Packet_player->name = Packet_ReadString();
-    printf("%s connected. Protocol version: %i\n", Packet_player->name, protocolVersion);
+    Logger_Log(TextFormat("%s connected. Protocol version: %i\n", Packet_player->name, protocolVersion));
     World_AddPlayer(Packet_player);
     Network_Send(Packet_player, Packet_MapInit());
 }
@@ -165,12 +168,13 @@ void Packet_H_Message(void) {
     sentMessage[nameLen + 3 + 64] = 0;
     
     World_SendMessage(sentMessage);
+    LD_OnChatMessageCall(Packet_player->name, message);
     MemFree(sentMessage);
 }
 
 void Packet_H_SetDrawDistance(void) {
     unsigned char distance = Packet_ReadByte();
-    if (distance > WORLD_MAX_DRAW_DISTANCE) distance = WORLD_MAX_DRAW_DISTANCE;
+    if (distance > world.maxDrawDistance) distance = world.maxDrawDistance;
     Packet_player->drawDistance = distance;
 }
 

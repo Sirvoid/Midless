@@ -10,9 +10,9 @@
 #include "raymath.h"
 #include "raycast.h"
 #include "world.h"
-#include "block/block.h"
+#include "block.h"
 
-#define RAYCAST_PRECISION 0.05f
+#define RAYCAST_PRECISION 0.025f
 #define RAYCAST_REACH 8
 
 RaycastResult Raycast_Do(Vector3 position, Vector3 direction, bool ignoreLiquid) {

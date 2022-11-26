@@ -9,7 +9,7 @@
 #define G_CHUNK_H
 
 #include "raylib.h"
-#include "chunkMesh.h"
+#include "chunkmesh.h"
 
 #define CHUNK_SIZE_X 16
 #define CHUNK_SIZE_Y 16
@@ -70,6 +70,8 @@ void Chunk_SaveFile(Chunk *chunk);
 bool Chunk_LoadFile(Chunk *chunk);
 //Decompress chunk
 void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength);
+//Compress chunk
+unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength);
 //Get a neighbour from a direction
 Chunk* Chunk_GetNeighbour(Chunk* chunk, Vector3 dir);
 //Update a chunk's neighbour list.

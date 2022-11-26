@@ -10,7 +10,7 @@
 #include "raymath.h"
 #include "chunkmeshgeneration.h"
 #include "chunklightning.h"
-#include "../block/blockmeshgeneration.h"
+#include "blockmeshgeneration.h"
 
 int Chunk_triangleCounter = 0;
 int Chunk_triangleCounterTransparent = 0;

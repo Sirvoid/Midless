@@ -11,7 +11,7 @@
 #include "raymath.h"
 #include "stb_ds.h"
 #include "chunklightning.h"
-#include "../block/block.h"
+#include "block.h"
 #include "world.h"
 #include "player.h"
 
@@ -128,33 +128,19 @@ void Chunk_DoSunlight(Chunk *srcChunk) {
 
     if (isTopLoaded) {
         Chunk* topChunk = srcChunk->neighbours[2];
-        for (int i = 0; i < CHUNK_SIZE; i++) {
+        for (int i = 0; i < CHUNK_SIZE_XZ; i++) {
             if (topChunk->sunlightData[i] != 0) {
                 Chunk_LightQueueAdd(i, topChunk);
             }
         }
     } else {
-        if (srcChunk->position.y >= 5) {
+        if (srcChunk->position.y >= 3) {
             for (int i = CHUNK_SIZE - CHUNK_SIZE_XZ; i < CHUNK_SIZE; i++) {
                 Block blockDefinition = Block_GetDefinition(srcChunk->data[i]);
 
                 if (blockDefinition.renderType == BlockRenderType_Transparent) {
                     Chunk_SetLightLevel(srcChunk, i, 15, true);
                     Chunk_LightQueueAdd(i, srcChunk);
-                }
-            }
-        } else {
-            for (int d = 0; d < 6; d++) { 
-                if (srcChunk->neighbours[d] != NULL) {
-                    Chunk* neighbor = srcChunk->neighbours[d];
-                    for (int i = 0; i < CHUNK_SIZE; i++) {
-                        Vector3 pos = Chunk_IndexToPos(i);
-                        if (pos.x == 0 || pos.x == 15 || pos.y == 0 || pos.y == 15 || pos.z == 0 || pos.z == 15) {
-                            if (neighbor->sunlightData[i] != 0) {
-                                Chunk_LightQueueAdd(i, neighbor);
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -165,7 +151,7 @@ void Chunk_DoSunlight(Chunk *srcChunk) {
 }
 
 void Chunk_SpreadLight(bool sunlight) {
-    int limit = 100000;
+    int limit = 20000;
     while (arrlen(lightQueue) > 0  && limit-- > 0) {
         //Get and remove first item in Queue
         int index = lightQueue[0].index;

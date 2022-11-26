@@ -8,11 +8,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include "stb_ds.h"
 #include "raylib.h"
 #include "raymath.h"
 #include "chunk.h"
-#include "../worldgenerator.h"
+#include "worldgenerator.h"
 
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
@@ -35,7 +36,9 @@ void Chunk_Unload(Chunk *chunk) {
 
 void Chunk_SaveFile(Chunk *chunk) {
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
-    SaveFileData(fileName, chunk->data, CHUNK_SIZE * 2);
+    int newLength;
+    unsigned short* compressed = Chunk_Compress(chunk, CHUNK_SIZE, &newLength);
+    SaveFileData(fileName, compressed, newLength * 2);
 }
 
 bool Chunk_LoadFile(Chunk *chunk) {
@@ -43,9 +46,7 @@ bool Chunk_LoadFile(Chunk *chunk) {
     if (FileExists(fileName)) {
         unsigned int length = 0;
         unsigned char *saveFile = LoadFileData(fileName, &length);
-
-        memcpy(chunk->data, &saveFile[0], length);
-
+        Chunk_Decompress(chunk, (unsigned short*)saveFile, length / 2);
         UnloadFileData(saveFile);
         return true;
     }
@@ -60,6 +61,18 @@ void Chunk_Generate(Chunk *chunk) {
             chunk->data[i] = WorldGenerator_Generate(chunk, npos, i);
         }
     }
+}
+
+void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength) {
+    int newLength = 0;
+
+    for (int i = 0; i < currentLength; i+=2) {
+        for (int j = 0; j < compressed[i + 1]; j++) {
+            chunk->data[newLength] = compressed[i];
+            newLength += 1;
+        } 
+    }
+    
 }
 
 unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength) {
@@ -138,5 +151,8 @@ Vector3 Chunk_IndexToPos(int index) {
 
 int Chunk_PosToIndex(Vector3 pos) {
     return ((int)pos.y * CHUNK_SIZE_Z + (int)pos.z) * CHUNK_SIZE_X + (int)pos.x;
-    
+}
+
+long int Chunk_GetPackedPos(Vector3 pos) {
+    return (long)((int)(pos.x)&4095)<<20 | (long)((int)(pos.z)&4095)<<8 | (long)((int)(pos.y)&255);
 }

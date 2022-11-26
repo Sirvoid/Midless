@@ -9,7 +9,7 @@
 #define S_CHUNK_H
 
 #include "raylib.h"
-#include "../player.h"
+#include "player.h"
 
 #define CHUNK_SIZE_X 16
 #define CHUNK_SIZE_Y 16
@@ -30,6 +30,7 @@ typedef struct Chunk{
 void Chunk_Init(Chunk *chunk, Vector3 pos);
 void Chunk_Unload(Chunk *chunk);
 
+void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength);
 unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength);
 void Chunk_SaveFile(Chunk *chunk);
 bool Chunk_LoadFile(Chunk *chunk);
@@ -45,5 +46,6 @@ int Chunk_GetBlock(Chunk *chunk, Vector3 pos);
 bool Chunk_IsValidPos(Vector3 pos);
 Vector3 Chunk_IndexToPos(int index);
 int Chunk_PosToIndex(Vector3 pos);
+long int Chunk_GetPackedPos(Vector3 pos);
 
 #endif

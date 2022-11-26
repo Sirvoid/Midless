@@ -10,7 +10,7 @@
 #define G_CHUNKMESHGEN_H
 
 #include "chunk.h"
-#include "../block/block.h"
+#include "block.h"
 
 void Chunk_MeshGenerationInit(void);
 //Build/Refresh a chunk's mesh.

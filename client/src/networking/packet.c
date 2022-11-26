@@ -11,8 +11,8 @@
 #include <math.h>
 #include "raylib.h"
 #include "packet.h"
-#include "world.h"
 #include "networkhandler.h"
+#include "world.h"
 #include "chat.h"
 
 #define PACKET_STRING_SIZE 64

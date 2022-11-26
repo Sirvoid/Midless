@@ -17,22 +17,28 @@
 #include "raymath.h"
 #include "stb_ds.h"
 #include "world.h"
-#include "chunk/chunk.h"
+#include "chunk.h"
 #include "networkhandler.h"
 #include "packet.h"
 #include "entity.h"
 #include "worldgenerator.h"
+#include "luadefinition.h"
 
 World world;
 
 void World_Init(void) {
     world.players = MemAlloc(sizeof(Player*) * 256);
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
+    world.maxDrawDistance = 8;
 
     //Create world directory
     struct stat st = {0};
     if (stat("./world", &st) == -1) {
-        mkdir("./world");
+        #if defined(OS_LINUX)
+            mkdir("./world", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        #else
+            mkdir("./world");
+        #endif
     }
     
     int seed = rand();
@@ -62,7 +68,13 @@ void World_Update(void) {
 
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         Player *player = world.players[i];
-        if (player != NULL) Player_LoadChunks(player);
+        if (player != NULL) {
+            if(player->disconnected) {
+                World_RemovePlayer(player);
+                continue;
+            }
+            Player_LoadChunks(player);
+        }
     }
 
     for (int i = 0; i < hmlen(world.chunks); i++) {
@@ -101,7 +113,7 @@ void World_RemovePlayerFromChunks(Player *playerToRemove) {
 
 Chunk* World_AddChunk(Vector3 position) {
 
-    long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | (long)((int)(position.y)&255);
+    long int p = Chunk_GetPackedPos(position);
     int index = hmgeti(world.chunks, p);
     Chunk *chunk;
     if(index == -1) {
@@ -117,7 +129,7 @@ Chunk* World_AddChunk(Vector3 position) {
 }
 
 void World_RemoveChunk(Chunk *curChunk) {
-    long int p = (long)((int)(curChunk->position.x)&4095)<<20 | (long)((int)(curChunk->position.z)&4095)<<8 | (long)((int)(curChunk->position.y)&255);
+    long int p = Chunk_GetPackedPos(curChunk->position);
 
     int index = hmgeti(world.chunks, p);
     if(index >= 0) {
@@ -128,7 +140,7 @@ void World_RemoveChunk(Chunk *curChunk) {
 }
 
 Chunk* World_GetChunkAt(Vector3 position) {
-    long int p = (long)((int)(position.x)&4095)<<20 | (long)((int)(position.z)&4095)<<8 | (long)((int)(position.y)&255);
+    long int p = Chunk_GetPackedPos(position);
     int index = hmgeti(world.chunks, p);
     if(index >= 0) {
         return world.chunks[index].value;
@@ -207,16 +219,30 @@ void World_SendMessage(const char* message) {
 void World_Broadcast(unsigned char* packet) {
     for(int i = 0; i < 256; i++) {
         if(!world.players[i]) continue;
-        Network_Send((void*)world.players[i], packet);
+
+        int packetLength = Packet_GetLength(packet[0]);
+        unsigned char* packetCopy = malloc(packetLength);
+        memcpy(packetCopy, packet, packetLength);
+
+        Network_Send((void*)world.players[i], packetCopy);
     }
+
+    free(packet);
+    
 }
 
 void World_BroadcastExcluding(unsigned char* packet, int excludedPlayerID) {
     for(int i = 0; i < 256; i++) {
         if(!world.players[i]) continue;
         if(world.players[i]->id == excludedPlayerID) continue;
-        Network_Send((void*)world.players[i], packet);
+
+        int packetLength = Packet_GetLength(packet[0]);
+        unsigned char* packetCopy = malloc(packetLength);
+        memcpy(packetCopy, packet, packetLength);
+
+        Network_Send((void*)world.players[i], packetCopy);
     }
+    free(packet);
 }
 
 int World_GetBlock(Vector3 blockPos) {
@@ -251,9 +277,15 @@ void World_SetBlock(Vector3 blockPos, int blockID, bool broadcast) {
                                 floor(blockPos.z) - chunkPos.z * CHUNK_SIZE_Z 
                                };
     
+    int previousBlock = Chunk_GetBlock(chunk, blockPosInChunk);
+
+    if(previousBlock == blockID) return;
+
     Chunk_SetBlock(chunk, blockPosInChunk, blockID);
 
     if(broadcast) {
         World_Broadcast(Packet_SetBlock(blockID, blockPos));
     }
+
+    LD_OnBlockUpdateCall(blockPos, blockID, previousBlock);
 }

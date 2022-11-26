@@ -5,6 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
+#if !defined(PLATFORM_WEB)
+
 #define ENET_IMPLEMENTATION
 
 #include <stdio.h>
@@ -19,7 +21,7 @@
 ENetPeer* peer = { 0 };
 
 void *Client_Init(void *state) {
-    
+
     enet_initialize();
     
     Network_Internal_Client_Send = &Client_Send;
@@ -97,3 +99,5 @@ void Client_Send(unsigned char* packet, int packetLength) {
     ENetPacket *epacket = enet_packet_create(packet, packetLength, ENET_PACKET_FLAG_RELIABLE);
     enet_peer_send(peer, 0, epacket);
 }
+
+#endif

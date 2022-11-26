@@ -5,7 +5,9 @@
  * https://opensource.org/licenses/MIT
  */
 
-#define GLSL_VERSION 330
+#if defined(PLATFORM_WEB)
+    #include <emscripten/emscripten.h>
+#endif
 
 #include <string.h>
 #include <stdio.h>
@@ -16,23 +18,47 @@
 #include "rlgl.h"
 #include "player.h"
 #include "world.h"
+#include "resource.h"
 #include "screens.h"
-#include "block/block.h"
-#include "networking/networkhandler.h"
+#include "block.h"
+#include "networkhandler.h"
 #include "chat.h"
 
-int main(void) {
-    // Initialization
-    int screenWidth = 800;
-    int screenHeight = 450;
 
+void GameLoop(void);
+
+int main(void) {
+
+    int screenWidth = 1280;
+    int screenHeight = 720;
+
+    // Initialization
     InitWindow(screenWidth, screenHeight, "Midless");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
+    SetWindowState(FLAG_WINDOW_ALWAYS_RUN);
     SetExitKey(0);
     SetTraceLogLevel(LOG_WARNING);
     SetTargetFPS(60); 
 
-    Image midlessLogo = LoadImage("textures/midless.png"); 
+    #if defined(PLATFORM_WEB)
+        char *chunkShaderVs = 
+            #include "chunk/shaders/chunk_shader_gl100.vs"
+        ;
+        char *chunkShaderFs = 
+            #include "chunk/shaders/chunk_shader_gl100.fs"
+        ;
+    #else
+        char *chunkShaderVs = 
+            #include "chunk/shaders/chunk_shader.vs"
+        ;
+        char *chunkShaderFs = 
+            #include "chunk/shaders/chunk_shader.fs"
+        ;
+    #endif
+
+    Image midlessLogo = Resource_LoadImage("midless.png"); 
+
+
     SetWindowIcon(midlessLogo);
 
     EntityModel_DefineAll();
@@ -41,19 +67,9 @@ int main(void) {
     // World Initialization
     World_Init();
 
-    char *chunkShaderVs = 
-        #include "chunk/chunk_shader.vs"
-    ;
-    
-    char *chunkShaderFs = 
-        #include "chunk/chunk_shader.fs"
-    ;
     
     Shader shader = LoadShaderFromMemory(chunkShaderVs, chunkShaderFs);
-    
-    Image terrainTex = LoadImage("textures/terrain.png"); 
-    Texture2D texture = LoadTextureFromImage(terrainTex);
-    UnloadImage(terrainTex);
+    Texture2D texture = Resource_LoadTexture("terrain.png"); 
     
     World_ApplyTexture(texture);
     World_ApplyShader(shader);
@@ -64,50 +80,54 @@ int main(void) {
     bool exitProgram = false;
     Screens_init(texture, &exitProgram);
 
-    // Game loop
-    while (!WindowShouldClose() && !exitProgram) {
 
-        Network_ReadQueue();
-
-        screenHeight = GetScreenHeight();
-        screenWidth = GetScreenWidth();
+    #if defined(PLATFORM_WEB)
+        emscripten_set_main_loop(GameLoop, 0, 1);
+    #else
+        while (!WindowShouldClose() && !exitProgram) {
+            GameLoop();
+        }
         
-        // Update
-        Player_Update();
-        World_Update();
-        
-        Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x) + 0.5f, floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z) + 0.5f};
-        
-        // Draw
-        BeginDrawing();
+        Network_threadState = -1;
 
-            float sunlightStrength = World_GetSunlightStrength();
-            ClearBackground((Color) { 140 * sunlightStrength, 210 * sunlightStrength, 240 * sunlightStrength, 255});
+        UnloadShader(shader);
+        UnloadTexture(texture);
+        World_Unload();
 
-            BeginMode3D(player.camera);
-                World_Draw(player.camera.position);
-                if (player.rayResult.hitBlockID != -1) {
-                    Block block = Block_GetDefinition(player.rayResult.hitBlockID);
-                    Vector3 blockSize = Vector3Subtract(block.maxBB, block.minBB);
-                    blockSize = Vector3Scale(blockSize, 1.0f / 16);
-                    selectionBoxPos.y += blockSize.y / 2;
-                    DrawCube(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 40});
-                }
-                    
-            EndMode3D();
-            
-            Screen_Make();
-
-        EndDrawing();
-    }
-    
-    Network_threadState = -1;
-
-    UnloadShader(shader);
-    UnloadTexture(texture);
-    World_Unload();
-
-    CloseWindow();
+        CloseWindow();
+    #endif
 
     return 0;
+}
+
+void GameLoop(void) {
+    Network_ReadQueue();
+    
+    // Update
+    Player_Update();
+    World_Update();
+    
+    Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x) + 0.5f, floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z) + 0.5f};
+    
+    // Draw
+    BeginDrawing();
+
+        float sunlightStrength = World_GetSunlightStrength();
+        ClearBackground((Color) { 140 * sunlightStrength, 210 * sunlightStrength, 240 * sunlightStrength, 255});
+
+        BeginMode3D(player.camera);
+            World_Draw(player.camera.position);
+            if (player.rayResult.hitBlockID != -1) {
+                Block block = Block_GetDefinition(player.rayResult.hitBlockID);
+                Vector3 blockSize = Vector3Subtract(block.maxBB, block.minBB);
+                blockSize = Vector3Scale(blockSize, 1.0f / 16);
+                selectionBoxPos.y += blockSize.y / 2;
+                DrawCube(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 40});
+            }
+                
+        EndMode3D();
+        
+        Screen_Make();
+
+    EndDrawing();
 }

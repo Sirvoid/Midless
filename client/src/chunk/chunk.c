@@ -7,16 +7,17 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 #include "raylib.h"
 #include "raymath.h"
 #include "chunk.h"
 #include "chunklightning.h"
 #include "chunkmeshgeneration.h"
+#include "chunkmesh.h"
 #include "world.h"
-#include "chunkMesh.h"
 #include "worldgenerator.h"
 #include "networkhandler.h"
-#include "../block/block.h"
+#include "block.h"
 
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
@@ -48,7 +49,9 @@ void Chunk_SaveFile(Chunk *chunk) {
     if (Network_connectedToServer) return;
     
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
-    SaveFileData(fileName, chunk->data, CHUNK_SIZE * 2);
+    int newLength;
+    unsigned short* compressed = Chunk_Compress(chunk, CHUNK_SIZE, &newLength);
+    SaveFileData(fileName, compressed, newLength * 2);
 }
 
 bool Chunk_LoadFile(Chunk *chunk) {
@@ -58,9 +61,7 @@ bool Chunk_LoadFile(Chunk *chunk) {
     if (FileExists(fileName)) {
         unsigned int length = 0;
         unsigned char *saveFile = LoadFileData(fileName, &length);
-
-        memcpy(chunk->data, &saveFile[0], length);
-
+        Chunk_Decompress(chunk, (unsigned short*)saveFile, length / 2);
         UnloadFileData(saveFile);
         return true;
     }
@@ -79,6 +80,38 @@ void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLengt
     
 }
 
+unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength) {
+    
+    //BlockID:UShort, Amount:UShort, ...
+    
+    unsigned short *compressed = MemAlloc(currentLength * 2 * 2);
+    
+    int oldID = chunk->data[0];
+    int bCount = 1;
+    int len = 0;
+    for (int i = 1; i <= currentLength; i++) {
+        
+        int curID = 0;
+        if (i != currentLength) curID = chunk->data[i];
+        
+        if (oldID != curID || bCount >= USHRT_MAX || i == currentLength) {
+            compressed[len++] = (unsigned short)oldID;
+            compressed[len++] = (unsigned short)bCount;
+
+            bCount = 0;
+            oldID = curID;
+        }
+        
+        bCount++;
+        
+    }
+    
+    *newLength = len;
+    
+    compressed = MemRealloc(compressed, *newLength * 2);
+    return compressed;
+}
+
 void Chunk_Unload(Chunk *chunk) {
 
     if (chunk->modified) Chunk_SaveFile(chunk);
@@ -94,7 +127,7 @@ void Chunk_Unload(Chunk *chunk) {
 
 
 void Chunk_Generate(Chunk *chunk) {
-    if (!chunk->isLightGenerated) {
+    if (!chunk->isMapGenerated) {
         if (!chunk->fromFile && !Network_connectedToServer) {
             //Map Generation
             for (int i = CHUNK_SIZE - 1; i >= 0; i--) {
@@ -256,7 +289,7 @@ void Chunk_RefreshBorderingChunks(Chunk *chunk, bool sidesOnly) {
      for (int i = 0; i < nb; i++) {
         if (chunk->neighbours[i] == NULL) continue;
         if (!chunk->neighbours[i]->isBuilt) continue;
-        World_QueueChunk(chunk->neighbours[i]);
+        Chunk_BuildMesh(chunk->neighbours[i]);
      }
 }
 

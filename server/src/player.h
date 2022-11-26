@@ -15,6 +15,8 @@ typedef struct Player {
     void *peerPtr;
     char *name;
     int drawDistance;
+    bool isWeb;
+    bool disconnected;
 } Player;
 
 void Player_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation);

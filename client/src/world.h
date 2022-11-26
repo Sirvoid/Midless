@@ -9,8 +9,8 @@
 #define G_WORLD_H
 
 #include "raylib.h"
-#include "chunk/chunk.h"
-#include "entity/entity.h"
+#include "chunk.h"
+#include "entity.h"
 
 #define WORLD_MAX_ENTITIES 1028
 #define WORLD_DAY_LENGTH_SECONDS 24*60
@@ -19,8 +19,6 @@ typedef struct World{
     Entity *entities;
     struct { long int key; Chunk* value; } *chunks;
     Chunk* *generateChunksQueue;
-    Chunk* *buildChunksQueue;
-    Chunk* *deleteChunksQueue;
     Material mat;
     int drawDistance;
     float time;
@@ -42,7 +40,7 @@ void World_UpdateChunks(void);
 //Load & Unload Chunks around players.
 void World_LoadChunks(void);
 //Read Queue to generate chunks.
-void *World_ReadChunksQueues(void *state);
+void World_ReadChunksQueues(void);
 //Queue a chunk to build it.
 void World_QueueChunk(Chunk *chunk);
 //Get chunk at a chunk position.

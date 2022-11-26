@@ -8,7 +8,7 @@
 #ifndef G_PACKET_H
 #define G_PACKET_H
 
-#include "../player.h"
+#include "player.h"
 
 extern unsigned char *Packet_data;
 extern int PacketReader_index;

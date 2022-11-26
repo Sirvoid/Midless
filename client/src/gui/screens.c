@@ -13,13 +13,14 @@
 #include "raygui.h"
 #include "screens.h"
 #include "chat.h"
-#include "../player.h"
-#include "../world.h"
-#include "../block/block.h"
-#include "../networking/networkhandler.h"
-#include "../networking/packet.h"
-#include "../networking/client.h"
-#include "../worldgenerator.h"
+#include "player.h"
+#include "world.h"
+#include "block.h"
+#include "networkhandler.h"
+#include "packet.h"
+#include "client.h"
+#include "clientws.h"
+#include "worldgenerator.h"
 
 Screen Screen_Current = SCREEN_LOGIN;
 bool Screen_cursorEnabled = false;
@@ -233,7 +234,7 @@ void Screen_MakeJoining(void) {
 }
 
 char name_input[16] = "Player";
-char ip_input[16] = "127.0.0.1";
+char ip_input[128] = "localhost";
 char port_input[5] = "25565";
 
 bool login_editMode = false;
@@ -256,7 +257,7 @@ void Screen_MakeLogin(void) {
     }
 
     //IP Input
-    if (GuiTextBox((Rectangle) { offsetX - 80, offsetY + 20, 116, 30 }, ip_input, 16, ip_editMode)) {
+    if (GuiTextBox((Rectangle) { offsetX - 80, offsetY + 20, 116, 30 }, ip_input, 128, ip_editMode)) {
         ip_editMode = !ip_editMode;
     }
 
@@ -274,9 +275,21 @@ void Screen_MakeLogin(void) {
         Network_ip = ip_input;
         Network_port = TextToInteger(port_input);
 
+        char fullAddress[128] = "";
+        strcat(fullAddress, ip_input);
+        strcat(fullAddress, ":");
+        strcat(fullAddress, port_input);
+
+        Network_fullAddress = fullAddress;
+
         //Start Client on a new thread
         pthread_t clientThread_id;
-        pthread_create(&clientThread_id, NULL, Client_Init, (void*)&Network_threadState);
+
+        #if !defined(PLATFORM_WEB)
+            pthread_create(&clientThread_id, NULL, Client_Init, (void*)&Network_threadState);
+        #else
+            pthread_create(&clientThread_id, NULL, ClientWS_Init, (void*)&Network_threadState);
+        #endif
     }
     
     //Singleplayer Button

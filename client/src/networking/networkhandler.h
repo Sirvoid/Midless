@@ -16,9 +16,11 @@ extern int Network_ping;
 extern int Network_threadState;
 extern char *Network_name;
 extern char *Network_ip;
+extern char *Network_fullAddress;
 extern int Network_port;
 extern int Network_connectedToServer;
 extern void (*Network_Internal_Client_Send)(unsigned char*, int);
+extern void (*Network_Internal_Client_Disconnect)(void);
 
 void Network_Init(void);
 void Network_Connect(void);

@@ -20,6 +20,7 @@
 PacketDefinition packets[256];
 int Network_connectedToServer = 0;
 void (*Network_Internal_Client_Send)(unsigned char*, int);
+void (*Network_Internal_Client_Disconnect)(void);
 
 unsigned char* *queuedData = NULL;
 int packetsNb;
@@ -28,6 +29,7 @@ int Network_ping = 0;
 int Network_threadState = 0;
 char *Network_name = "Player";
 char *Network_ip = "127.0.0.1";
+char *Network_fullAddress = "127.0.0.1:25565";
 int Network_port = 25565;
 
 void Network_Init(void) {
@@ -53,6 +55,10 @@ void Network_Disconnect(void) {
     World_Unload();
     Network_threadState = -1; //End network thread
     Screen_cursorEnabled = false;
+
+    #if defined(PLATFORM_WEB)
+    Network_Internal_Client_Disconnect();
+    #endif
 }
 
 pthread_mutex_t queue_mutex;
@@ -94,6 +100,7 @@ void Network_Receive(unsigned char *data, int dataLength) {
 }
 
 void Network_Send(unsigned char *packet) {
-    if (!Network_connectedToServer) return;
-    Network_Internal_Client_Send(packet, Packet_GetLength(packet[0]));
+    if (Network_connectedToServer) {
+        Network_Internal_Client_Send(packet, Packet_GetLength(packet[0]));
+    }
 }

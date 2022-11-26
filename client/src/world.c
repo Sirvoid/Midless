@@ -5,7 +5,9 @@
  * https://opensource.org/licenses/MIT
  */
 
-#define __clang__ true
+#if !defined(PLATFORM_WEB)
+    #define __clang__ true
+#endif
 #define STB_DS_IMPLEMENTATION
 
 #include <stdio.h>
@@ -17,16 +19,21 @@
 #include "stb_ds.h"
 #include "rlgl.h"
 #include "raymath.h"
-#include "chunkmeshgeneration.h"
 #include "world.h"
 #include "worldgenerator.h"
 #include "player.h"
+#include "chunkmeshgeneration.h"
 #include "screens.h"
 #include "networkhandler.h"
 #include "packet.h"
+#include "entity.h"
+#include "entitymodel.h"
+
+#if defined(PLATFORM_WEB)
+    #include <emscripten/emscripten.h>
+#endif
 
 World world;
-pthread_t chunkThread_id;
 
 void World_Init(void) {
     world.mat = LoadMaterialDefault();
@@ -42,7 +49,11 @@ void World_Init(void) {
     //Create world directory
     struct stat st = {0};
     if (stat("./world", &st) == -1) {
-        mkdir("./world");
+        #if defined(PLATFORM_WEB) || defined(OS_LINUX)
+            mkdir("./world", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        #else
+            mkdir("./world");
+        #endif
     }
     
     if (FileExists("./world/seed.dat")) {
@@ -57,8 +68,6 @@ void World_Init(void) {
 
     Chunk_MeshGenerationInit();
     WorldGenerator_Init(seed);
-
-    pthread_create(&chunkThread_id, NULL, World_ReadChunksQueues, NULL);
 }
 
 void World_LoadMultiplayer(void) {
@@ -88,49 +97,37 @@ void World_Update(void) {
 
     world.time += time_spent;
     if (world.time >= WORLD_DAY_LENGTH_SECONDS) world.time = 0;
-    World_UpdateChunks();
+
+    World_ReadChunksQueues();
 }
 
-pthread_mutex_t chunk_mutex;
-pthread_mutex_t genChunk_mutex;
-void *World_ReadChunksQueues(void *state) {
-    while (true) {
-
-        pthread_mutex_lock(&chunk_mutex);
-        
+void World_ReadChunksQueues(void) {
+ 
         if (world.loadChunks == true) {
 
             int index = World_GetClosestChunkIndex(world.generateChunksQueue, Player_GetChunkPosition());
 
             if (index != -1) {
-                Chunk_Generate(world.generateChunksQueue[index]);
-                pthread_mutex_lock(&genChunk_mutex);
+                Chunk *chunk = world.generateChunksQueue[index];
+
+                Chunk_Generate(chunk);
+                Chunk_BuildMesh(chunk);
+                Chunk_RefreshBorderingChunks(chunk, true);
+
                 arrdel(world.generateChunksQueue, index);
-                pthread_mutex_unlock(&genChunk_mutex);
             }
             
-        }
-        
-        pthread_mutex_unlock(&chunk_mutex);
-        
-    }
-    return NULL;
+        }  
 }
 
 void World_QueueChunk(Chunk *chunk) {
 
     if (chunk->hasStartedGenerating == false) {
-        pthread_mutex_lock(&genChunk_mutex);
         arrput(world.generateChunksQueue, chunk);
-        pthread_mutex_unlock(&genChunk_mutex);
 
     }
     chunk->hasStartedGenerating = true;
-
-    if (chunk->isBuilding == false) {
-        arrput(world.buildChunksQueue, chunk);
-        chunk->isBuilding = true;
-    }
+    
 }
 
 
@@ -143,7 +140,6 @@ Chunk* World_GetChunkAt(Vector3 position) {
     
     return NULL;
 }
-
 
 int World_GetClosestChunkIndex(Chunk* *array, Vector3 pos) {
     int arrLength = arrlen(array);
@@ -174,53 +170,18 @@ void World_AddChunk(Vector3 position) {
         Chunk_Init(newChunk, position);
 
         World_QueueChunk(newChunk);
-        Chunk_RefreshBorderingChunks(newChunk, true);
     }
 }
 
 void World_RemoveChunk(Chunk *curChunk) {
-    if (curChunk->beingDeleted) return;
+
+    if(curChunk->isBuilt == false) return;
 
     long int p = Chunk_GetPackedPos(curChunk->position);
     
-    int index = hmgeti(world.chunks, p);
-    if (index >= 0) {
-        curChunk->beingDeleted = true;
-        arrput(world.deleteChunksQueue, curChunk);
-    }
+    Chunk_Unload(curChunk);
+    hmdel(world.chunks, p);
     
-}
-
-void World_UpdateChunks(void) {
-
-        int meshUpdatesCount = 4;
-
-        for (int i = 0; i < meshUpdatesCount; i++) {
-            int index = World_GetClosestChunkIndex(world.buildChunksQueue, Player_GetChunkPosition());
-            if (index == -1) continue;
-            Chunk *chunk = world.buildChunksQueue[index];
-
-            if (chunk->isLightGenerated == true) {
-                if (Chunk_AreNeighbourGenerated(chunk) == true) {
-                    Chunk_BuildMesh(chunk);
-                    chunk->isBuilding = false;
-                    arrdel(world.buildChunksQueue, index);
-                }
-            }
-        }
-
-        for (int i = arrlen(world.deleteChunksQueue) - 1; i >= 0 ; i--) {
-            Chunk* chunk = world.deleteChunksQueue[i];
-
-            if (chunk->isBuilt == true && chunk->isBuilding == false) {
-                if (Chunk_AreNeighbourBuilding(chunk) == false) {
-                    long int p = (long)((int)(chunk->position.x)&4095)<<20 | (long)((int)(chunk->position.z)&4095)<<8 | (long)((int)(chunk->position.y)&255);
-                    Chunk_Unload(chunk);
-                    hmdel(world.chunks, p);
-                    arrdel(world.deleteChunksQueue, i);
-                }
-            }
-        }
 }
 
 void World_LoadChunks(void) {
@@ -249,6 +210,7 @@ void World_LoadChunks(void) {
 
         if (Vector3Distance(chunk->position, pos) >= world.drawDistance + 3) {
             World_RemoveChunk(chunk);
+            break;
         }
     }
     
@@ -262,21 +224,19 @@ void World_Reload(void) {
 void World_Unload(void) {
     world.loadChunks = false;
 
-    pthread_mutex_lock(&chunk_mutex);
-
     arrfree(world.generateChunksQueue);
-    arrfree(world.buildChunksQueue);
     world.generateChunksQueue = NULL;
-    world.buildChunksQueue = NULL;
 
     for (int i = hmlen(world.chunks) - 1; i >= 0; i--) {
         World_RemoveChunk(world.chunks[i].value);
     }
 
+    for(int i = 0; i < WORLD_MAX_ENTITIES; i++) {
+        World_RemoveEntity(i);
+    }
+
     world.chunks = NULL;
 
-    pthread_mutex_unlock(&chunk_mutex);
-    
 }
 
 void World_ApplyTexture(Texture2D texture) {
@@ -409,10 +369,8 @@ void World_SetBlock(Vector3 blockPos, int blockID, bool immediate) {
     Chunk_SetBlock(chunk, blockPosInChunk, blockID);
 
     if (blockID == 0) {
-        //Refresh mesh of neighbour chunks.
-        Chunk_RefreshBorderingChunks(chunk, false);
-
         if (immediate == true) {
+            Chunk_RefreshBorderingChunks(chunk, false);
             Chunk_BuildMesh(chunk);
         } else {
             //Refresh current chunk.
@@ -422,19 +380,17 @@ void World_SetBlock(Vector3 blockPos, int blockID, bool immediate) {
 
         if (immediate == true) {
             Chunk_BuildMesh(chunk);
+            Chunk_RefreshBorderingChunks(chunk, false);
         } else {
             //Refresh current chunk.
             World_QueueChunk(chunk);
         }
-
-        //Refresh mesh of neighbour chunks.
-        Chunk_RefreshBorderingChunks(chunk, false);
     }
 
 }
 
 float World_GetSunlightStrength(void) {
-    return fmax(abs(world.time - WORLD_DAY_LENGTH_SECONDS / 2.0f) / (WORLD_DAY_LENGTH_SECONDS / 2.0f), 2/16.0f);
+    return fmax(abs((int)(world.time - WORLD_DAY_LENGTH_SECONDS / 2.0f)) / (WORLD_DAY_LENGTH_SECONDS / 2.0f), 2/16.0f);
 }
 
 /*-------------------------------------------------------------------------------------------------------*

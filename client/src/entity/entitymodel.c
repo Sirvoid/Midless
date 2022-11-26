@@ -6,6 +6,7 @@
  */
 
 #include "entitymodel.h"
+#include "resource.h"
 
 EntityModelDef entityModels[256];
 
@@ -106,8 +107,7 @@ void EntityModel_DefineHumanoid(void) {
     model.uvs[partI][down] = (Rectangle){102,0,-6,6};
     partI++;
 
-    Image tex = LoadImage("textures/humanoid.png"); 
-    model.defaultTexture = LoadTextureFromImage(tex);
+    model.defaultTexture = Resource_LoadTexture("humanoid.png");
 
     entityModels[0] = model;
 
