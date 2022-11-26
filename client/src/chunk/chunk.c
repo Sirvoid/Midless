@@ -24,10 +24,9 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
     chunk->fromFile = false;
     chunk->isBuilt = false;
-    chunk->isBuilding = false;
     chunk->isMapGenerated = false;
     chunk->isLightGenerated = false;
-    chunk->hasStartedGenerating = false;
+    chunk->isGenerating = false;
     chunk->hasTransparency = false;
     chunk->onlyAir = true;
     chunk->beingDeleted = false;
@@ -309,11 +308,11 @@ bool Chunk_AreNeighbourBuilding(Chunk* chunk) {
             if (i == 2) {
                 Chunk *top = chunk->neighbours[2];
                 while (top != NULL) {
-                    if (!top->isBuilt || top->isBuilding) return true;
+                    if (!top->isBuilt) return true;
                     top = top->neighbours[2];
                 }
             } else {
-                if (!chunk->neighbours[i]->isBuilt || chunk->neighbours[i]->isBuilding) return true;
+                if (!chunk->neighbours[i]->isBuilt) return true;
             }
         }
     }

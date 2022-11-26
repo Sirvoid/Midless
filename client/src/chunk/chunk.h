@@ -30,9 +30,8 @@ typedef struct Chunk{
     struct Chunk *neighbours[26];
 
     //Loading/Generation flags
-    bool isBuilding;
     bool isBuilt;
-    bool hasStartedGenerating;
+    bool isGenerating;
     bool isMapGenerated;
     bool isLightGenerated;
     bool fromFile;

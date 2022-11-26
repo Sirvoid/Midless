@@ -115,6 +115,8 @@ void World_ReadChunksQueues(void) {
                 Chunk_RefreshBorderingChunks(chunk, true);
 
                 arrdel(world.generateChunksQueue, index);
+
+                chunk->isGenerating = false;
             }
             
         }  
@@ -122,11 +124,11 @@ void World_ReadChunksQueues(void) {
 
 void World_QueueChunk(Chunk *chunk) {
 
-    if (chunk->hasStartedGenerating == false) {
+    if (chunk->isGenerating == false) {
         arrput(world.generateChunksQueue, chunk);
 
     }
-    chunk->hasStartedGenerating = true;
+    chunk->isGenerating = true;
     
 }
 

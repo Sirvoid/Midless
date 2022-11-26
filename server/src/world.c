@@ -161,7 +161,7 @@ void World_AddPlayer(void *player) {
         if(world.players[i]) continue;
         world.players[i] = p;
         world.players[i]->id = i;
-        World_AddEntity(i, 1, (Vector3) {0, 0, 0});
+        World_AddEntity(i, 1, (Vector3) {0, 80, 0});
         break;
     }
     

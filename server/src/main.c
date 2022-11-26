@@ -49,8 +49,6 @@ int main(void) {
     ServerWSS_Init();
     #endif
     
-    int WUCount = 0;
-
     #if !defined(SERVER_HEADLESS)
     while (!WindowShouldClose()) {
     #else
@@ -64,11 +62,7 @@ int main(void) {
 
         Network_ReadIncomingPackets();
 
-        if (WUCount++ == 0) {
-            World_Update();
-        } else {
-            WUCount = 0;
-        }
+        World_Update();
 
         #if !defined(SERVER_HEADLESS)
         BeginDrawing();

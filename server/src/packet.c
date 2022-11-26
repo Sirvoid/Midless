@@ -175,6 +175,7 @@ void Packet_H_Message(void) {
 void Packet_H_SetDrawDistance(void) {
     unsigned char distance = Packet_ReadByte();
     if (distance > world.maxDrawDistance) distance = world.maxDrawDistance;
+    if (distance < 2) distance = 2;
     Packet_player->drawDistance = distance;
 }
 
