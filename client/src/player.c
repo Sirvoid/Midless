@@ -23,6 +23,7 @@
 
 Vector2 Player_oldMousePos = {0.0f, 0.0f};
 Vector2 Player_cameraAngle = {0.0f, 0.0f};
+double Player_LastPositionPacketTime;
 Player player;
 
 void Player_Init(void) {
@@ -42,6 +43,8 @@ void Player_Init(void) {
     player.collisionBox.max = (Vector3) { 0.8f, 1.5f, 0.8f };
 
     player.blockSelected = 15;
+
+    Player_LastPositionPacketTime = 0;
 
     SetCameraMode(player.camera, CAMERA_CUSTOM);
     DisableCursor();
@@ -216,9 +219,14 @@ bool Player_TryPlaceBlock(Vector3 pos, int blockID)
     return true;
 }
 
+
+
 void Player_Update(void) {
     
-    Network_Send(Packet_PlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector2) { -Player_cameraAngle.x + PI / 2,  Player_cameraAngle.y - PI / 2}));
+    if(GetTime() - Player_LastPositionPacketTime > 0.05) {
+        Network_Send(Packet_PlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector2) { -Player_cameraAngle.x + PI / 2,  Player_cameraAngle.y - PI / 2}));
+        Player_LastPositionPacketTime = GetTime();
+    }
 
     //Gravity
     player.velocity.y -= 0.012f * (GetFrameTime() * 60);
