@@ -295,9 +295,20 @@ void Screen_MakeLogin(void) {
     //Singleplayer Button
     if (GuiButton((Rectangle) { offsetX - 80, offsetY + 90, 160, 30 }, "Singleplayer")) {
         DisableCursor();
-        World_LoadSingleplayer();
+        Screen_Switch(SCREEN_LOADING);
     }
 
+}
+
+bool loadingNextFrame = false;
+void Screen_MakeLoading(void) {
+    DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
+    DrawText("Loading World", screenWidth / 2 - 80, screenHeight / 2, 20, WHITE);
+    if(loadingNextFrame) {
+        World_LoadSingleplayer();
+        loadingNextFrame = false;
+    }
+    loadingNextFrame = true;
 }
 
 void Screen_Make(void) {
@@ -310,6 +321,8 @@ void Screen_Make(void) {
         Screen_MakeGame();
     else if (Screen_Current == SCREEN_PAUSE)
         Screen_MakePause();
+    else if(Screen_Current == SCREEN_LOADING)
+        Screen_MakeLoading();
     else if (Screen_Current == SCREEN_JOINING)
         Screen_MakeJoining();
     else if (Screen_Current == SCREEN_LOGIN)

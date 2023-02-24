@@ -35,8 +35,6 @@ typedef struct Chunk{
     bool isMapGenerated;
     bool isLightGenerated;
     bool fromFile;
-    bool deleted;
-    bool beingDeleted;
     bool modified;
 
     //mesh flags

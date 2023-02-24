@@ -42,7 +42,7 @@ void World_LoadChunks(void);
 //Read Queue to generate chunks.
 void World_ReadChunksQueues(void);
 //Queue a chunk to build it.
-void World_QueueChunk(Chunk *chunk);
+void World_QueueChunk(Chunk *chunk, bool immediate);
 //Get chunk at a chunk position.
 Chunk* World_GetChunkAt(Vector3 position);
 //Get closest chunk from position in array.
@@ -61,6 +61,8 @@ void World_Draw(Vector3 camPosition);
 void World_ApplyTexture(Texture2D texture);
 //Apply a shader to the world.
 void World_ApplyShader(Shader shader);
+//Set a block without reloading mesh
+void World_FastBlock(Vector3 blockPos, int blockID);
 //Set block at a given position and reload affected meshes.
 void World_SetBlock(Vector3 blockPos, int blockID, bool immediate);
 //Get block ID at a given position.

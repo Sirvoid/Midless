@@ -12,6 +12,7 @@
 #include "chunk.h"
 
 void WorldGenerator_Init(int worldSeed);
-int WorldGenerator_Generate(Chunk *chunk, Vector3 blockPos, int index);
+float* WorldGenerator_Generate(Chunk *chunk);
+bool WorldGenerator_GenerateStructures(Chunk *chunk, float *heightMap);
 
 #endif

@@ -11,6 +11,7 @@
 typedef enum Screen {
     SCREEN_GAME,
     SCREEN_PAUSE,
+    SCREEN_LOADING,
     SCREEN_JOINING,
     SCREEN_LOGIN,
     SCREEN_OPTIONS
@@ -26,6 +27,7 @@ void Screen_Make(void);
 void Screen_MakeGame(void);
 void Screen_MakePause(void);
 void Screen_MakeOptions(void);
+void Screen_MakeLoading(void);
 void Screen_MakeJoining(void);
 void Screen_MakeLogin(void);
 

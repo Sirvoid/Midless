@@ -86,6 +86,11 @@ void World_LoadSingleplayer(void) {
     Screen_Switch(SCREEN_GAME);
     world.loadChunks = true;
     World_LoadChunks();
+
+    //Build all chunks at the beginning
+    while(arrlen(world.generateChunksQueue) != 0) {
+        World_ReadChunksQueues();
+    }
 }
 
 clock_t updateClock;
@@ -98,11 +103,12 @@ void World_Update(void) {
     world.time += time_spent;
     if (world.time >= WORLD_DAY_LENGTH_SECONDS) world.time = 0;
 
-    World_ReadChunksQueues();
+    for(int i = 0; i < 4; i++) World_ReadChunksQueues();
+    
 }
 
 void World_ReadChunksQueues(void) {
- 
+
         if (world.loadChunks == true) {
 
             int index = World_GetClosestChunkIndex(world.generateChunksQueue, Player_GetChunkPosition());
@@ -110,9 +116,15 @@ void World_ReadChunksQueues(void) {
             if (index != -1) {
                 Chunk *chunk = world.generateChunksQueue[index];
 
+                if(!chunk->isBuilt) {
+                    for (int i = 0; i < 6; i++) {
+                        if (chunk->neighbours[i] == NULL) continue;
+                        World_QueueChunk(chunk->neighbours[i], false);
+                    }
+                }
+
                 Chunk_Generate(chunk);
                 Chunk_BuildMesh(chunk);
-                Chunk_RefreshBorderingChunks(chunk, true);
 
                 arrdel(world.generateChunksQueue, index);
 
@@ -122,11 +134,14 @@ void World_ReadChunksQueues(void) {
         }  
 }
 
-void World_QueueChunk(Chunk *chunk) {
+void World_QueueChunk(Chunk *chunk, bool immediate) {
 
     if (chunk->isGenerating == false) {
-        arrput(world.generateChunksQueue, chunk);
-
+        if(!immediate) {
+            arrput(world.generateChunksQueue, chunk);
+        } else {
+            arrins(world.generateChunksQueue, 0, chunk);
+        }
     }
     chunk->isGenerating = true;
     
@@ -171,19 +186,26 @@ void World_AddChunk(Vector3 position) {
 
         Chunk_Init(newChunk, position);
 
-        World_QueueChunk(newChunk);
+        World_QueueChunk(newChunk, false);
+        
     }
 }
 
 void World_RemoveChunk(Chunk *curChunk) {
 
-    if(curChunk->isBuilt == false) return;
+    if(curChunk->isGenerating == true) {
+        for(int i = 0; i < arrlen(world.generateChunksQueue); i++) {
+            if(world.generateChunksQueue[i] == curChunk) {
+                arrdel(world.generateChunksQueue, i);
+            }
+        }
+    }
 
     long int p = Chunk_GetPackedPos(curChunk->position);
     
     Chunk_Unload(curChunk);
     hmdel(world.chunks, p);
-    
+    return;
 }
 
 void World_LoadChunks(void) {
@@ -199,7 +221,7 @@ void World_LoadChunks(void) {
             for (int z = -world.drawDistance ; z <= world.drawDistance; z++) {
                 Vector3 chunkPos = (Vector3) {pos.x + x, pos.y + y, pos.z + z};
 
-                if (Vector3Distance(chunkPos, pos) < world.drawDistance + 3) {
+                if (Vector3Distance(chunkPos, pos) < world.drawDistance) {
                     World_AddChunk(chunkPos);
                 }
             }
@@ -210,9 +232,8 @@ void World_LoadChunks(void) {
     for (int i = hmlen(world.chunks) - 1; i >= 0 ; i--) {
         Chunk *chunk = world.chunks[i].value;
 
-        if (Vector3Distance(chunk->position, pos) >= world.drawDistance + 3) {
+        if (Vector3Distance(chunk->position, pos) >= world.drawDistance) {
             World_RemoveChunk(chunk);
-            break;
         }
     }
     
@@ -352,6 +373,27 @@ int World_GetBlock(Vector3 blockPos) {
     return Chunk_GetBlock(chunk, blockPosInChunk);
 }
 
+void World_FastBlock(Vector3 blockPos, int blockID) {
+    //Get Chunk
+    Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
+    Chunk* chunk = World_GetChunkAt(chunkPos);
+    
+    if (chunk == NULL) return;
+
+    //Set Block
+    Vector3 blockPosInChunk = (Vector3) { 
+                                floor(blockPos.x) - chunkPos.x * CHUNK_SIZE_X, 
+                                floor(blockPos.y) - chunkPos.y * CHUNK_SIZE_Y, 
+                                floor(blockPos.z) - chunkPos.z * CHUNK_SIZE_Z 
+                               };
+    
+    if (Chunk_IsValidPos(blockPosInChunk)) {
+        int index = Chunk_PosToIndex(blockPosInChunk);
+
+        chunk->data[index] = blockID;
+    }
+}
+
 void World_SetBlock(Vector3 blockPos, int blockID, bool immediate) {
     
     //Get Chunk
@@ -371,22 +413,17 @@ void World_SetBlock(Vector3 blockPos, int blockID, bool immediate) {
     Chunk_SetBlock(chunk, blockPosInChunk, blockID);
 
     if (blockID == 0) {
-        if (immediate == true) {
-            Chunk_RefreshBorderingChunks(chunk, false);
-            Chunk_BuildMesh(chunk);
-        } else {
-            //Refresh current chunk.
-            World_QueueChunk(chunk);
+        World_QueueChunk(chunk, immediate);
+        for (int i = 0; i < 26; i++) {
+            if (chunk->neighbours[i] == NULL) continue;
+            World_QueueChunk(chunk->neighbours[i], immediate);
         }
     } else {
-
-        if (immediate == true) {
-            Chunk_BuildMesh(chunk);
-            Chunk_RefreshBorderingChunks(chunk, false);
-        } else {
-            //Refresh current chunk.
-            World_QueueChunk(chunk);
+        for (int i = 0; i < 26; i++) {
+            if (chunk->neighbours[i] == NULL) continue;
+            World_QueueChunk(chunk->neighbours[i], immediate);
         }
+        World_QueueChunk(chunk, immediate); 
     }
 
 }

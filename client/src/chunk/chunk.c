@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <time.h>
 #include "raylib.h"
 #include "raymath.h"
 #include "chunk.h"
@@ -29,7 +30,6 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->isGenerating = false;
     chunk->hasTransparency = false;
     chunk->onlyAir = true;
-    chunk->beingDeleted = false;
     chunk->modified = false;
 
     for (int i = 0; i < CHUNK_SIZE; i++) {
@@ -128,10 +128,15 @@ void Chunk_Unload(Chunk *chunk) {
 void Chunk_Generate(Chunk *chunk) {
     if (!chunk->isMapGenerated) {
         if (!chunk->fromFile && !Network_connectedToServer) {
-            //Map Generation
-            for (int i = CHUNK_SIZE - 1; i >= 0; i--) {
-                Vector3 npos = Vector3Add(Chunk_IndexToPos(i), chunk->blockPosition);
-                chunk->data[i] = WorldGenerator_Generate(chunk, npos, i);
+
+            float* heightMap = WorldGenerator_Generate(chunk);
+            bool generatedStructure = WorldGenerator_GenerateStructures(chunk, heightMap);
+
+            if(generatedStructure) {
+               for (int i = 0; i < 26; i++) {
+                    if (chunk->neighbours[i] == NULL) continue;
+                    World_QueueChunk(chunk->neighbours[i], false);
+                }
             }
         }
 
