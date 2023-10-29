@@ -19,7 +19,7 @@ Midless is a free and open-source voxel game made in C.
 
 | Dependency    | Version | Type      | Used By|
 |---------------|---------|-----------|--------|
-| [Raylib](https://github.com/raysan5/raylib/)        | 4.2     | Single-File | Client / Server
+| [Raylib](https://github.com/raysan5/raylib/)        | 4.5     | Single-File | Client / Server
 | [Zpl-c/ENet](https://github.com/zpl-c/enet)    | 2.3.6   | Single-File | Client / Server
 | [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) | -       | Single-File | Client / Server
 | [stb_ds](https://github.com/nothings/stb/blob/master/stb_ds.h) | -       | Single-File | Client / Server

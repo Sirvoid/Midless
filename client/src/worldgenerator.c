@@ -194,7 +194,7 @@ float* WorldGenerator_Generate(Chunk *chunk) {
         Vector3 pos = Vector3Add(localPos, chunk->blockPosition);
         heightMap[i] = getHeightMapPoint(pos);
 
-        if(heightMap == 2) continue; //Skip everything when cave air.
+        if(heightMap[i] == 2) continue; //Skip everything when cave air.
 
         int blockID = 0;
         if(heightMap[i] == 1) blockID = 1;

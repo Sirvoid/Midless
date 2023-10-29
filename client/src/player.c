@@ -46,7 +46,7 @@ void Player_Init(void) {
 
     Player_LastPositionPacketTime = 0;
 
-    SetCameraMode(player.camera, CAMERA_CUSTOM);
+    UpdateCamera(&player.camera, CAMERA_CUSTOM);
     DisableCursor();
 }
 
@@ -201,8 +201,6 @@ void Player_CheckInputs() {
     player.camera.target.x = player.camera.position.x + forwardX;
     player.camera.target.y = player.camera.position.y + forwardY;
     player.camera.target.z = player.camera.position.z + forwardZ;
-    
-    UpdateCamera(&player.camera);
 }
 
 bool Player_TryPlaceBlock(Vector3 pos, int blockID)

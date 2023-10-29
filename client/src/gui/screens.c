@@ -242,7 +242,7 @@ bool ip_editMode = false;
 bool port_editMode = false;
 
 void Screen_MakeLogin(void) {
-    EnableCursor();
+    if(IsCursorHidden()) EnableCursor();
     DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
 
     const char *title = "MIDLESS";
