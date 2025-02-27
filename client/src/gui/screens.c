@@ -77,6 +77,7 @@ void Screen_MakeGame(void) {
     if (Screen_showDebug) {
         const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
         const char* debugText;
+        const char* flightText = "Flight ON";
 
         if (Network_connectedToServer) {
             debugText = TextFormat("%2i FPS %2i PING", GetFPS(), Network_ping);
@@ -92,6 +93,10 @@ void Screen_MakeGame(void) {
         DrawText(coordText, 9, 49, 20, BLACK);
         DrawText(debugText, 8, 28, 20, WHITE);
         DrawText(coordText, 8, 48, 20, WHITE);
+        if (player.canFly) {
+            DrawText(flightText, 9, 69, 20, BLACK);
+            DrawText(flightText, 8, 68, 20, WHITE);
+        }
     }
 
     //Draw crosshair
@@ -167,14 +172,32 @@ void Screen_MakeOptions(void) {
 
     int offsetY = screenHeight / 2 - 75;
     int offsetX = screenWidth / 2 - 100;
+    
+    const char* fovTxt = TextFormat("Field of View: %i", (int)player.camera.fovy);
+
+    //Field of view Button
+    float newFovy = GuiSlider((Rectangle) {offsetX, offsetY, 200, 30 }, "", "", player.camera.fovy, 30.0f, 110.0f);
+    Vector2 fovTxtSize = MeasureTextEx(GetFontDefault(), fovTxt, 10.0f, 1);
+    DrawTextEx(GetFontDefault(), fovTxt, (Vector2){offsetX + 100 - fovTxtSize.x / 2 + 1, offsetY + 15 - fovTxtSize.y / 2 + 1}, 10.0f, 1, BLACK);
+    DrawTextEx(GetFontDefault(), fovTxt, (Vector2){offsetX + 100 - fovTxtSize.x / 2, offsetY + 15 - fovTxtSize.y / 2}, 10.0f, 1, WHITE);
+
+    if (newFovy != player.camera.fovy) {
+        if (newFovy > player.camera.fovy) {
+            player.camera.fovy = newFovy;
+        } else {
+            player.camera.fovy = newFovy;
+        }
+    }
+
+    offsetY += 35;
 
     const char* drawDistanceTxt = TextFormat("Draw Distance: %i", world.drawDistance);
 
     //Draw distance Button
     int newDrawDistance = GuiSlider((Rectangle) {offsetX, offsetY, 200, 30 }, "", "", world.drawDistance, 2, 16);
-    Vector2 sizeText = MeasureTextEx(GetFontDefault(), drawDistanceTxt, 10.0f, 1);
-    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2 + 1, offsetY + 15 - sizeText.y / 2 + 1}, 10.0f, 1, BLACK);
-    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - sizeText.x / 2, offsetY + 15 - sizeText.y / 2}, 10.0f, 1, WHITE);
+    Vector2 drawDistanceTxtSize = MeasureTextEx(GetFontDefault(), drawDistanceTxt, 10.0f, 1);
+    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - drawDistanceTxtSize.x / 2 + 1, offsetY + 15 - drawDistanceTxtSize.y / 2 + 1}, 10.0f, 1, BLACK);
+    DrawTextEx(GetFontDefault(), drawDistanceTxt, (Vector2){offsetX + 100 - drawDistanceTxtSize.x / 2, offsetY + 15 - drawDistanceTxtSize.y / 2}, 10.0f, 1, WHITE);
 
     if (newDrawDistance != world.drawDistance) {
         if (newDrawDistance > world.drawDistance) {
