@@ -26,7 +26,6 @@ void Player_Init(Player *player) {
     player->collisionBox.min = (Vector3) { 0, 0, 0 };
     player->collisionBox.max = (Vector3) { 0.8f, 1.8f, 0.8f };
 
-    SetCameraMode(player->camera, CAMERA_CUSTOM);
     DisableCursor();
 }
 
@@ -107,7 +106,7 @@ void Player_CheckInputs(Player *player) {
     player->camera.target.y = player->camera.position.y + forwardY;
     player->camera.target.z = player->camera.position.z + forwardZ;
     
-    UpdateCamera(&player->camera);
+    UpdateCamera(&player->camera, CAMERA_CUSTOM);
 }
 
 void Player_Update(Player *player) {
