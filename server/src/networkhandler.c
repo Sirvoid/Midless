@@ -35,6 +35,7 @@ void Network_Init(void) {
 
 void* Network_InitPlayer(void* peerPtr, bool isWeb) {
     Player *player = MemAlloc(sizeof(Player));
+    memset(player, 0, sizeof *player);
     player->peerPtr = peerPtr;
     player->drawDistance = 3;
     player->isWeb = isWeb;
@@ -80,6 +81,9 @@ void Network_Receive(void *playerPtr, unsigned char* data, int dataLength) {
 }
 
 void Network_Send(void *playerPtr, unsigned char* packet) {
+
+    if(packet == NULL) return;
+
     Player *player = (Player*)playerPtr;
     int packetLength = Packet_GetLength(packet[0]);
     if (packetLength == 0) packetLength = Packet_LastDynamicLength;
@@ -91,6 +95,8 @@ void Network_Send(void *playerPtr, unsigned char* packet) {
         ServerWSS_Send(player->peerPtr, packet, packetLength);
         #endif
     }
+
+    MemFree(packet);
 
 }
 

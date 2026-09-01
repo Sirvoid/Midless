@@ -20,6 +20,7 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
     chunk->fromFile = false;
     chunk->modified = false;
+    chunk->players = NULL;
 
     if (Chunk_LoadFile(chunk)) {
         chunk->fromFile = true;
@@ -30,7 +31,13 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
 }
 
 void Chunk_Unload(Chunk *chunk) {
+    if (chunk == NULL) return;
+
     if (chunk->modified) Chunk_SaveFile(chunk);
+
+    arrfree(chunk->players);
+    chunk->players = NULL;
+
     MemFree(chunk);
 }
 
@@ -39,6 +46,7 @@ void Chunk_SaveFile(Chunk *chunk) {
     int newLength;
     unsigned short* compressed = Chunk_Compress(chunk, CHUNK_SIZE, &newLength);
     SaveFileData(fileName, compressed, newLength * 2);
+    MemFree(compressed);
 }
 
 bool Chunk_LoadFile(Chunk *chunk) {

@@ -170,6 +170,7 @@ void Packet_H_Message(void) {
     World_SendMessage(sentMessage);
     LD_OnChatMessageCall(Packet_player->name, message);
     MemFree(sentMessage);
+    MemFree(message);
 }
 
 void Packet_H_SetDrawDistance(void) {

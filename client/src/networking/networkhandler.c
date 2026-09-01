@@ -100,7 +100,12 @@ void Network_Receive(unsigned char *data, int dataLength) {
 }
 
 void Network_Send(unsigned char *packet) {
+     if (packet == NULL) return;
+
     if (Network_connectedToServer) {
-        Network_Internal_Client_Send(packet, Packet_GetLength(packet[0]));
+        int packetLength = Packet_GetLength(packet[0]);
+        Network_Internal_Client_Send(packet, packetLength);
     }
+
+    MemFree(packet);
 }

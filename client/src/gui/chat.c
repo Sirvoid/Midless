@@ -55,13 +55,12 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
         if (chatLines[index]) {
             int textLength = TextLength(chatLines[index]);
             int startPos = 0;
-            char *drawLines[3];
+            char *drawLines[3][64];
             int drawLinesCnt = 0;
             for (int i = 0; i < textLength; i++) {
                 const char* sub = TextSubtext(chatLines[index], startPos, i - startPos + 1);
                 int textWidth = MeasureText(sub, fontSize);
                 if (textWidth >= chatWidth - fontSize - 4 || i == textLength - 1) {
-                    drawLines[drawLinesCnt] = MemAlloc(64);
                     TextCopy(drawLines[drawLinesCnt], sub);
                     drawLinesCnt++;
                     startPos = i;
@@ -92,6 +91,7 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
             }
             if (Network_connectedToServer) {
                 Network_Send(Packet_SendMessage(message));
+                MemFree(message);
             } else {
                 Chat_AddLine(message);
             }

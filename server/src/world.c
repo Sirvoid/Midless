@@ -27,8 +27,12 @@
 World world;
 
 void World_Init(void) {
-    world.players = MemAlloc(sizeof(Player*) * 256);
+    world.players = MemAlloc(sizeof(Player*) * WORLD_MAX_PLAYERS);
+    memset(world.players, 0, sizeof(*world.players) * WORLD_MAX_PLAYERS);
+
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
+    memset(world.entities, 0, sizeof(*world.entities) * WORLD_MAX_ENTITIES);
+
     world.maxDrawDistance = 8;
 
     //Create world directory
@@ -56,12 +60,23 @@ void World_Init(void) {
     WorldGenerator_Init(seed);
 }
 
-void World_Unload(void) {
+void World_Unload(void)
+{
+    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+        if (world.players[i] != NULL) {
+            World_RemovePlayer(world.players[i]);
+        }
+    }
 
     for (int i = hmlen(world.chunks) - 1; i >= 0; i--) {
         World_RemoveChunk(world.chunks[i].value);
     }
-    
+
+    MemFree(world.players);
+    world.players = NULL;
+
+    MemFree(world.entities);
+    world.entities = NULL;
 }
 
 void World_Update(void) {
@@ -157,7 +172,7 @@ void World_AddPlayer(void *player) {
     
     Player* p = (Player*)player;
     
-    for(int i = 0; i < 256; i++) {
+    for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if(world.players[i]) continue;
         world.players[i] = p;
         world.players[i]->id = i;
@@ -165,7 +180,7 @@ void World_AddPlayer(void *player) {
         break;
     }
     
-    for(int i = 0; i < 256; i++) {
+    for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if(!world.players[i] || i == p->id) continue;
         Network_Send(player, Packet_SpawnEntity(&world.entities[i]));
     }
@@ -176,7 +191,7 @@ void World_AddPlayer(void *player) {
 void World_RemovePlayer(void *player) {
     World_RemovePlayerFromChunks(player);
     Player* curPlayer = (Player*)player;
-    for(int i = 0; i < 256; i++) {
+    for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if(world.players[i] == NULL) continue;
         if(world.players[i] == curPlayer) {
             world.players[i] = NULL;
@@ -184,7 +199,8 @@ void World_RemovePlayer(void *player) {
             break;
         }
     }
-    MemFree(player);
+    MemFree(curPlayer->name);
+    MemFree(curPlayer); 
 }
 
 void World_TeleportEntity(int ID, Vector3 position, Vector3 rotation) {
@@ -217,7 +233,7 @@ void World_SendMessage(const char* message) {
 }
 
 void World_Broadcast(unsigned char* packet) {
-    for(int i = 0; i < 256; i++) {
+    for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if(!world.players[i]) continue;
 
         int packetLength = Packet_GetLength(packet[0]);
@@ -232,7 +248,7 @@ void World_Broadcast(unsigned char* packet) {
 }
 
 void World_BroadcastExcluding(unsigned char* packet, int excludedPlayerID) {
-    for(int i = 0; i < 256; i++) {
+    for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if(!world.players[i]) continue;
         if(world.players[i]->id == excludedPlayerID) continue;
 

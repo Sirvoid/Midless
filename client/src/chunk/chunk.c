@@ -51,6 +51,7 @@ void Chunk_SaveFile(Chunk *chunk) {
     int newLength;
     unsigned short* compressed = Chunk_Compress(chunk, CHUNK_SIZE, &newLength);
     SaveFileData(fileName, compressed, newLength * 2);
+    MemFree(compressed);
 }
 
 bool Chunk_LoadFile(Chunk *chunk) {

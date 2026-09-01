@@ -81,7 +81,6 @@ void ServerWSS_Poll(void) {
 void ServerWSS_Send(void *peer, unsigned char* packet, int length) {
     struct mg_connection *connection = (struct mg_connection*)peer;
     mg_ws_send(connection, packet, length, WEBSOCKET_OP_BINARY);
-    free(packet);
 }
 
 #endif
