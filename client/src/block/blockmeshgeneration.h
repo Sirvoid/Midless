@@ -15,13 +15,12 @@
 
 //Reset memory counters.
 void BlockMesh_ResetIndexes(void);
+void BlockMesh_BuildTemplates(void);
 
 //Add a block face to a given mesh.
-void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors, BlockFace face, Vector3 pos, Block b, int translucent, int light, int sunlight);
+void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors, BlockFace face, int x, int y, int z, const Block *block, int translucent, int light, int sunlight);
 
 //Get facing direction of a block face.
 Vector3 BlockMesh_GetDirection(BlockFace face);
-
-void BlockMesh_GetFacesPosition(Block b, Vector3 *facesPosition);
 
 #endif

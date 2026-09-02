@@ -51,9 +51,13 @@ typedef struct Block {
     int lightType;
     Vector3 minBB; //0-16
     Vector3 maxBB; //0-16
+    bool fullCube;
+    bool fastOpaqueCube;
 } Block;
 
-Block Block_GetDefinition(int ID);
+extern Block Block_definition[256];
+
+const Block *Block_GetDefinition(int ID);
 
 //Define All Blocks
 void Block_BuildDefinition(void);

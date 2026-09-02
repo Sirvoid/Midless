@@ -1,177 +1,126 @@
 /**
  * Copyright (c) 2022 Sirvoid
- * 
  * This software is released under the MIT License.
- * https://opensource.org/licenses/MIT
  */
 
-#include <stdio.h>
+#include <stddef.h>
 #include "raylib.h"
-#include "raymath.h"
 #include "chunkmeshgeneration.h"
-#include "chunklightning.h"
 #include "blockmeshgeneration.h"
 
 int Chunk_triangleCounter = 0;
 int Chunk_triangleCounterTransparent = 0;
 
-unsigned char *vertices;
-unsigned short *indices;
-unsigned short *texcoords;
-unsigned char *colors;
-
-unsigned char *verticesT;
-unsigned short *indicesT;
-unsigned short *texcoordsT;
-unsigned char *colorsT;
+static unsigned char *vertices, *colors, *verticesT, *colorsT;
+static unsigned short *indices, *texcoords, *indicesT, *texcoordsT;
 
 void Chunk_MeshGenerationInit(void) {
-
     int vertexCount = 2 * 6 * CHUNK_SIZE * 2;
     int triangleCount = 2 * 6 * CHUNK_SIZE;
-
     vertices = MemAlloc(vertexCount * 3);
     texcoords = MemAlloc(vertexCount * 2 * sizeof(unsigned short));
     colors = MemAlloc(vertexCount);
     indices = MemAlloc(triangleCount * 3 * sizeof(unsigned short));
-
     verticesT = MemAlloc(vertexCount * 3);
     texcoordsT = MemAlloc(vertexCount * 2 * sizeof(unsigned short));
     colorsT = MemAlloc(vertexCount);
     indicesT = MemAlloc(triangleCount * 3 * sizeof(unsigned short));
 }
 
+static bool FaceVisible(const Block *block, const Block *next) {
+    if (block->fastOpaqueCube) {
+        return !next->fastOpaqueCube;
+    }
+    if (block->renderType == BlockRenderType_Opaque) return Chunk_TestOpaque(block, next);
+    if (block->renderType == BlockRenderType_Translucent) return Chunk_TestTranslucent(block, next);
+    return true;
+}
 
-void Chunk_BuildMesh(Chunk *chunk) {
+static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
+                    BlockFace face, const Block *block) {
+    static const int indexOffsets[6] = {-1, 1, CHUNK_SIZE_XZ, -CHUNK_SIZE_XZ, CHUNK_SIZE_X, -CHUNK_SIZE_X};
+    int nx = x, ny = y, nz = z;
+    if (face == BlockFace_Left) nx--;
+    else if (face == BlockFace_Right) nx++;
+    else if (face == BlockFace_Top) ny++;
+    else if (face == BlockFace_Bottom) ny--;
+    else if (face == BlockFace_Front) nz++;
+    else nz--;
 
-    if (chunk->isBuilt == true) {
-        ChunkMesh_Unload(&chunk->mesh);
-        ChunkMesh_Unload(&chunk->meshTransparent);
+    Chunk *nextChunk = chunk;
+    int nextIndex;
+    if ((unsigned)nx < CHUNK_SIZE_X && (unsigned)ny < CHUNK_SIZE_Y && (unsigned)nz < CHUNK_SIZE_Z) {
+        nextIndex = blockIndex + indexOffsets[(int)face];
+    } else {
+        nextChunk = chunk->neighbours[(int)face];
+        if (nextChunk == NULL) return;
+        if (nx < 0) nx = CHUNK_SIZE_X - 1; else if (nx == CHUNK_SIZE_X) nx = 0;
+        if (ny < 0) ny = CHUNK_SIZE_Y - 1; else if (ny == CHUNK_SIZE_Y) ny = 0;
+        if (nz < 0) nz = CHUNK_SIZE_Z - 1; else if (nz == CHUNK_SIZE_Z) nz = 0;
+        nextIndex = (ny * CHUNK_SIZE_Z + nz) * CHUNK_SIZE_X + nx;
     }
 
+    const Block *next = &Block_definition[nextChunk->data[nextIndex]];
+    bool sprite = block->modelType == BlockModelType_Sprite;
+    if (!sprite && !FaceVisible(block, next)) return;
+
+    int lightIndex = (sprite || block->renderType == BlockRenderType_Transparent) ? blockIndex : nextIndex;
+    Chunk *lightChunk = (sprite || block->renderType == BlockRenderType_Transparent) ? chunk : nextChunk;
+    int light = lightChunk->lightData[lightIndex];
+    int sunlight = lightChunk->sunlightData[lightIndex];
+
+    if (block->renderType == BlockRenderType_Translucent) {
+        Chunk_triangleCounterTransparent += 2;
+        BlockMesh_AddFace(verticesT, indicesT, texcoordsT, colorsT, face, x, y, z, block, 1, light, sunlight);
+    } else {
+        Chunk_triangleCounter += 2;
+        BlockMesh_AddFace(vertices, indices, texcoords, colors, face, x, y, z, block, 0, light, sunlight);
+    }
+}
+
+void Chunk_BuildMesh(Chunk *chunk) {
     BlockMesh_ResetIndexes();
     Chunk_triangleCounter = 0;
     Chunk_triangleCounterTransparent = 0;
     chunk->hasTransparency = false;
     chunk->onlyAir = true;
 
-    for (int i = 0; i < CHUNK_SIZE; i++) {
-        int blockID = chunk->data[i];
-        
-        Block blockDef = Block_GetDefinition(blockID);
-        if (blockDef.modelType == BlockModelType_Gas) continue;
-        chunk->onlyAir = false;
-
-        Vector3 pos = Chunk_IndexToPos(i);
-        bool translucent = blockDef.renderType == BlockRenderType_Translucent;
-
-        if (translucent) {
-            chunk->hasTransparency = true;
-            Chunk_AddCube(chunk, &chunk->meshTransparent, pos, blockDef);
-        } else {
-            Chunk_AddCube(chunk, &chunk->mesh, pos, blockDef);
+    for (int y = 0; y < CHUNK_SIZE_Y; y++) {
+        for (int z = 0; z < CHUNK_SIZE_Z; z++) {
+            int index = (y * CHUNK_SIZE_Z + z) * CHUNK_SIZE_X;
+            for (int x = 0; x < CHUNK_SIZE_X; x++, index++) {
+                unsigned int blockID = chunk->data[index];
+                const Block *block = &Block_definition[blockID];
+                if (block->modelType == BlockModelType_Gas) continue;
+                chunk->onlyAir = false;
+                if (block->renderType == BlockRenderType_Translucent) chunk->hasTransparency = true;
+                int faceCount = block->modelType == BlockModelType_Sprite ? 4 : 6;
+                for (int face = 0; face < faceCount; face++) AddFace(chunk, index, x, y, z, (BlockFace)face, block);
+            }
         }
     }
-    
+
     chunk->mesh.vertexCount = Chunk_triangleCounter * 2;
     chunk->mesh.triangleCount = Chunk_triangleCounter;
-
     chunk->meshTransparent.vertexCount = Chunk_triangleCounterTransparent * 2;
     chunk->meshTransparent.triangleCount = Chunk_triangleCounterTransparent;
 
-    ChunkMesh_Upload(&chunk->mesh, vertices, indices, texcoords, colors);
-    ChunkMesh_Upload(&chunk->meshTransparent, verticesT, indicesT, texcoordsT, colorsT);
-
+    if (chunk->mesh.triangleCount > 0) ChunkMesh_Upload(&chunk->mesh, vertices, indices, texcoords, colors);
+    else ChunkMesh_Clear(&chunk->mesh);
+    if (chunk->meshTransparent.triangleCount > 0) ChunkMesh_Upload(&chunk->meshTransparent, verticesT, indicesT, texcoordsT, colorsT);
+    else ChunkMesh_Clear(&chunk->meshTransparent);
     chunk->isBuilt = true;
 }
 
-void Chunk_AddCube(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, Block blockDef) {
-    
-    int numberFaces = 6;
-    if (blockDef.modelType == BlockModelType_Sprite) numberFaces = 4;
-    
-    for (int i = 0; i < numberFaces; i++) {
-        Chunk_AddFace(chunk, mesh, pos, (BlockFace)i, blockDef);
-    }
+bool Chunk_TestOpaque(const Block *block, const Block *next) {
+    if (next->modelType == BlockModelType_Gas) return true;
+    if (next->renderType != BlockRenderType_Opaque) return true;
+    if (next->modelType == BlockModelType_Sprite) return true;
+    return !block->fullCube || !next->fullCube;
 }
 
-void Chunk_AddFace(Chunk *chunk, ChunkMesh *mesh, Vector3 pos, BlockFace face, Block blockDef) {
-    Vector3 faceDir = BlockMesh_GetDirection(face);
-    Vector3 nextPos = Vector3Add(pos, faceDir);
-    Chunk *nextChunk = chunk;
-
-    int nextBlockID = 0;
-    if (!Chunk_IsValidPos(nextPos)) {
-        Chunk *neighbour = chunk->neighbours[(int)face];
-        if (neighbour == NULL) return;
-        nextPos.x = ((int)nextPos.x % CHUNK_SIZE_X + CHUNK_SIZE_X) % CHUNK_SIZE_X;
-        nextPos.y = ((int)nextPos.y % CHUNK_SIZE_Y + CHUNK_SIZE_Y) % CHUNK_SIZE_Y;
-        nextPos.z = ((int)nextPos.z % CHUNK_SIZE_Z + CHUNK_SIZE_Z) % CHUNK_SIZE_Z;
-        nextChunk = neighbour;
-        nextBlockID = neighbour->data[Chunk_PosToIndex(nextPos)];
-    } else {
-        nextBlockID = chunk->data[Chunk_PosToIndex(nextPos)];
-    }
-
-    Block nextDef = Block_GetDefinition(nextBlockID);
-
-    //Tests
-    bool sprite = blockDef.modelType == BlockModelType_Sprite;
-
-    BlockRenderType renderType = BlockRenderType_Opaque;
-    if (blockDef.renderType == BlockRenderType_Translucent) {
-        renderType = BlockRenderType_Translucent;
-    } else if (blockDef.renderType == BlockRenderType_Transparent) {
-        renderType = BlockRenderType_Transparent;
-    }
-    
-    bool bTest = true;
-    if (renderType == BlockRenderType_Opaque) {
-        bTest = Chunk_TestOpaque(blockDef, nextDef);
-    } else if (renderType == BlockRenderType_Translucent) {
-        bTest = Chunk_TestTranslucent(blockDef, nextDef);
-    }
-    
-    //Get Face's Light Level
-    int lightLevel = 0;
-    int sunLightLevel = 0;
-    if (sprite || renderType == BlockRenderType_Transparent) {
-        lightLevel = Chunk_GetLight(chunk, pos, false);
-        sunLightLevel = Chunk_GetLight(chunk, pos, true);
-    } else {
-        lightLevel = Chunk_GetLight(nextChunk, nextPos, false);
-        sunLightLevel = Chunk_GetLight(nextChunk, nextPos, true);
-    }
-    
-    //Build face
-    if (bTest || sprite) {
-        if (renderType == BlockRenderType_Translucent) { 
-            Chunk_triangleCounterTransparent += 2;
-            BlockMesh_AddFace(verticesT, indicesT, texcoordsT, colorsT, face, pos, blockDef, 1, lightLevel, sunLightLevel);
-        } else {
-            Chunk_triangleCounter += 2;
-            BlockMesh_AddFace(vertices, indices, texcoords, colors, face, pos, blockDef, 0, lightLevel, sunLightLevel);
-        }
-            
-    }
-}
-
-bool Chunk_TestOpaque(Block blockDef, Block nextDef) {
-    if (nextDef.modelType == BlockModelType_Gas) return true;
-    if (nextDef.renderType == BlockRenderType_Translucent) return true;
-    if (nextDef.renderType == BlockRenderType_Transparent) return true;
-    if (nextDef.modelType == BlockModelType_Sprite) return true;
-    if (!(blockDef.minBB.x == 0 && blockDef.minBB.y == 0 && blockDef.minBB.z == 0 && blockDef.maxBB.x == 16 && blockDef.maxBB.y == 16 && blockDef.maxBB.z == 16)) return true;
-    if (!(nextDef.minBB.x == 0 && nextDef.minBB.y == 0 && nextDef.minBB.z == 0 && nextDef.maxBB.x == 16 && nextDef.maxBB.y == 16 && nextDef.maxBB.z == 16)) return true;
-    
-    return false;
-}
-
-bool Chunk_TestTranslucent(Block blockDef, Block nextDef) {
-    if (nextDef.modelType == BlockModelType_Gas) return true;
-    if (nextDef.renderType == BlockRenderType_Transparent) return true;
-    if (!(blockDef.minBB.x == 0 && blockDef.minBB.y == 0 && blockDef.minBB.z == 0 && blockDef.maxBB.x == 16 && blockDef.maxBB.y == 16 && blockDef.maxBB.z == 16)) return true;
-    if (!(nextDef.minBB.x == 0 && nextDef.minBB.y == 0 && nextDef.minBB.z == 0 && nextDef.maxBB.x == 16 && nextDef.maxBB.y == 16 && nextDef.maxBB.z == 16)) return true;
-
-    return false;
+bool Chunk_TestTranslucent(const Block *block, const Block *next) {
+    if (next->modelType == BlockModelType_Gas) return true;
+    if (next->renderType == BlockRenderType_Transparent) return true;
+    return !block->fullCube || !next->fullCube;
 }

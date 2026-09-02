@@ -13,9 +13,22 @@
 #include "world.h"
 
 void ChunkMesh_Upload(ChunkMesh *mesh, unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors) {
-
     mesh->drawVertexCount = mesh->vertexCount;
     mesh->drawTriangleCount = mesh->triangleCount;
+
+    int requiredVertices = mesh->vertexCount;
+    int requiredIndices = mesh->triangleCount * 3;
+    bool canReuse = mesh->vboId != NULL && requiredVertices <= mesh->vertexCapacity && requiredIndices <= mesh->indexCapacity;
+
+    if (canReuse) {
+        rlUpdateVertexBuffer(mesh->vboId[0], vertices, requiredVertices * 3 * sizeof(unsigned char), 0);
+        rlUpdateVertexBuffer(mesh->vboId[1], texcoords, requiredVertices * 2 * sizeof(unsigned short), 0);
+        rlUpdateVertexBuffer(mesh->vboId[2], colors, requiredVertices * sizeof(unsigned char), 0);
+        rlUpdateVertexBuffer(mesh->vboId[3], indices, requiredIndices * sizeof(unsigned short), 0);
+        return;
+    }
+
+    if (mesh->vboId != NULL) ChunkMesh_Unload(mesh);
 
     mesh->vboId = (unsigned int*)RL_CALLOC(MAX_CHUNKMESH_VERTEX_BUFFERS, sizeof(unsigned int));
 
@@ -45,16 +58,29 @@ void ChunkMesh_Upload(ChunkMesh *mesh, unsigned char *vertices, unsigned short *
 
     mesh->vboId[3] = rlLoadVertexBufferElement(indices, mesh->drawTriangleCount*3*sizeof(unsigned short), false);
 
+    mesh->vertexCapacity = requiredVertices;
+    mesh->indexCapacity = requiredIndices;
+
     rlDisableVertexArray();
 }
 
+void ChunkMesh_Clear(ChunkMesh *mesh) {
+    mesh->vertexCount = 0;
+    mesh->triangleCount = 0;
+    mesh->drawVertexCount = 0;
+    mesh->drawTriangleCount = 0;
+}
+
 void ChunkMesh_Unload(ChunkMesh *mesh) {
-    
+    if (mesh->vboId == NULL) return;
     rlUnloadVertexArray(mesh->vaoId);
     for (int i = 0; i < MAX_CHUNKMESH_VERTEX_BUFFERS; i++) rlUnloadVertexBuffer(mesh->vboId[i]);
     
     RL_FREE(mesh->vboId);
-    
+    mesh->vboId = NULL;
+    mesh->vaoId = 0;
+    mesh->vertexCapacity = 0;
+    mesh->indexCapacity = 0;
 }
 
 void ChunkMesh_PrepareDrawing(Material mat) {
@@ -74,6 +100,8 @@ void ChunkMesh_FinishDrawing(void) {
 }
 
 void ChunkMesh_Draw(ChunkMesh *mesh, Material material, Matrix transform) {
+
+    if (mesh->drawTriangleCount == 0 || mesh->vboId == NULL) return;
 
     Matrix matView = rlGetMatrixModelview();
     Matrix matModelView = matView;

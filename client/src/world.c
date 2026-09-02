@@ -93,6 +93,18 @@ void World_LoadSingleplayer(void) {
     }
 }
 
+void World_UpdateChunksWithBudget(double budgetMs)
+{
+    double endTime = GetTime() + budgetMs / 1000.0;
+
+    while (arrlen(world.generateChunksQueue) > 0) {
+        World_ReadChunksQueues();
+
+        if (GetTime() >= endTime)
+            break;
+    }
+}
+
 clock_t updateClock;
 void World_Update(void) { 
     
@@ -103,7 +115,7 @@ void World_Update(void) {
     world.time += time_spent;
     if (world.time >= WORLD_DAY_LENGTH_SECONDS) world.time = 0;
 
-    for(int i = 0; i < 4; i++) World_ReadChunksQueues();
+    World_UpdateChunksWithBudget(4.0);
     
 }
 

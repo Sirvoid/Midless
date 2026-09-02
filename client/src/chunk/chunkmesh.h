@@ -18,9 +18,12 @@ typedef struct ChunkMesh {
 
     unsigned int vaoId;  
     unsigned int *vboId;
+    int vertexCapacity;
+    int indexCapacity;
 } ChunkMesh;
 
 void ChunkMesh_Upload(ChunkMesh *mesh, unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors);
+void ChunkMesh_Clear(ChunkMesh *mesh);
 void ChunkMesh_Unload(ChunkMesh *mesh);
 void ChunkMesh_PrepareDrawing(Material mat);
 void ChunkMesh_FinishDrawing(void);

@@ -83,8 +83,8 @@ void Chunk_DoLightSources(Chunk *srcChunk) {
     LightQueue queue = {0};
 
     for (int i = 0; i < CHUNK_SIZE; i++) { 
-        Block blockDefinition = Block_GetDefinition(srcChunk->data[i]);
-        if (blockDefinition.lightType != BlockLightType_Emit) continue;
+        const Block *blockDefinition = Block_GetDefinition(srcChunk->data[i]);
+        if (blockDefinition->lightType != BlockLightType_Emit) continue;
 
         
         Chunk_SetLightLevel(srcChunk, i, 15, false);
@@ -112,9 +112,9 @@ void Chunk_DoSunlight(Chunk *srcChunk) {
     } else {
         if (srcChunk->position.y >= 3) {
             for (int i = CHUNK_SIZE - CHUNK_SIZE_XZ; i < CHUNK_SIZE; i++) {
-                Block blockDefinition = Block_GetDefinition(srcChunk->data[i]);
+                const Block *blockDefinition = Block_GetDefinition(srcChunk->data[i]);
 
-                if (blockDefinition.renderType == BlockRenderType_Transparent) {
+                if (blockDefinition->renderType == BlockRenderType_Transparent) {
                     Chunk_SetLightLevel(srcChunk, i, 15, true);
                     Chunk_LightQueueAdd(&queue, i, srcChunk);
                 }
@@ -151,12 +151,12 @@ void Chunk_SpreadLight(LightQueue *queue, bool sunlight) {
             int nextIndex = Chunk_PosToIndex(nextPos);
             int nextLight = Chunk_GetLightLevel(nextChunk, nextIndex, sunlight);
             
-            Block blockDefinition = Block_GetDefinition(nextChunk->data[nextIndex]);
-            if (blockDefinition.renderType == BlockRenderType_Opaque && Block_IsFullSize(&blockDefinition)) continue;
+            const Block *blockDefinition = Block_GetDefinition(nextChunk->data[nextIndex]);
+            if (blockDefinition->renderType == BlockRenderType_Opaque && blockDefinition->fullCube) continue;
 
             //Sunlight goes infinitely down
             int subVal = 1;
-            if (sunlight && d == 3 && blockDefinition.renderType == BlockRenderType_Transparent) subVal = 0;
+            if (sunlight && d == 3 && blockDefinition->renderType == BlockRenderType_Transparent) subVal = 0;
 
             if (nextLight + 1 + subVal <= lightLevel) {
                 Chunk_SetLightLevel(nextChunk, nextIndex, lightLevel - subVal, sunlight);
@@ -196,8 +196,8 @@ void Chunk_UpdateLight(LightDelQueue *delQueue, LightQueue *spreadQueue, bool su
                 Chunk_SetLightLevel(nextChunk, nextIndex, 0, sunlight);
                 Chunk_LightDelQueueAdd(delQueue, nextIndex, neighborLevel, nextChunk);
             } else if (neighborLevel != 0 && neighborLevel >= lightLevel) {
-                Block blockDefinition = Block_GetDefinition(nextChunk->data[nextIndex]);
-                if (blockDefinition.renderType == BlockRenderType_Opaque) continue;
+                const Block *blockDefinition = Block_GetDefinition(nextChunk->data[nextIndex]);
+                if (blockDefinition->renderType == BlockRenderType_Opaque) continue;
 
                 Chunk_LightQueueAdd(spreadQueue, nextIndex, nextChunk);
             } 

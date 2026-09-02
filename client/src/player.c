@@ -303,12 +303,12 @@ bool Player_TestCollision(Vector3 offset) {
                 if (chunk == NULL || chunk->isMapGenerated == false) return true;
 
                 int blockID = World_GetBlock(blockPos);
-                Block blockDef = Block_GetDefinition(blockID);
-                if (blockDef.colliderType != BlockColliderType_Solid) continue;
+                const Block *blockDef = Block_GetDefinition(blockID);
+                if (blockDef->colliderType != BlockColliderType_Solid) continue;
                 
                 BoundingBox blockB;
-                blockB.min = (Vector3) {x + (blockDef.minBB.x / 16), y + (blockDef.minBB.y / 16), z + (blockDef.minBB.z / 16)};
-                blockB.max = (Vector3) {x + (blockDef.maxBB.x / 16), y + (blockDef.maxBB.y / 16), z + (blockDef.maxBB.z / 16)};
+                blockB.min = (Vector3) {x + (blockDef->minBB.x / 16), y + (blockDef->minBB.y / 16), z + (blockDef->minBB.z / 16)};
+                blockB.max = (Vector3) {x + (blockDef->maxBB.x / 16), y + (blockDef->maxBB.y / 16), z + (blockDef->maxBB.z / 16)};
                 
                 if (CheckCollisionBoxes(pB, blockB)) return true;
             }

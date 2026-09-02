@@ -7,6 +7,7 @@
 
 #include "raylib.h"
 #include "block.h"
+#include "blockmeshgeneration.h"
 
 Block Block_definition[256];
 
@@ -71,13 +72,22 @@ void Block_BuildDefinition(void) {
 
     Block_Define(18, "wood_slab", 4, 4, 4);
     Block_definition[18].maxBB = (Vector3) {16, 8, 16};
+
+    for (int i = 0; i < 256; i++) {
+        Block *block = &Block_definition[i];
+        block->fullCube = Block_IsFullSize(block);
+        block->fastOpaqueCube = block->fullCube &&
+                                block->modelType == BlockModelType_Solid &&
+                                block->renderType == BlockRenderType_Opaque;
+    }
+    BlockMesh_BuildTemplates();
 }
 
-Block Block_GetDefinition(int ID) {
-    if (ID >= 0 && ID <= 255) {
-        return Block_definition[ID];
+const Block *Block_GetDefinition(int ID) {
+    if ((unsigned int)ID < 256) {
+        return &Block_definition[ID];
     }
-    return Block_definition[0];
+    return &Block_definition[0];
 }
 
 Block* Block_Define(int ID, char name[], int topTex, int bottomTex, int sideTex) {

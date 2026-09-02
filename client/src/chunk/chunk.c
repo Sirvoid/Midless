@@ -21,6 +21,8 @@
 #include "block.h"
 
 void Chunk_Init(Chunk *chunk, Vector3 pos) {
+    chunk->mesh = (ChunkMesh){0};
+    chunk->meshTransparent = (ChunkMesh){0};
     chunk->position = pos;
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
     chunk->fromFile = false;
@@ -157,8 +159,8 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
         chunk->data[index] = blockID;
         chunk->modified = true;
 
-        Block blockDef = Block_GetDefinition(blockID);
-        if (blockDef.lightType == BlockLightType_Emit) {
+        const Block *blockDef = Block_GetDefinition(blockID);
+        if (blockDef->lightType == BlockLightType_Emit) {
             Chunk_AddLightSource(chunk,pos, 15, false);
         } else {
             Chunk_RemoveLightSource(chunk,pos);
@@ -343,4 +345,3 @@ int Chunk_PosToIndex(Vector3 pos) {
 long int Chunk_GetPackedPos(Vector3 pos) {
     return (long)((int)(pos.x)&4095)<<20 | (long)((int)(pos.z)&4095)<<8 | (long)((int)(pos.y)&255);
 }
-

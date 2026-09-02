@@ -30,19 +30,19 @@ RaycastResult Raycast_Do(Vector3 position, Vector3 direction, bool ignoreLiquid)
         int blockID = World_GetBlock(position);
         
         if (blockID != 0) {
-            Block block = Block_GetDefinition(blockID);
-            if (ignoreLiquid && block.colliderType == BlockColliderType_Liquid) {
+            const Block *block = Block_GetDefinition(blockID);
+            if (ignoreLiquid && block->colliderType == BlockColliderType_Liquid) {
                 continue;
             }
             Vector3 blockPos = (Vector3){floor(position.x), floor(position.y), floor(position.z)};
-            if (position.x > blockPos.x + block.minBB.x / 16 &&
-                position.y > blockPos.y + block.minBB.y / 16 &&
-                position.z > blockPos.z + block.minBB.z / 16 &&
-                position.x < blockPos.x + block.maxBB.x / 16 &&
-                position.y < blockPos.y + block.maxBB.y / 16 &&
-                position.z < blockPos.z + block.maxBB.z / 16) {
-                Vector3 loc = Vector3Subtract(position, Vector3Add(blockPos, Vector3Scale(block.minBB, 1.0f / 16)));
-                Vector3 bbSize = Vector3Scale(block.maxBB, 1.0f / 16);
+            if (position.x > blockPos.x + block->minBB.x / 16 &&
+                position.y > blockPos.y + block->minBB.y / 16 &&
+                position.z > blockPos.z + block->minBB.z / 16 &&
+                position.x < blockPos.x + block->maxBB.x / 16 &&
+                position.y < blockPos.y + block->maxBB.y / 16 &&
+                position.z < blockPos.z + block->maxBB.z / 16) {
+                Vector3 loc = Vector3Subtract(position, Vector3Add(blockPos, Vector3Scale(block->minBB, 1.0f / 16)));
+                Vector3 bbSize = Vector3Scale(block->maxBB, 1.0f / 16);
                 float entryX = -loc.x;
                 if (loc.x > bbSize.x - loc.x)
                     entryX = bbSize.x - loc.x;
