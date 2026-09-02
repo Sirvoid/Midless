@@ -134,7 +134,7 @@ void Packet_H_Identification(void) {
     Packet_player->name = Packet_ReadString();
     Logger_Log(TextFormat("%s connected. Protocol version: %i\n", Packet_player->name, protocolVersion));
     World_AddPlayer(Packet_player);
-    Network_Send(Packet_player, Packet_MapInit());
+    Network_Send(Packet_player, Packet_CreateMapInit());
 }
 
 void Packet_H_SetBlock(void) {
@@ -182,7 +182,7 @@ void Packet_H_SetDrawDistance(void) {
 
 /* Packets sent */
 
-unsigned char* Packet_MapInit(void) {
+unsigned char* Packet_CreateMapInit(void) {
     PacketWriter_index = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[0]);
     Packet_WriteByte(packet, 0);
@@ -190,7 +190,7 @@ unsigned char* Packet_MapInit(void) {
     return packet;
 }
 
-unsigned char* Packet_LoadChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition) {
+unsigned char* Packet_CreateLoadChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition) {
     PacketWriter_index = 0;
     Packet_LastDynamicLength = (length * 2) + 15;
     unsigned char* packet = (unsigned char*)MemAlloc(Packet_LastDynamicLength);
@@ -203,7 +203,7 @@ unsigned char* Packet_LoadChunk(unsigned short* chunkArray, unsigned short lengt
     return packet;
 }
 
-unsigned char* Packet_UnloadChunk(Vector3 chunkPosition) {
+unsigned char* Packet_CreateUnloadChunk(Vector3 chunkPosition) {
     PacketWriter_index = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[7]);
     Packet_WriteByte(packet, 7);
@@ -213,7 +213,7 @@ unsigned char* Packet_UnloadChunk(Vector3 chunkPosition) {
     return packet;
 }
 
-unsigned char* Packet_SetBlock(unsigned char blockID, Vector3 position) {
+unsigned char* Packet_CreateSetBlock(unsigned char blockID, Vector3 position) {
     PacketWriter_index = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[2]);
     Packet_WriteByte(packet, 2);
@@ -224,7 +224,7 @@ unsigned char* Packet_SetBlock(unsigned char blockID, Vector3 position) {
     return packet;
 }
 
-unsigned char* Packet_SpawnEntity(Entity *entity) {
+unsigned char* Packet_CreateSpawnEntity(Entity *entity) {
     PacketWriter_index = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[3]);
     Packet_WriteByte(packet, 3);
@@ -236,7 +236,7 @@ unsigned char* Packet_SpawnEntity(Entity *entity) {
     return packet;
 }
 
-unsigned char* Packet_DespawnEntity(Entity *entity) {
+unsigned char* Packet_CreateDespawnEntity(Entity *entity) {
     PacketWriter_index = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[6]);
     Packet_WriteByte(packet, 6);
@@ -244,7 +244,7 @@ unsigned char* Packet_DespawnEntity(Entity *entity) {
     return packet;
 }
 
-unsigned char* Packet_TeleportEntity(Entity *entity, Vector3 position, Vector3 rotation) {
+unsigned char* Packet_CreateTeleportEntity(Entity *entity, Vector3 position, Vector3 rotation) {
     PacketWriter_index = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
     Packet_WriteByte(packet, 4);
@@ -257,7 +257,7 @@ unsigned char* Packet_TeleportEntity(Entity *entity, Vector3 position, Vector3 r
     return packet;
 }
 
-unsigned char* Packet_SendMessage(const char* message) {
+unsigned char* Packet_CreateMessage(const char* message) {
     PacketWriter_index = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(Packet_Lengths[5]);
     Packet_WriteByte(packet, 5);

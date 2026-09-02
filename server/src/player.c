@@ -16,6 +16,23 @@
 #include "networkhandler.h"
 #include "packet.h"
 
+Player *Player_Create(void *peerPtr, bool isWeb) {
+    Player *player = MemAlloc(sizeof(*player));
+    if (player == NULL) return NULL;
+
+    *player = (Player){0};
+    player->peerPtr = peerPtr;
+    player->drawDistance = 3;
+    player->isWeb = isWeb;
+    return player;
+}
+
+void Player_Destroy(Player *player) {
+    if (player == NULL) return;
+    MemFree(player->name);
+    MemFree(player);
+}
+
 void Player_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation) {
     World_TeleportEntity(player->id, position, rotation);
 }
@@ -38,9 +55,9 @@ void Player_LoadChunks(Player* player) {
                         Chunk_AddPlayer(chunk, player);
 
                         int compressedLength = 0;
-                        unsigned short *compressedChunk = Chunk_Compress(chunk, CHUNK_SIZE, &compressedLength);
+                        unsigned short *compressedChunk = Chunk_CreateCompressedData(chunk, CHUNK_SIZE, &compressedLength);
 
-                        Network_Send(player, Packet_LoadChunk(compressedChunk, compressedLength, chunkPos));
+                        Network_Send(player, Packet_CreateLoadChunk(compressedChunk, compressedLength, chunkPos));
 
                         MemFree(compressedChunk);
                     }

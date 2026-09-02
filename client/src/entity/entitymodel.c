@@ -113,11 +113,25 @@ void EntityModel_DefineHumanoid(void) {
 
 }
 
-void EntityModel_DefineAll(void) {
+void EntityModelDefinitions_Init(void) {
     EntityModel_DefineHumanoid();
 }
 
-void EntityModel_Build(EntityModel *model, EntityModelDef modelDef) {
+void EntityModelDefinitions_Shutdown(void) {
+    for (int i = 0; i < 256; i++) {
+        EntityModelDef *model = &entityModels[i];
+        if (model->amountBoxes == 0) continue;
+
+        MemFree(model->boxes);
+        MemFree(model->positions);
+        MemFree(model->uvs);
+        MemFree(model->types);
+        UnloadTexture(model->defaultTexture);
+        *model = (EntityModelDef){0};
+    }
+}
+
+void EntityModel_Create(EntityModel *model, EntityModelDef modelDef) {
     model->amountParts = modelDef.amountBoxes;
     model->parts = MemAlloc(modelDef.amountBoxes * sizeof(EntityModelPart));
 
@@ -130,10 +144,14 @@ void EntityModel_Build(EntityModel *model, EntityModelDef modelDef) {
     }
 }
 
-void EntityModel_Free(EntityModel *model) {
+void EntityModel_Unload(EntityModel *model) {
     for (int i = 0; i < model->amountParts; i++) { 
         UnloadMesh(model->parts[i].mesh);
     }
+    UnloadMaterial(model->mat);
+}
+
+void EntityModel_Destroy(EntityModel *model) {
     MemFree(model->parts);
-    //UnloadMaterial(model->mat);
+    *model = (EntityModel){0};
 }

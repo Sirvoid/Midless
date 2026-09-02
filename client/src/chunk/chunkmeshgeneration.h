@@ -13,6 +13,7 @@
 #include "block.h"
 
 void Chunk_MeshGenerationInit(void);
+void Chunk_MeshGenerationShutdown(void);
 //Build/Refresh a chunk's mesh.
 void Chunk_BuildMesh(Chunk *chunk);
 bool Chunk_TestOpaque(const Block *blockDef, const Block *nextDef);

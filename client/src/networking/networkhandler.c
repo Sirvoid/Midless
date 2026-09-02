@@ -46,13 +46,13 @@ void Network_Init(void) {
 
 void Network_Connect(void) {
     Network_connectedToServer = true;
-    Network_Send(Packet_Identification(1, Network_name));
-    Network_Send(Packet_SetDrawDistance(world.drawDistance));
+    Network_Send(Packet_CreateIdentification(1, Network_name));
+    Network_Send(Packet_CreateSetDrawDistance(world.drawDistance));
 }
 
 void Network_Disconnect(void) {
     Screen_Switch(SCREEN_LOGIN);
-    World_Unload();
+    World_Clear();
     Network_threadState = -1; //End network thread
     Screen_cursorEnabled = false;
 

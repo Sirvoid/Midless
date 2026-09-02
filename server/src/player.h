@@ -19,6 +19,8 @@ typedef struct Player {
     bool disconnected;
 } Player;
 
+Player *Player_Create(void *peerPtr, bool isWeb);
+void Player_Destroy(Player *player);
 void Player_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation);
 void Player_LoadChunks(Player* player);
 

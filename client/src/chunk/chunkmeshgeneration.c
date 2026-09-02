@@ -27,6 +27,26 @@ void Chunk_MeshGenerationInit(void) {
     indicesT = MemAlloc(triangleCount * 3 * sizeof(unsigned short));
 }
 
+void Chunk_MeshGenerationShutdown(void) {
+    MemFree(vertices);
+    MemFree(texcoords);
+    MemFree(colors);
+    MemFree(indices);
+    MemFree(verticesT);
+    MemFree(texcoordsT);
+    MemFree(colorsT);
+    MemFree(indicesT);
+
+    vertices = NULL;
+    texcoords = NULL;
+    colors = NULL;
+    indices = NULL;
+    verticesT = NULL;
+    texcoordsT = NULL;
+    colorsT = NULL;
+    indicesT = NULL;
+}
+
 static bool FaceVisible(const Block *block, const Block *next) {
     if (block->fastOpaqueCube) {
         return !next->fastOpaqueCube;

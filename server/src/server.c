@@ -12,6 +12,8 @@
 #include "server.h"
 #include "networkhandler.h"
 
+struct Player;
+struct Player *Player_Create(void *peerPtr, bool isWeb);
 
 #define MAX_CLIENTS 64
 
@@ -40,7 +42,7 @@ void Server_Do(int *state) {
         while (enet_host_service(server, &event, 33) > 0) {
             switch (event.type) {
                 case ENET_EVENT_TYPE_CONNECT:
-                    event.peer->data = Network_InitPlayer(event.peer, false);
+                    event.peer->data = Player_Create(event.peer, false);
                     Network_Connect(event.peer->data);
                     break;
 

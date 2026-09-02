@@ -81,7 +81,7 @@ int main(void) {
 
     serverThread_state = -1;
 
-    World_Unload();
+    World_Shutdown();
 
     Lua_Stop();
 

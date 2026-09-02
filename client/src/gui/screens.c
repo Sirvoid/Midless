@@ -152,7 +152,7 @@ void Screen_MakePause(void) {
         } else {
             Screen_Switch(SCREEN_LOGIN);
              Screen_cursorEnabled = false;
-            World_Unload();
+            World_Clear();
         }
     }
 
@@ -186,7 +186,7 @@ void Screen_MakeOptions(void) {
         }
 
         if (Network_connectedToServer) {
-            Network_Send(Packet_SetDrawDistance(world.drawDistance));
+            Network_Send(Packet_CreateSetDrawDistance(world.drawDistance));
         }
     }
 

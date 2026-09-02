@@ -26,7 +26,7 @@ typedef struct World{
 extern World world;
 
 void World_Init(void);
-void World_Unload(void);
+void World_Shutdown(void);
 void World_Update(void);
 
 void World_RemovePlayerFromChunks(Player *playerToRemove);
@@ -45,6 +45,7 @@ void World_RemoveEntity(int ID);
 
 void World_Send(void *playerPtr);
 void World_SendMessage(const char* message);
+//Broadcast and take ownership.
 void World_Broadcast(unsigned char* packet);
 void World_BroadcastExcluding(unsigned char* packet, int excludedPlayerID);
 

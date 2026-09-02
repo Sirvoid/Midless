@@ -191,13 +191,13 @@ void Packet_H_TeleportEntity(void) {
 
 void Packet_H_Message(void) {
     char *message = Packet_ReadString();
-    Chat_AddLine(message);
+    Chat_AddOwnedLine(message);
 }
 
 /*-------------------------------------------------------------------------------------------------------*
 *--------------------------------------------Packets Sent------------------------------------------------*
 *--------------------------------------------------------------------------------------------------------*/
-unsigned char *Packet_Identification(unsigned short version, char *name) {
+unsigned char *Packet_CreateIdentification(unsigned short version, char *name) {
     PacketWriter_index = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[0]);
     Packet_WriteByte(packet, 0);
@@ -206,7 +206,7 @@ unsigned char *Packet_Identification(unsigned short version, char *name) {
     return packet;
 }
 
-unsigned char *Packet_SetBlock(unsigned char blockID, Vector3 position) {
+unsigned char *Packet_CreateSetBlock(unsigned char blockID, Vector3 position) {
     PacketWriter_index = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[1]);
     Packet_WriteByte(packet, 1);
@@ -217,7 +217,7 @@ unsigned char *Packet_SetBlock(unsigned char blockID, Vector3 position) {
     return packet;
 }
 
-unsigned char *Packet_PlayerPosition(Vector3 position, Vector2 rotation) {
+unsigned char *Packet_CreatePlayerPosition(Vector3 position, Vector2 rotation) {
     PacketWriter_index = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[2]);
     Packet_WriteByte(packet, 2);
@@ -229,7 +229,7 @@ unsigned char *Packet_PlayerPosition(Vector3 position, Vector2 rotation) {
     return packet;
 }
 
-unsigned char *Packet_SendMessage(char *message) {
+unsigned char *Packet_CreateMessage(char *message) {
     PacketWriter_index = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[3]);
     Packet_WriteByte(packet, 3);
@@ -237,7 +237,7 @@ unsigned char *Packet_SendMessage(char *message) {
     return packet;
 }
 
-unsigned char *Packet_SetDrawDistance(unsigned char distance) {
+unsigned char *Packet_CreateSetDrawDistance(unsigned char distance) {
     PacketWriter_index = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
     Packet_WriteByte(packet, 4);

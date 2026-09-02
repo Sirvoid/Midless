@@ -51,8 +51,10 @@ int World_GetClosestChunkIndex(Chunk* *array, Vector3 pos);
 void World_AddChunk(Vector3 position);
 //Remove a chunk
 void World_RemoveChunk(Chunk *curChunk);
-//Unload the world.
-void World_Unload(void);
+//Remove all world objects while keeping the world initialized.
+void World_Clear(void);
+//Shutdown the world system.
+void World_Shutdown(void);
 //Reload chunks.
 void World_Reload(void);
 //Draw the world.

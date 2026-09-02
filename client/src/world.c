@@ -192,12 +192,10 @@ void World_AddChunk(Vector3 position) {
     long int p = Chunk_GetPackedPos(position);
     int index = hmgeti(world.chunks, p);
     if (index == -1) {
-        //Add chunk to list
-        Chunk *newChunk = MemAlloc(sizeof(Chunk));
+        Chunk *newChunk = Chunk_Create(position);
+        if (newChunk == NULL) return;
+
         hmput(world.chunks, p, newChunk);
-
-        Chunk_Init(newChunk, position);
-
         World_QueueChunk(newChunk, false);
         
     }
@@ -214,10 +212,12 @@ void World_RemoveChunk(Chunk *curChunk) {
     }
 
     long int p = Chunk_GetPackedPos(curChunk->position);
-    
-    Chunk_Unload(curChunk);
     hmdel(world.chunks, p);
-    return;
+
+    Chunk_UpdateNeighbours(curChunk, true);
+    if (curChunk->modified) Chunk_SaveFile(curChunk);
+    Chunk_Unload(curChunk);
+    Chunk_Destroy(curChunk);
 }
 
 void World_LoadChunks(void) {
@@ -252,11 +252,11 @@ void World_LoadChunks(void) {
 }
 
 void World_Reload(void) {
-    if (!Network_connectedToServer) World_Unload();
+    if (!Network_connectedToServer) World_Clear();
     world.loadChunks = true;
 }
 
-void World_Unload(void) {
+void World_Clear(void) {
     world.loadChunks = false;
 
     arrfree(world.generateChunksQueue);
@@ -270,8 +270,17 @@ void World_Unload(void) {
         World_RemoveEntity(i);
     }
 
+    hmfree(world.chunks);
     world.chunks = NULL;
 
+}
+
+void World_Shutdown(void) {
+    World_Clear();
+    UnloadMaterial(world.mat);
+    MemFree(world.entities);
+    world.entities = NULL;
+    Chunk_MeshGenerationShutdown();
 }
 
 void World_ApplyTexture(Texture2D texture) {
@@ -465,9 +474,9 @@ void World_AddEntity(int ID, int type, Vector3 position, Vector3 rotation) {
     world.entities[ID].position = position;
     world.entities[ID].rotation = rotation;
     
-    EntityModel_Build(&world.entities[ID].model, entityModels[0]);
+    EntityModel_Create(&world.entities[ID].model, entityModels[0]);
 }
 
 void World_RemoveEntity(int ID) {
-    Entity_Remove(&world.entities[ID]);
+    Entity_Destroy(&world.entities[ID]);
 }

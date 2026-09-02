@@ -15,7 +15,7 @@
 #include "chunk.h"
 #include "worldgenerator.h"
 
-void Chunk_Init(Chunk *chunk, Vector3 pos) {
+static void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
     chunk->fromFile = false;
@@ -30,21 +30,25 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
 
 }
 
-void Chunk_Unload(Chunk *chunk) {
+Chunk *Chunk_Create(Vector3 pos) {
+    Chunk *chunk = MemAlloc(sizeof(*chunk));
+    if (chunk == NULL) return NULL;
+
+    Chunk_Init(chunk, pos);
+    return chunk;
+}
+
+void Chunk_Destroy(Chunk *chunk) {
     if (chunk == NULL) return;
 
-    if (chunk->modified) Chunk_SaveFile(chunk);
-
     arrfree(chunk->players);
-    chunk->players = NULL;
-
     MemFree(chunk);
 }
 
 void Chunk_SaveFile(Chunk *chunk) {
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     int newLength;
-    unsigned short* compressed = Chunk_Compress(chunk, CHUNK_SIZE, &newLength);
+    unsigned short* compressed = Chunk_CreateCompressedData(chunk, CHUNK_SIZE, &newLength);
     SaveFileData(fileName, compressed, newLength * 2);
     MemFree(compressed);
 }
@@ -83,7 +87,7 @@ void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLengt
     
 }
 
-unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength) {
+unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int currentLength, int *newLength) {
     
     //BlockID:UShort, Amount:UShort, ...
     

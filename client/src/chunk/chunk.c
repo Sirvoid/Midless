@@ -20,7 +20,7 @@
 #include "networkhandler.h"
 #include "block.h"
 
-void Chunk_Init(Chunk *chunk, Vector3 pos) {
+static void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->mesh = (ChunkMesh){0};
     chunk->meshTransparent = (ChunkMesh){0};
     chunk->position = pos;
@@ -46,12 +46,20 @@ void Chunk_Init(Chunk *chunk, Vector3 pos) {
     Chunk_UpdateNeighbours(chunk, false);
 }
 
+Chunk *Chunk_Create(Vector3 pos) {
+    Chunk *chunk = MemAlloc(sizeof(*chunk));
+    if (chunk == NULL) return NULL;
+
+    Chunk_Init(chunk, pos);
+    return chunk;
+}
+
 void Chunk_SaveFile(Chunk *chunk) {
     if (Network_connectedToServer) return;
     
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     int newLength;
-    unsigned short* compressed = Chunk_Compress(chunk, CHUNK_SIZE, &newLength);
+    unsigned short* compressed = Chunk_CreateCompressedData(chunk, CHUNK_SIZE, &newLength);
     SaveFileData(fileName, compressed, newLength * 2);
     MemFree(compressed);
 }
@@ -82,7 +90,7 @@ void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLengt
     
 }
 
-unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength) {
+unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int currentLength, int *newLength) {
     
     //BlockID:UShort, Amount:UShort, ...
     
@@ -115,15 +123,15 @@ unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength) 
 }
 
 void Chunk_Unload(Chunk *chunk) {
+    if (chunk == NULL) return;
 
-    if (chunk->modified) Chunk_SaveFile(chunk);
+    ChunkMesh_Unload(&chunk->mesh);
+    ChunkMesh_Unload(&chunk->meshTransparent);
+    chunk->isBuilt = false;
+}
 
-    if (chunk->isBuilt) {
-        ChunkMesh_Unload(&chunk->mesh);
-        ChunkMesh_Unload(&chunk->meshTransparent);
-    }
-
-    Chunk_UpdateNeighbours(chunk, true);
+void Chunk_Destroy(Chunk *chunk) {
+    if (chunk == NULL) return;
     MemFree(chunk);
 }
 

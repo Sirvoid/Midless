@@ -155,7 +155,7 @@ void Player_CheckInputs() {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Break Block
             if (player.rayResult.hitBlockID != -1) {
                 World_SetBlock(player.rayResult.hitPos, 0, true);
-                Network_Send(Packet_SetBlock(0, player.rayResult.hitPos));
+                Network_Send(Packet_CreateSetBlock(0, player.rayResult.hitPos));
             }
         } else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
             Vector3 placePos = Vector3Add(player.rayResult.hitPos, player.rayResult.normal);
@@ -213,7 +213,7 @@ bool Player_TryPlaceBlock(Vector3 pos, int blockID)
         return false;
     }
 
-    Network_Send(Packet_SetBlock(blockID, pos));
+    Network_Send(Packet_CreateSetBlock(blockID, pos));
     return true;
 }
 
@@ -222,7 +222,7 @@ bool Player_TryPlaceBlock(Vector3 pos, int blockID)
 void Player_Update(void) {
     
     if(GetTime() - Player_LastPositionPacketTime > 0.05) {
-        Network_Send(Packet_PlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector2) { -Player_cameraAngle.x + PI / 2,  Player_cameraAngle.y - PI / 2}));
+        Network_Send(Packet_CreatePlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector2) { -Player_cameraAngle.x + PI / 2,  Player_cameraAngle.y - PI / 2}));
         Player_LastPositionPacketTime = GetTime();
     }
 

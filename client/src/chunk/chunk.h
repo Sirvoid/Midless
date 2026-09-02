@@ -55,10 +55,12 @@ typedef struct LightDelNode{
     struct LightDelNode *next;
 } LightDelNode;
 
-//Initialize a chunk.
-void Chunk_Init(Chunk *chunk, Vector3 pos);
-//Unload a chunk.
+//Allocate and initialize a chunk.
+Chunk *Chunk_Create(Vector3 pos);
+//Unload the chunk's external resources.
 void Chunk_Unload(Chunk *chunk);
+//Unload the chunk.
+void Chunk_Destroy(Chunk *chunk);
 //Generate a chunk's map & lightning.
 void Chunk_Generate(Chunk *chunk);
 //Save a chunk to a file.
@@ -67,8 +69,8 @@ void Chunk_SaveFile(Chunk *chunk);
 bool Chunk_LoadFile(Chunk *chunk);
 //Decompress chunk
 void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength);
-//Compress chunk
-unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength);
+//Create compressed chunk data.
+unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int currentLength, int *newLength);
 //Get a neighbour from a direction
 Chunk* Chunk_GetNeighbour(Chunk* chunk, Vector3 dir);
 //Update a chunk's neighbour list.

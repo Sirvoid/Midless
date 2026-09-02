@@ -19,7 +19,7 @@
 char* chatLines[64];
 int currentLine = 0;
 
-void Chat_AddLine(char *line) {
+void Chat_AddOwnedLine(char *line) {
     if (chatLines[currentLine]) MemFree(chatLines[currentLine]);
     chatLines[currentLine++] = line;
     if (currentLine >= 64) {
@@ -27,6 +27,13 @@ void Chat_AddLine(char *line) {
     }
 }
 
+void Chat_Shutdown(void) {
+    for (int i = 0; i < 64; i++) {
+        MemFree(chatLines[i]);
+        chatLines[i] = NULL;
+    }
+    currentLine = 0;
+}
 
 char Chat_input[64] = "";
 bool Chat_editMode = false;
@@ -90,10 +97,10 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
                 Chat_input[i] = '\0';
             }
             if (Network_connectedToServer) {
-                Network_Send(Packet_SendMessage(message));
+                Network_Send(Packet_CreateMessage(message));
                 MemFree(message);
             } else {
-                Chat_AddLine(message);
+                Chat_AddOwnedLine(message);
             }
             DisableCursor();
             Chat_open = false;

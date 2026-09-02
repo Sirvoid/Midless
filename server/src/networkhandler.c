@@ -33,16 +33,6 @@ void Network_Init(void) {
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_SetDrawDistance};
 }
 
-void* Network_InitPlayer(void* peerPtr, bool isWeb) {
-    Player *player = MemAlloc(sizeof(Player));
-    memset(player, 0, sizeof *player);
-    player->peerPtr = peerPtr;
-    player->drawDistance = 3;
-    player->isWeb = isWeb;
-    player->disconnected = false;
-    return (void*)player;
-}
-
 void Network_Connect(void *playerPtr) {
 }
 
@@ -99,4 +89,3 @@ void Network_Send(void *playerPtr, unsigned char* packet) {
     MemFree(packet);
 
 }
-

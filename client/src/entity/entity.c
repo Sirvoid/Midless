@@ -36,8 +36,9 @@ void Entity_Draw(Entity *entity) {
     }
 }
 
-void Entity_Remove(Entity *entity) {
+void Entity_Destroy(Entity *entity) {
     if (entity->type == 0) return;
     entity->type = 0;
-    EntityModel_Free(&entity->model);
+    EntityModel_Unload(&entity->model);
+    EntityModel_Destroy(&entity->model);
 }

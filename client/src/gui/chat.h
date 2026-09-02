@@ -10,7 +10,9 @@
 
 extern bool Chat_open;
 
-void Chat_AddLine(char *line);
+//Add a line and take ownership.
+void Chat_AddOwnedLine(char *line);
 void Chat_Draw(Vector2 offset, Color uiColor);
+void Chat_Shutdown(void);
 
 #endif

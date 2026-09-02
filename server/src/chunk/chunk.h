@@ -27,11 +27,14 @@ typedef struct Chunk{
     Player* *players;
 } Chunk;
 
-void Chunk_Init(Chunk *chunk, Vector3 pos);
-void Chunk_Unload(Chunk *chunk);
+//Allocate and initialize a chunk.
+Chunk *Chunk_Create(Vector3 pos);
+//Unload the chunk.
+void Chunk_Destroy(Chunk *chunk);
 
 void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength);
-unsigned short* Chunk_Compress(Chunk *chunk, int currentLength, int *newLength);
+//Create compressed chunk data.
+unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int currentLength, int *newLength);
 void Chunk_SaveFile(Chunk *chunk);
 bool Chunk_LoadFile(Chunk *chunk);
 void Chunk_Generate(Chunk *chunk);

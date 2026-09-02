@@ -60,8 +60,9 @@ int main(void) {
 
 
     SetWindowIcon(midlessLogo);
+    UnloadImage(midlessLogo);
 
-    EntityModel_DefineAll();
+    EntityModelDefinitions_Init();
     Block_BuildDefinition();
 
     // World Initialization
@@ -92,7 +93,9 @@ int main(void) {
 
         UnloadShader(shader);
         UnloadTexture(texture);
-        World_Unload();
+        World_Shutdown();
+        EntityModelDefinitions_Shutdown();
+        Chat_Shutdown();
 
         CloseWindow();
     #endif

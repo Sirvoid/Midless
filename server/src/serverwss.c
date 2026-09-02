@@ -14,11 +14,12 @@
 #include "mongoose.h"
 #include "serverwss.h"
 #include "networkhandler.h"
+#include "player.h"
 
 struct mg_mgr event_manager;
 
 static void ServerWSS_OnOpen(struct mg_connection *client) {
-    void *player = Network_InitPlayer(client, true);
+    void *player = Player_Create(client, true);
     client->fn_data = player;
     Network_Connect(player);
 }

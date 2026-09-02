@@ -19,6 +19,6 @@ typedef struct Entity{
 } Entity;
 
 void Entity_Draw(Entity *entity);
-void Entity_Remove(Entity *entity);
+void Entity_Destroy(Entity *entity);
 
 #endif

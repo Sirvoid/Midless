@@ -33,8 +33,10 @@ typedef struct EntityModel{
     Material mat;
 } EntityModel;
 
-void EntityModel_DefineAll(void);
-void EntityModel_Build(EntityModel *model, EntityModelDef modelDef);
-void EntityModel_Free(EntityModel *model);
+void EntityModelDefinitions_Init(void);
+void EntityModelDefinitions_Shutdown(void);
+void EntityModel_Create(EntityModel *model, EntityModelDef modelDef);
+void EntityModel_Unload(EntityModel *model);
+void EntityModel_Destroy(EntityModel *model);
 
 #endif
