@@ -46,8 +46,9 @@ static Vector3 makeBranch(Chunk *chunk, Vector3 position, float thickness, float
             for(int y = -thickness; y < thickness; y++) {
                 for(int z = -thickness; z < thickness; z++) {
 
-                    float distance = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
-                    if(distance >= (thickness / (2 + (i / (steps / 1.5f))))) continue;
+                    float radius = thickness / (2 + (i / (steps / 1.5f)));
+                    float distanceSquared = x * x + y * y + z * z;
+                    if(distanceSquared >= radius * radius) continue;
 
                     Vector3 v = (Vector3) { position.x + x, position.y + y, position.z + z};
 
@@ -65,12 +66,15 @@ static Vector3 makeBranch(Chunk *chunk, Vector3 position, float thickness, float
 }
 
 static void makeLeaves(Chunk *chunk, Vector3 position, float thickness) {
+    float radius = thickness / 2;
+    float radiusSquared = radius * radius;
+
     for(int x = -thickness; x < thickness; x++) {
         for(int y = -thickness; y < thickness; y++) {
             for(int z = -thickness; z < thickness; z++) {
 
-                float distance = sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
-                if(distance >= (thickness / 2)) continue;
+                float distanceSquared = x * x + y * y + z * z;
+                if(distanceSquared >= radiusSquared) continue;
 
                 Vector3 v = (Vector3) { position.x + x, position.y + y, position.z + z};
 
@@ -91,9 +95,12 @@ static void makeTree(Chunk *chunk, Vector3 pos) {
     }
 }
 
-static int getHeightMapPoint(Vector3 pos) {
+static float getBiomeElevation(float x, float z) {
+    return fnlGetNoise2D(&heightNoise, x * 0.05f, z * 0.05f) + 1.0f;
+}
+
+static int getHeightMapPoint(Vector3 pos, float biomeElevation) {
     if(pos.y >= 16) {    
-        float biomeElevation = (fnlGetNoise2D(&heightNoise, pos.x * 0.05f, pos.z * 0.05f) + 1.0f);
         float nsOff = fnlGetNoise3D(&offsetNoise, pos.x * 2.0f, pos.y * 2.0f, pos.z * 2.0f) * 12.0f * (biomeElevation - 1);
         float ns = (fnlGetNoise3D(&noise, (pos.x + nsOff) * 2.5f, nsOff, (pos.z + nsOff) * 2.5f) * nsOff + 1.0f) / 2.0f * 64 * biomeElevation;
 
@@ -113,15 +120,8 @@ static int getHeightMapPoint(Vector3 pos) {
         
 }
 
-static bool checkForGrass(int index, float* heightMap, Chunk* chunk) {
-    int blockID = heightMap[index];
-    if(blockID == 1) {
-        Vector3 pos = Vector3Add(Chunk_IndexToPos(index), chunk->blockPosition);
-        if(getHeightMapPoint((Vector3) {pos.x, pos.y + 1, pos.z} ) == 0) {
-            return true;
-        }
-    }
-    return false;
+static bool checkForGrass(int index, const float* heightMap) {
+    return heightMap[index] == 1 && heightMap[index + CHUNK_SIZE_XZ] == 0;
 }
 
 void WorldGenerator_Init(int worldSeed) {
@@ -169,7 +169,7 @@ bool WorldGenerator_GenerateStructures(Chunk *chunk, float* heightMap) {
         for (int i = CHUNK_SIZE - 1; i >= 0; i--) {
             Vector3 localPos = Chunk_IndexToPos(i);
             Vector3 pos = Vector3Add(localPos, chunk->blockPosition);
-            if(checkForGrass(i, heightMap, chunk)) {
+            if(checkForGrass(i, heightMap)) {
                 int randN = randFromPos(pos, 5);
                 if(randN % 512 == 0) { 
                     makeTree(chunk, pos);
@@ -186,20 +186,37 @@ float* WorldGenerator_Generate(Chunk *chunk) {
 
     int one_up = CHUNK_SIZE_XZ;
 
-    static float heightMap[CHUNK_SIZE];
+    static float heightMap[CHUNK_SIZE + CHUNK_SIZE_XZ];
+
+    for (int z = 0; z < CHUNK_SIZE_Z; z++) {
+        for (int x = 0; x < CHUNK_SIZE_X; x++) {
+            float worldX = chunk->blockPosition.x + x;
+            float worldZ = chunk->blockPosition.z + z;
+            float biomeElevation = getBiomeElevation(worldX, worldZ);
+
+            for (int y = 0; y <= CHUNK_SIZE_Y; y++) {
+                int index = (y * CHUNK_SIZE_Z + z) * CHUNK_SIZE_X + x;
+                Vector3 pos = {
+                    worldX,
+                    chunk->blockPosition.y + y,
+                    worldZ
+                };
+                heightMap[index] = getHeightMapPoint(pos, biomeElevation);
+            }
+        }
+    }
 
     //Ground
     for (int i = 0; i < CHUNK_SIZE; i++) {
         Vector3 localPos = Chunk_IndexToPos(i);
         Vector3 pos = Vector3Add(localPos, chunk->blockPosition);
-        heightMap[i] = getHeightMapPoint(pos);
 
         if(heightMap[i] == 2) continue; //Skip everything when cave air.
 
         int blockID = 0;
         if(heightMap[i] == 1) blockID = 1;
 
-        if(checkForGrass(i, heightMap, chunk)) {
+        if(checkForGrass(i, heightMap)) {
             if(pos.y > 48) {
                 blockID = 3;
                 if(i - one_up > 0) {

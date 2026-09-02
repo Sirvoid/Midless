@@ -10,18 +10,23 @@
 
 #include "chunk.h"
 
-int Chunk_GetLight(Chunk* chunk, Vector3 pos, bool sunLight);
+typedef struct LightQueue {
+    LightNode *nodes;
+    size_t head;
+} LightQueue;
 
-void Chunk_LightQueueAdd(int index, Chunk *chunk);
-void Chunk_LightDelQueueAdd(int index, int val, Chunk *chunk);
-void Chunk_LightQueuePop(void);
-void Chunk_LightDelQueuePop(void);
+typedef struct LightDelQueue {
+    LightDelNode *nodes;
+    size_t head;
+} LightDelQueue;
+
+int Chunk_GetLight(Chunk* chunk, Vector3 pos, bool sunLight);
 
 void Chunk_DoSunlight(Chunk *chunk);
 void Chunk_DoLightSources(Chunk *srcChunk);
 
-void Chunk_UpdateLight(bool sunlight);
-void Chunk_SpreadLight(bool sunlight);
+void Chunk_UpdateLight(LightDelQueue *delQueue, LightQueue *spreadQueue, bool sunlight);
+void Chunk_SpreadLight(LightQueue *queue, bool sunlight);
 
 void Chunk_AddLightSource(Chunk *srcChunk, Vector3 srcPos, int intensity, bool sunlight);
 void Chunk_RemoveLightSource(Chunk *srcChunk, Vector3 srcPos);
