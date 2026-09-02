@@ -55,15 +55,15 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
         if (chatLines[index]) {
             int textLength = TextLength(chatLines[index]);
             int startPos = 0;
-            char *drawLines[3][64];
+            char drawLines[3][65] = {0};
             int drawLinesCnt = 0;
-            for (int i = 0; i < textLength; i++) {
+            for (int i = 0; i < textLength && drawLinesCnt < 3; i++) {
                 const char* sub = TextSubtext(chatLines[index], startPos, i - startPos + 1);
                 int textWidth = MeasureText(sub, fontSize);
                 if (textWidth >= chatWidth - fontSize - 4 || i == textLength - 1) {
                     TextCopy(drawLines[drawLinesCnt], sub);
                     drawLinesCnt++;
-                    startPos = i;
+                    startPos = i + 1;
                 }
             }
             for (int i = drawLinesCnt - 1; i >= 0; i--) {
