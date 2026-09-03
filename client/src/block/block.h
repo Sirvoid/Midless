@@ -5,41 +5,41 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_BLOCK_H
-#define G_BLOCK_H
+#ifndef MIDLESS_CLIENT_BLOCK_H
+#define MIDLESS_CLIENT_BLOCK_H
 
 #include "raylib.h"
 
 typedef enum BlockFace{
-    BlockFace_Left,
-	BlockFace_Right,
-	BlockFace_Top,
-	BlockFace_Bottom,
-	BlockFace_Front,
-	BlockFace_Back
+    BLOCK_FACE_LEFT,
+	BLOCK_FACE_RIGHT,
+	BLOCK_FACE_TOP,
+	BLOCK_FACE_BOTTOM,
+	BLOCK_FACE_FRONT,
+	BLOCK_FACE_BACK
 } BlockFace;
 
 typedef enum BlockModelType{
-    BlockModelType_Gas,
-    BlockModelType_Solid,
-    BlockModelType_Sprite
-} BlockType;
+    BLOCK_MODEL_GAS,
+    BLOCK_MODEL_SOLID,
+    BLOCK_MODEL_SPRITE
+} BlockModelType;
 
 typedef enum BlockLightType {
-    BlockLightType_None,
-    BlockLightType_Emit
+    BLOCK_LIGHT_NONE,
+    BLOCK_LIGHT_EMIT
 } BlockLightType;
 
 typedef enum BlockRenderType{
-    BlockRenderType_Opaque,
-    BlockRenderType_Transparent,
-    BlockRenderType_Translucent
+    BLOCK_RENDER_OPAQUE,
+    BLOCK_RENDER_TRANSPARENT,
+    BLOCK_RENDER_TRANSLUCENT
 } BlockRenderType;
 
 typedef enum BlockColliderType{
-    BlockColliderType_None,
-    BlockColliderType_Solid,
-    BlockColliderType_Liquid
+    BLOCK_COLLIDER_NONE,
+    BLOCK_COLLIDER_SOLID,
+    BLOCK_COLLIDER_LIQUID
 } BlockColliderType;
 
 typedef struct Block {
@@ -55,18 +55,18 @@ typedef struct Block {
     bool fastOpaqueCube;
 } Block;
 
-extern Block Block_definition[256];
+extern Block blockDefinitions[256];
 
-const Block *Block_GetDefinition(int ID);
+const Block *Block_GetDefinition(int id);
 
 //Define All Blocks
 void Block_BuildDefinition(void);
 
 //Define a block.
-Block* Block_Define(int ID, char name[], int topTex, int bottomTex, int sideTex);
+Block* Block_Define(int id, char name[], int topTexture, int bottomTexture, int sideTexture);
 
 //Set texture for a block's face.
-void Block_SetTexture(Block *block, BlockFace face, int texIndex);
+void Block_SetTexture(Block *block, BlockFace face, int textureIndex);
 
 //Get texture of a block's face.
 int Block_GetTexture(Block *block, BlockFace face);

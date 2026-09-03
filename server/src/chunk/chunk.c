@@ -46,9 +46,9 @@ void ServerChunk_Destroy(Chunk *chunk) {
 
 void ServerChunk_SaveFile(Chunk *chunk) {
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
-    int newLength;
-    unsigned short* compressed = ServerChunk_CreateCompressedData(chunk, &newLength);
-    SaveFileData(fileName, compressed, newLength * 2);
+    int compressedLength;
+    unsigned short* compressed = ServerChunk_CreateCompressedData(chunk, &compressedLength);
+    SaveFileData(fileName, compressed, compressedLength * 2);
     MemFree(compressed);
 }
 
@@ -71,12 +71,12 @@ void ServerChunk_Generate(Chunk *chunk) {
     }
 }
 
-void ServerChunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength) {
-    ChunkData_Decompress(chunk->data, compressed, currentLength);
+void ServerChunk_Decompress(Chunk *chunk, unsigned short *compressed, int compressedLength) {
+    ChunkData_Decompress(chunk->data, compressed, compressedLength);
 }
 
-unsigned short* ServerChunk_CreateCompressedData(Chunk *chunk, int *newLength) {
-    return ChunkData_CreateCompressed(chunk->data, newLength);
+unsigned short* ServerChunk_CreateCompressedData(Chunk *chunk, int *compressedLength) {
+    return ChunkData_CreateCompressed(chunk->data, compressedLength);
 }
 
 bool ServerChunk_PlayerInChunk(Chunk* chunk, Player* player) {
@@ -94,11 +94,11 @@ void ServerChunk_RemovePlayer(Chunk* chunk, int index) {
     arrdel(chunk->players, index);
 }
 
-void ServerChunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
+void ServerChunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
     if (ServerChunk_IsValidPos(pos)) {
         int index = ServerChunk_PosToIndex(pos);
 
-        chunk->data[index] = blockID;
+        chunk->data[index] = blockId;
         chunk->modified = true;
     }
 }

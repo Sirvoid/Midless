@@ -5,12 +5,12 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_CLIENTWS_H
-#define G_CLIENTWS_H
+#ifndef MIDLESS_CLIENT_WEB_SOCKET_H
+#define MIDLESS_CLIENT_WEB_SOCKET_H
 
-void ClientWS_Disconnect(void);
-void *ClientWS_Init(void *state);
-void ClientWS_Do(void);
-void ClientWS_Send(unsigned char* packet, int packetLength);
+void ClientWs_Disconnect(void);
+void *ClientWs_Init(void *state);
+void ClientWs_Do(void);
+void ClientWs_Send(unsigned char* packet, int packetLength);
 
 #endif

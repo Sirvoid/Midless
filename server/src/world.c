@@ -6,7 +6,7 @@
  */
 
 #define __clang__ true
-#if !defined(ISLEFORGE_STB_DS_EXTERNAL)
+#if !defined(MIDLESS_STB_DS_EXTERNAL)
     #define STB_DS_IMPLEMENTATION
 #endif
 
@@ -24,12 +24,12 @@
 #include "packet.h"
 #include "entity.h"
 #include "worldgenerator.h"
-#include "luadefinition.h"
+#include "luabindings.h"
 #include "utils.h"
 
 typedef struct PendingWorldBlock {
     Vector3 position;
-    unsigned short blockID;
+    unsigned short blockId;
 } PendingWorldBlock;
 
 typedef struct GeneratedBlockUpdate {
@@ -41,7 +41,7 @@ World serverWorld;
 static long long serverWorldLastUpdateMilliseconds;
 static long long serverWorldLastTimeSyncMilliseconds;
 
-static void ServerWorld_WriteGeneratedBlock(Chunk *chunk, Vector3 blockPos, int blockID) {
+static void ServerWorld_WriteGeneratedBlock(Chunk *chunk, Vector3 blockPos, int blockId) {
     Vector3 localPos = {
         floor(blockPos.x) - chunk->blockPosition.x,
         floor(blockPos.y) - chunk->blockPosition.y,
@@ -49,12 +49,12 @@ static void ServerWorld_WriteGeneratedBlock(Chunk *chunk, Vector3 blockPos, int 
     };
     if (!ServerChunk_IsValidPos(localPos)) return;
 
-    chunk->data[ServerChunk_PosToIndex(localPos)] = blockID;
+    chunk->data[ServerChunk_PosToIndex(localPos)] = blockId;
 
     if (arrlen(chunk->players) > 0) {
         arrput(serverWorld.generatedBlockUpdates, ((GeneratedBlockUpdate) {
             .chunk = chunk,
-            .update = {.position = blockPos, .blockID = (unsigned char)blockID}
+            .update = {.position = blockPos, .blockId = (unsigned char)blockId}
         }));
     }
 }
@@ -96,7 +96,7 @@ static void ServerWorld_ApplyPendingBlocks(Chunk *chunk) {
             continue;
         }
 
-        ServerWorld_WriteGeneratedBlock(chunk, pending.position, pending.blockID);
+        ServerWorld_WriteGeneratedBlock(chunk, pending.position, pending.blockId);
         arrdel(serverWorld.pendingBlocks, i);
     }
 }
@@ -253,14 +253,14 @@ Chunk* ServerWorld_AddChunk(Vector3 position) {
     return chunk;
 }
 
-void ServerWorld_RemoveChunk(Chunk *curChunk) {
-    long int p = ServerChunk_GetPackedPos(curChunk->position);
+void ServerWorld_RemoveChunk(Chunk *currentChunk) {
+    long int p = ServerChunk_GetPackedPos(currentChunk->position);
 
     int index = hmgeti(serverWorld.chunks, p);
     if(index >= 0) {
         hmdel(serverWorld.chunks, p);
-        if (curChunk->modified) ServerChunk_SaveFile(curChunk);
-        ServerChunk_Destroy(curChunk);
+        if (currentChunk->modified) ServerChunk_SaveFile(currentChunk);
+        ServerChunk_Destroy(currentChunk);
     }
     
 }
@@ -313,23 +313,23 @@ void ServerWorld_RemovePlayer(void *player) {
     ServerPlayer_Destroy(curPlayer);
 }
 
-void ServerWorld_TeleportEntity(int ID, Vector3 position, Vector3 rotation) {
-    if(serverWorld.entities[ID].type == 0) return;
-    serverWorld.entities[ID].position = position;
-    serverWorld.entities[ID].rotation = rotation;
-    ServerWorld_BroadcastExcluding(ServerPacket_CreateTeleportEntity(&serverWorld.entities[ID], position, rotation), ID);
+void ServerWorld_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
+    if(serverWorld.entities[id].type == 0) return;
+    serverWorld.entities[id].position = position;
+    serverWorld.entities[id].rotation = rotation;
+    ServerWorld_BroadcastExcluding(ServerPacket_CreateTeleportEntity(&serverWorld.entities[id], position, rotation), id);
 }
 
-void ServerWorld_AddEntity(int ID, int type, Vector3 position) {
-    serverWorld.entities[ID].ID = ID;
-    serverWorld.entities[ID].type = type;
-    serverWorld.entities[ID].position = position;
-    ServerWorld_BroadcastExcluding(ServerPacket_CreateSpawnEntity(&serverWorld.entities[ID]), ID);
+void ServerWorld_AddEntity(int id, int type, Vector3 position) {
+    serverWorld.entities[id].id = id;
+    serverWorld.entities[id].type = type;
+    serverWorld.entities[id].position = position;
+    ServerWorld_BroadcastExcluding(ServerPacket_CreateSpawnEntity(&serverWorld.entities[id]), id);
 }
 
-void ServerWorld_RemoveEntity(int ID) {
-    serverWorld.entities[ID].type = 0;
-    ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(&serverWorld.entities[ID]), ID);
+void ServerWorld_RemoveEntity(int id) {
+    serverWorld.entities[id].type = 0;
+    ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(&serverWorld.entities[id]), id);
 }
 
 void ServerWorld_SendMessage(const char* message) {
@@ -357,10 +357,10 @@ void ServerWorld_Broadcast(unsigned char* packet) {
     
 }
 
-void ServerWorld_BroadcastExcluding(unsigned char* packet, int excludedPlayerID) {
+void ServerWorld_BroadcastExcluding(unsigned char* packet, int excludedPlayerId) {
     for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if(!serverWorld.players[i]) continue;
-        if(serverWorld.players[i]->id == excludedPlayerID) continue;
+        if(serverWorld.players[i]->id == excludedPlayerId) continue;
 
         int packetLength = ServerPacket_GetLength(packet[0]);
         unsigned char* packetCopy = MemAlloc(packetLength);
@@ -388,7 +388,7 @@ int ServerWorld_GetBlock(Vector3 blockPos) {
     return ServerChunk_GetBlock(chunk, blockPosInChunk);
 }
 
-void ServerWorld_SetBlockFast(Vector3 blockPos, int blockID) {
+void ServerWorld_SetBlockFast(Vector3 blockPos, int blockId) {
     Vector3 chunkPos = {
         floor(blockPos.x / CHUNK_SIZE_X),
         floor(blockPos.y / CHUNK_SIZE_Y),
@@ -396,7 +396,7 @@ void ServerWorld_SetBlockFast(Vector3 blockPos, int blockID) {
     };
     Chunk *chunk = ServerWorld_GetChunkAt(chunkPos);
     if (chunk != NULL) {
-        ServerWorld_WriteGeneratedBlock(chunk, blockPos, blockID);
+        ServerWorld_WriteGeneratedBlock(chunk, blockPos, blockId);
         return;
     }
 
@@ -406,11 +406,11 @@ void ServerWorld_SetBlockFast(Vector3 blockPos, int blockID) {
             floor(blockPos.y),
             floor(blockPos.z)
         },
-        .blockID = (unsigned short)blockID
+        .blockId = (unsigned short)blockId
     }));
 }
 
-void ServerWorld_SetBlock(Vector3 blockPos, int blockID, bool broadcast) {
+void ServerWorld_SetBlock(Vector3 blockPos, int blockId, bool broadcast) {
     
     //Get Chunk
     Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
@@ -427,13 +427,13 @@ void ServerWorld_SetBlock(Vector3 blockPos, int blockID, bool broadcast) {
     
     int previousBlock = ServerChunk_GetBlock(chunk, blockPosInChunk);
 
-    if(previousBlock == blockID) return;
+    if(previousBlock == blockId) return;
 
-    ServerChunk_SetBlock(chunk, blockPosInChunk, blockID);
+    ServerChunk_SetBlock(chunk, blockPosInChunk, blockId);
 
     if(broadcast) {
-        ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockID, blockPos));
+        ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockId, blockPos));
     }
 
-    LD_OnBlockUpdateCall(blockPos, blockID, previousBlock);
+    LuaBindings_InvokeBlockUpdate(blockPos, blockId, previousBlock);
 }

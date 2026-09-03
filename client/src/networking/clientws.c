@@ -29,7 +29,7 @@ EM_BOOL WebSocketClose(int eventType, const EmscriptenWebSocketCloseEvent *e, vo
 {
 	printf("close(eventType=%d, wasClean=%d, code=%d, reason=%s, userData=%ld)\n", eventType, e->wasClean, e->code, e->reason, (long)userData);
 	Network_Disconnect();
-	Network_connectedToServer = 0;
+	networkConnectedToServer = 0;
 	return 0;
 }
 
@@ -45,21 +45,21 @@ EM_BOOL WebSocketMessage(int eventType, const EmscriptenWebSocketMessageEvent *e
 	return 0;
 }
 
-void ClientWS_Disconnect(void) {
+void ClientWs_Disconnect(void) {
 	emscripten_websocket_close(socket, 1000, "");
 }
 
-void *ClientWS_Init(void *state) {
+void *ClientWs_Init(void *state) {
     
-    Network_Internal_Client_Send = &ClientWS_Send;
-	Network_Internal_Client_Disconnect = &ClientWS_Disconnect;
+    networkClientSend = &ClientWs_Send;
+	networkClientDisconnect = &ClientWs_Disconnect;
 	Network_Init();
-    ClientWS_Do();
+    ClientWs_Do();
 
     return NULL;
 }
 
-void ClientWS_Do(void) {
+void ClientWs_Do(void) {
     if (!emscripten_websocket_is_supported())
 	{
 		printf("WebSockets are not supported, cannot continue!\n");
@@ -70,7 +70,7 @@ void ClientWS_Do(void) {
 	emscripten_websocket_init_create_attributes(&attr);
 
     char url[128] = "wss://";
-	strcat(url, Network_fullAddress);
+	strcat(url, networkFullAddress);
 	strcat(url, "/");
 	attr.url = url;
 	attr.protocols = "binary";
@@ -88,7 +88,7 @@ void ClientWS_Do(void) {
 	emscripten_websocket_set_onmessage_callback(socket, NULL, WebSocketMessage);
 }
 
-void ClientWS_Send(unsigned char* packet, int packetLength) {
+void ClientWs_Send(unsigned char* packet, int packetLength) {
 	emscripten_websocket_send_binary(socket, packet, packetLength);
 }
 

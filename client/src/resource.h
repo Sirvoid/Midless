@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_RESOURCE_H
-#define G_RESOURCE_H
+#ifndef MIDLESS_CLIENT_RESOURCE_H
+#define MIDLESS_CLIENT_RESOURCE_H
 
 Image Resource_LoadImage(const char* fileName);
 Texture2D Resource_LoadTexture(const char* fileName);

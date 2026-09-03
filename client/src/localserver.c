@@ -11,10 +11,10 @@
 #include "../../server/src/player.h"
 #include "../../server/src/networkhandler.h"
 #include "../../server/src/scripting/luaengine.h"
-#include "../../server/src/scripting/luadefinition.h"
+#include "../../server/src/scripting/luabindings.h"
 
-extern int Network_connectedToServer;
-extern void (*Network_Internal_Client_Send)(unsigned char *, int);
+extern int networkConnectedToServer;
+extern void (*networkClientSend)(unsigned char *, int);
 void Network_Init(void);
 void Network_Connect(void);
 void Network_Receive(unsigned char *data, int dataLength);
@@ -43,7 +43,7 @@ bool LocalServer_IsRunning(void) {
 static void *LocalServer_Run(void *unused) {
     (void)unused;
     while (LocalServer_IsRunning()) {
-        ServerNetwork_ReadIncomingPackets();
+        ServerNetwork_ProcessIncomingPackets();
         ServerWorld_Update();
         usleep(1000);
     }
@@ -63,29 +63,29 @@ bool LocalServer_Start(void) {
     if (LocalServer_IsRunning()) return true;
 
     Lua_Init();
-    LuaDefinition_Init();
+    LuaBindings_Init();
     Lua_Run();
     ServerWorld_Init();
     ServerNetwork_Init();
     localPlayer = ServerPlayer_Create(NULL, false);
     if (localPlayer == NULL) {
         ServerWorld_Shutdown();
-        LuaDefinition_Shutdown();
+        LuaBindings_Shutdown();
         Lua_Stop();
         return false;
     }
-    localPlayer->peerPtr = localPlayer;
+    localPlayer->peer = localPlayer;
 
-    Network_Internal_Client_Send = LocalServer_Send;
-    Network_connectedToServer = true;
+    networkClientSend = LocalServer_Send;
+    networkConnectedToServer = true;
     Network_Init();
     LocalServer_SetRunning(true);
     if (pthread_create(&localServerThread, NULL, LocalServer_Run, NULL) != 0) {
         LocalServer_SetRunning(false);
-        Network_connectedToServer = false;
+        networkConnectedToServer = false;
         ServerNetwork_Shutdown();
         ServerWorld_Shutdown();
-        LuaDefinition_Shutdown();
+        LuaBindings_Shutdown();
         Lua_Stop();
         localPlayer = NULL;
         return false;
@@ -104,10 +104,10 @@ void LocalServer_Stop(void) {
     }
     ServerNetwork_Shutdown();
     ServerWorld_Shutdown();
-    LuaDefinition_Shutdown();
+    LuaBindings_Shutdown();
     Lua_Stop();
     localPlayer = NULL;
     World_Clear();
     Network_ClearQueue();
-    Network_connectedToServer = false;
+    networkConnectedToServer = false;
 }

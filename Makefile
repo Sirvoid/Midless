@@ -169,7 +169,7 @@ $(OBJ_DIR)/%.o: %.c
 endif
 
 ifneq ($(BUILD_SERVER),TRUE)
-$(OBJ_DIR)/server/src/world.o: CDIRECTIVES += -DISLEFORGE_STB_DS_EXTERNAL
+$(OBJ_DIR)/server/src/world.o: CDIRECTIVES += -DMIDLESS_STB_DS_EXTERNAL
 endif
 
 clean:

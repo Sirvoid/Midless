@@ -5,21 +5,21 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef S_PLAYER_H
-#define S_PLAYER_H
+#ifndef MIDLESS_SERVER_PLAYER_H
+#define MIDLESS_SERVER_PLAYER_H
 
 #include "raylib.h"
 
 typedef struct Player {
     unsigned char id;
-    void *peerPtr;
+    void *peer;
     char *name;
     int drawDistance;
     bool isWeb;
     bool disconnected;
 } Player;
 
-Player *ServerPlayer_Create(void *peerPtr, bool isWeb);
+Player *ServerPlayer_Create(void *peer, bool isWeb);
 void ServerPlayer_Destroy(Player *player);
 void ServerPlayer_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation);
 void ServerPlayer_LoadChunks(Player* player);

@@ -10,7 +10,7 @@
 #include "pthread.h"
 
 lua_State *L;
-int Lua_running = 0;
+int luaRunning = 0;
 
 void Lua_DefineLib(char* name, const void *functions) {
     lua_newtable(L);
@@ -63,7 +63,7 @@ void Lua_Run(void) {
     if(L != NULL) {
         luaL_openlibs(L);
         error = luaL_dofile(L, "mod.lua");
-        Lua_running = 1;
+        luaRunning = 1;
     }
 
     if (error) {
@@ -76,7 +76,7 @@ void Lua_Stop(void) {
     if(L == NULL) return;
     lua_close(L);
     L = NULL;
-    Lua_running = 0;
+    luaRunning = 0;
 }
 
 int Lua_Ref(int table) {

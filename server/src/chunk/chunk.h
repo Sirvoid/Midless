@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef S_CHUNK_H
-#define S_CHUNK_H
+#ifndef MIDLESS_SERVER_CHUNK_H
+#define MIDLESS_SERVER_CHUNK_H
 
 #include "raylib.h"
 #include "../player.h"
@@ -28,9 +28,9 @@ Chunk *ServerChunk_Create(Vector3 pos);
 //Unload the chunk.
 void ServerChunk_Destroy(Chunk *chunk);
 
-void ServerChunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength);
+void ServerChunk_Decompress(Chunk *chunk, unsigned short *compressed, int compressedLength);
 //Create compressed chunk data.
-unsigned short* ServerChunk_CreateCompressedData(Chunk *chunk, int *newLength);
+unsigned short* ServerChunk_CreateCompressedData(Chunk *chunk, int *compressedLength);
 void ServerChunk_SaveFile(Chunk *chunk);
 bool ServerChunk_LoadFile(Chunk *chunk);
 void ServerChunk_Generate(Chunk *chunk);
@@ -39,7 +39,7 @@ bool ServerChunk_PlayerInChunk(Chunk* chunk, Player* player);
 void ServerChunk_AddPlayer(Chunk* chunk, Player* player);
 void ServerChunk_RemovePlayer(Chunk* chunk, int index);
 
-void ServerChunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID);
+void ServerChunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId);
 int ServerChunk_GetBlock(Chunk *chunk, Vector3 pos);
 
 bool ServerChunk_IsValidPos(Vector3 pos);

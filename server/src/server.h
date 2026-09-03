@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef S_SERVER_H
-#define S_SERVER_H
+#ifndef MIDLESS_SERVER_TRANSPORT_H
+#define MIDLESS_SERVER_TRANSPORT_H
 
 void *Server_Init(void *state);
 void Server_Do(int *state);

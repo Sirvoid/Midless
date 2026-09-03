@@ -16,12 +16,12 @@
 #include "networkhandler.h"
 #include "packet.h"
 
-Player *ServerPlayer_Create(void *peerPtr, bool isWeb) {
+Player *ServerPlayer_Create(void *peer, bool isWeb) {
     Player *player = MemAlloc(sizeof(*player));
     if (player == NULL) return NULL;
 
     *player = (Player){0};
-    player->peerPtr = peerPtr;
+    player->peer = peer;
     player->drawDistance = 3;
     player->isWeb = isWeb;
     return player;

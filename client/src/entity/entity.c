@@ -11,7 +11,7 @@
 
 void Entity_Draw(Entity *entity) {
     EntityModel *model = &entity->model;
-    for (int i = 0; i < model->amountParts; i++) {
+    for (int i = 0; i < model->partCount; i++) {
         
         EntityModelPart *part = &model->parts[i];
 
@@ -32,7 +32,7 @@ void Entity_Draw(Entity *entity) {
         drawMatrix.m13 += entity->position.y;
         drawMatrix.m14 += entity->position.z;
 
-        DrawMesh(part->mesh, model->mat, drawMatrix);
+        DrawMesh(part->mesh, model->material, drawMatrix);
     }
 }
 

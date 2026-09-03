@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_WORLD_H
-#define G_WORLD_H
+#ifndef MIDLESS_CLIENT_WORLD_H
+#define MIDLESS_CLIENT_WORLD_H
 
 #include "raylib.h"
 #include "chunk.h"
@@ -19,7 +19,7 @@ typedef struct World{
     Entity *entities;
     struct { long int key; Chunk* value; } *chunks;
     Chunk* *generateChunksQueue;
-    Material mat;
+    Material material;
     int drawDistance;
     float time;
     bool loadChunks;
@@ -50,7 +50,7 @@ int World_GetClosestChunkIndex(Chunk* *array, Vector3 pos);
 //Add a chunk.
 void World_AddChunk(Vector3 position);
 //Remove a chunk
-void World_RemoveChunk(Chunk *curChunk);
+void World_RemoveChunk(Chunk *currentChunk);
 //Remove all world objects while keeping the world initialized.
 void World_Clear(void);
 //Shutdown the world system.
@@ -64,18 +64,18 @@ void World_ApplyTexture(Texture2D texture);
 //Apply a shader to the world.
 void World_ApplyShader(Shader shader);
 //Set block at a given position and reload affected meshes.
-void World_SetBlock(Vector3 blockPos, int blockID, bool immediate);
-//Get block ID at a given position.
+void World_SetBlock(Vector3 blockPos, int blockId, bool immediate);
+//Get block id at a given position.
 int World_GetBlock(Vector3 blockPos);
 //Get strength of sunlight based on time.
 float World_GetSunlightStrength(void);
 //Get a Chunk at a given position.
 Chunk* World_GetChunkAt(Vector3 pos);
 //Teleport an Entity in the world
-void World_TeleportEntity(int ID, Vector3 position, Vector3 rotation);
+void World_TeleportEntity(int id, Vector3 position, Vector3 rotation);
 //Add an Entity to the world
-void World_AddEntity(int ID, int type, Vector3 position, Vector3 rotation);
+void World_AddEntity(int id, int type, Vector3 position, Vector3 rotation);
 //Remove an Entity from the world
-void World_RemoveEntity(int ID);
+void World_RemoveEntity(int id);
 
 #endif

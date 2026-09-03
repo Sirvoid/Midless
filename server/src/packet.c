@@ -16,7 +16,7 @@
 #include "chunk/chunk.h"
 #include "entity.h"
 #include "logger.h"
-#include "luadefinition.h"
+#include "luabindings.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -130,7 +130,7 @@ void ServerPacket_WriteArray(unsigned char* packet, unsigned char* array, int si
 
 /* Packets Received */
 
-void ServerPacket_H_Identification(void) {
+void ServerPacket_HandleIdentification(void) {
     if(serverPacketPlayer->name != NULL) return;
     int protocolVersion = ServerPacket_ReadUShort();
     serverPacketPlayer->name = ServerPacket_ReadString();
@@ -140,19 +140,19 @@ void ServerPacket_H_Identification(void) {
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateWorldTime(serverWorld.time));
 }
 
-void ServerPacket_H_SetBlock(void) {
-    int BlockID = ServerPacket_ReadByte();
+void ServerPacket_HandleSetBlock(void) {
+    int blockId = ServerPacket_ReadByte();
     Vector3 position = (Vector3) { ServerPacket_ReadInt(), ServerPacket_ReadInt(), ServerPacket_ReadInt() };
-    ServerWorld_SetBlock(position, BlockID, true);
+    ServerWorld_SetBlock(position, blockId, true);
 }
 
-void ServerPacket_H_PlayerPosition(void) {
+void ServerPacket_HandlePlayerPosition(void) {
     Vector3 position = (Vector3) { ServerPacket_ReadInt() / 64.0f, ServerPacket_ReadInt() / 64.0f, ServerPacket_ReadInt() / 64.0f };
     Vector3 rotation = (Vector3) {ServerPacket_ReadByte(), ServerPacket_ReadByte(), 0};
     ServerPlayer_UpdatePositionRotation(serverPacketPlayer, position, rotation);
 }
 
-void ServerPacket_H_Message(void) {
+void ServerPacket_HandleMessage(void) {
     char *message = ServerPacket_ReadString();
     
     int nameLen = TextLength(serverPacketPlayer->name);
@@ -171,12 +171,12 @@ void ServerPacket_H_Message(void) {
     sentMessage[nameLen + 3 + 64] = 0;
     
     ServerWorld_SendMessage(sentMessage);
-    LD_OnChatMessageCall(serverPacketPlayer->name, message);
+    LuaBindings_InvokeChatMessage(serverPacketPlayer->name, message);
     MemFree(sentMessage);
     MemFree(message);
 }
 
-void ServerPacket_H_SetDrawDistance(void) {
+void ServerPacket_HandleSetDrawDistance(void) {
     unsigned char distance = ServerPacket_ReadByte();
     if (distance > serverWorld.maxDrawDistance) distance = serverWorld.maxDrawDistance;
     if (distance < 2) distance = 2;
@@ -216,11 +216,11 @@ unsigned char* ServerPacket_CreateUnloadChunk(Vector3 chunkPosition) {
     return packet;
 }
 
-unsigned char* ServerPacket_CreateSetBlock(unsigned char blockID, Vector3 position) {
+unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 position) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[2]);
     ServerPacket_WriteByte(packet, 2);
-    ServerPacket_WriteByte(packet, blockID);
+    ServerPacket_WriteByte(packet, blockId);
     ServerPacket_WriteInt(packet, (int)position.x);
     ServerPacket_WriteInt(packet, (int)position.y);
     ServerPacket_WriteInt(packet, (int)position.z);
@@ -234,7 +234,7 @@ unsigned char* ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, u
     ServerPacket_WriteByte(packet, 8);
     ServerPacket_WriteUShort(packet, count);
     for (int i = 0; i < count; i++) {
-        ServerPacket_WriteByte(packet, updates[i].blockID);
+        ServerPacket_WriteByte(packet, updates[i].blockId);
         ServerPacket_WriteInt(packet, (int)updates[i].position.x);
         ServerPacket_WriteInt(packet, (int)updates[i].position.y);
         ServerPacket_WriteInt(packet, (int)updates[i].position.z);
@@ -246,7 +246,7 @@ unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[3]);
     ServerPacket_WriteByte(packet, 3);
-    ServerPacket_WriteUShort(packet, entity->ID);
+    ServerPacket_WriteUShort(packet, entity->id);
     ServerPacket_WriteByte(packet, entity->type);
     ServerPacket_WriteInt(packet, (int)(entity->position.x * 64));
     ServerPacket_WriteInt(packet, (int)(entity->position.y * 64));
@@ -258,7 +258,7 @@ unsigned char* ServerPacket_CreateDespawnEntity(Entity *entity) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[6]);
     ServerPacket_WriteByte(packet, 6);
-    ServerPacket_WriteUShort(packet, entity->ID);
+    ServerPacket_WriteUShort(packet, entity->id);
     return packet;
 }
 
@@ -266,7 +266,7 @@ unsigned char* ServerPacket_CreateTeleportEntity(Entity *entity, Vector3 positio
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[4]);
     ServerPacket_WriteByte(packet, 4);
-    ServerPacket_WriteUShort(packet, entity->ID);
+    ServerPacket_WriteUShort(packet, entity->id);
     ServerPacket_WriteInt(packet, (int)(position.x * 64));
     ServerPacket_WriteInt(packet, (int)(position.y * 64));
     ServerPacket_WriteInt(packet, (int)(position.z * 64));

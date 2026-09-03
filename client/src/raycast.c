@@ -15,7 +15,7 @@
 #define RAYCAST_PRECISION 0.025f
 #define RAYCAST_REACH 8
 
-RaycastResult Raycast_Do(Vector3 position, Vector3 direction, bool ignoreLiquid) {
+RaycastResult Raycast_Cast(Vector3 position, Vector3 direction, bool ignoreLiquid) {
     float i = 0;
     Vector3 oldPos = position;
     
@@ -27,11 +27,11 @@ RaycastResult Raycast_Do(Vector3 position, Vector3 direction, bool ignoreLiquid)
         position.y += direction.y * RAYCAST_PRECISION;
         position.z += direction.z * RAYCAST_PRECISION;
         
-        int blockID = World_GetBlock(position);
+        int blockId = World_GetBlock(position);
         
-        if (blockID != 0) {
-            const Block *block = Block_GetDefinition(blockID);
-            if (ignoreLiquid && block->colliderType == BlockColliderType_Liquid) {
+        if (blockId != 0) {
+            const Block *block = Block_GetDefinition(blockId);
+            if (ignoreLiquid && block->colliderType == BLOCK_COLLIDER_LIQUID) {
                 continue;
             }
             Vector3 blockPos = (Vector3){floor(position.x), floor(position.y), floor(position.z)};
@@ -80,7 +80,7 @@ RaycastResult Raycast_Do(Vector3 position, Vector3 direction, bool ignoreLiquid)
                     }
                 }
                 
-                return (RaycastResult) {position, oldPos, blockID, normal};
+                return (RaycastResult) {position, oldPos, blockId, normal};
             }
             else
                 continue;

@@ -24,7 +24,7 @@ void *Client_Init(void *state) {
 
     enet_initialize();
     
-    Network_Internal_Client_Send = &Client_Send;
+    networkClientSend = &Client_Send;
     Client_Do((int*)state);
     
     enet_deinitialize();
@@ -44,8 +44,8 @@ void Client_Do(int *state) {
     ENetAddress address = { 0 };
     ENetEvent event = { 0 };
     
-    enet_address_set_host(&address, Network_ip);
-    address.port = Network_port;
+    enet_address_set_host(&address, networkIp);
+    address.port = networkPort;
     peer = enet_host_connect(client, &address, 1, 0);
     Network_Init();
 
@@ -92,7 +92,7 @@ void Client_Do(int *state) {
     enet_host_destroy(client);
 
     *state = 0;
-    Network_connectedToServer = false;
+    networkConnectedToServer = false;
 }
 
 void Client_Send(unsigned char* packet, int packetLength) {

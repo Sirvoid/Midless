@@ -5,10 +5,10 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef S_LUAE_H
-#define S_LUAE_H
+#ifndef MIDLESS_SERVER_LUA_ENGINE_H
+#define MIDLESS_SERVER_LUA_ENGINE_H
 
-extern int Lua_running;
+extern int luaRunning;
 
 void Lua_Init(void);
 void Lua_MakeTable(int fields);

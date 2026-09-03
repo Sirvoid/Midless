@@ -18,7 +18,7 @@
 #include "stb_ds.h"
 #include "networkhandler.h"
 #include "luaengine.h"
-#include "luadefinition.h"
+#include "luabindings.h"
 #include "logger.h"
 #include "utils.h"
 
@@ -35,18 +35,18 @@ int main(void) {
     ServerLogger_Log("Started Server.");
 
     Lua_Init();
-    LuaDefinition_Init();
+    LuaBindings_Init();
     Lua_Run();
 
     ServerWorld_Init();
     ServerNetwork_Init();
 
-    int serverThread_state = 0;
-    pthread_t serverThread_id;
-    pthread_create(&serverThread_id, NULL, Server_Init, (void*)&serverThread_state);
+    int serverThreadState = 0;
+    pthread_t serverThreadId;
+    pthread_create(&serverThreadId, NULL, Server_Init, (void*)&serverThreadState);
     
     #if defined(SERVER_WEB_SUPPORT)
-    ServerWSS_Init();
+    ServerWss_Init();
     #endif
     
     #if !defined(SERVER_HEADLESS)
@@ -57,10 +57,10 @@ int main(void) {
     #endif
 
         #if defined(SERVER_WEB_SUPPORT)
-        ServerWSS_Poll();
+        ServerWss_Poll();
         #endif
 
-        ServerNetwork_ReadIncomingPackets();
+        ServerNetwork_ProcessIncomingPackets();
 
         ServerWorld_Update();
 
@@ -79,13 +79,13 @@ int main(void) {
         #endif
     }
 
-    serverThread_state = -1;
-    pthread_join(serverThread_id, NULL);
+    serverThreadState = -1;
+    pthread_join(serverThreadId, NULL);
 
     ServerNetwork_Shutdown();
     ServerWorld_Shutdown();
 
-    LuaDefinition_Shutdown();
+    LuaBindings_Shutdown();
     Lua_Stop();
 
     #if !defined(SERVER_HEADLESS)

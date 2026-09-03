@@ -5,37 +5,37 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_ENTITYM_H
-#define G_ENTITYM_H
+#ifndef MIDLESS_CLIENT_ENTITY_MODEL_H
+#define MIDLESS_CLIENT_ENTITY_MODEL_H
 
 #include "raylib.h"
 #include "entitymodelpart.h"
 
 typedef enum PartType{
-    PartType_None,
-	PartType_Head
+    PART_TYPE_NONE,
+	PART_TYPE_HEAD
 } PartType;
 
-typedef struct EntityModelDef {
-    int amountBoxes;
+typedef struct EntityModelDefinition {
+    int boxCount;
     BoundingBox *boxes;
     Rectangle (*uvs)[6];
     Vector3 *positions;
     PartType *types;
     Texture2D defaultTexture;
-} EntityModelDef;
+} EntityModelDefinition;
 
-extern EntityModelDef entityModels[256];
+extern EntityModelDefinition entityModels[256];
 
 typedef struct EntityModel{
-    int amountParts;
+    int partCount;
     EntityModelPart *parts;
-    Material mat;
+    Material material;
 } EntityModel;
 
 void EntityModelDefinitions_Init(void);
 void EntityModelDefinitions_Shutdown(void);
-void EntityModel_Create(EntityModel *model, EntityModelDef modelDef);
+void EntityModel_Create(EntityModel *model, EntityModelDefinition modelDef);
 void EntityModel_Unload(EntityModel *model);
 void EntityModel_Destroy(EntityModel *model);
 

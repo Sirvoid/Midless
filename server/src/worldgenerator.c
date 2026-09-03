@@ -1,4 +1,4 @@
-#if !defined(ISLEFORGE_FNL_EXTERNAL)
+#if !defined(MIDLESS_FNL_EXTERNAL)
 #define FNL_IMPL
 #endif
 #include <math.h>

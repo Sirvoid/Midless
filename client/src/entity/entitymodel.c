@@ -8,103 +8,103 @@
 #include "entitymodel.h"
 #include "resource.h"
 
-EntityModelDef entityModels[256];
+EntityModelDefinition entityModels[256];
 
-enum directions {
-    east,
-    west,
-    up,
-    down,
-    north,
-    south
-};
+typedef enum ModelFaceDirection {
+    MODEL_FACE_EAST,
+    MODEL_FACE_WEST,
+    MODEL_FACE_UP,
+    MODEL_FACE_DOWN,
+    MODEL_FACE_NORTH,
+    MODEL_FACE_SOUTH
+} ModelFaceDirection;
 
 void EntityModel_DefineHumanoid(void) {
-    EntityModelDef model;
-    int amountBoxes = 6;
-    model.amountBoxes = 6;
-    model.boxes = MemAlloc(sizeof(BoundingBox[amountBoxes]));
-    model.positions = MemAlloc(sizeof(Vector3[amountBoxes]));
-    model.uvs = MemAlloc(sizeof(Rectangle[amountBoxes][6]));
-    model.types = MemAlloc(sizeof(PartType[amountBoxes]));
+    EntityModelDefinition model;
+    int boxCount = 6;
+    model.boxCount = 6;
+    model.boxes = MemAlloc(sizeof(BoundingBox[boxCount]));
+    model.positions = MemAlloc(sizeof(Vector3[boxCount]));
+    model.uvs = MemAlloc(sizeof(Rectangle[boxCount][6]));
+    model.types = MemAlloc(sizeof(PartType[boxCount]));
     int partI = 0;
 
     //head
-    model.types[partI] = PartType_Head;
+    model.types[partI] = PART_TYPE_HEAD;
     model.positions[partI] = (Vector3){0.0f,19.0f,0.0f};
     model.boxes[partI].min = (Vector3) {-4.0f,-0.5f,-4.0f};
     model.boxes[partI].max = (Vector3) {4.0f,7.5f,3.0f};
-    model.uvs[partI][north] = (Rectangle){14,14,16,16};
-    model.uvs[partI][east] = (Rectangle){30,14,14,16};
-    model.uvs[partI][south] = (Rectangle){44,14,16,16};
-    model.uvs[partI][west] = (Rectangle){0,14,14,16};
-    model.uvs[partI][up] = (Rectangle){30,14,-16,-14};
-    model.uvs[partI][down] = (Rectangle){46,0,-16,14};
+    model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){14,14,16,16};
+    model.uvs[partI][MODEL_FACE_EAST] = (Rectangle){30,14,14,16};
+    model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){44,14,16,16};
+    model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){0,14,14,16};
+    model.uvs[partI][MODEL_FACE_UP] = (Rectangle){30,14,-16,-14};
+    model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){46,0,-16,14};
     partI++;
 
     //rightleg
-    model.types[partI] = PartType_None;
+    model.types[partI] = PART_TYPE_NONE;
     model.positions[partI] = (Vector3){1.6f,8.6f,0.0f};
     model.boxes[partI].min = (Vector3) {-1.6f,-8.6f,-2.0f};
     model.boxes[partI].max = (Vector3) {1.4f,1.4f,1.0f};
-    model.uvs[partI][north] = (Rectangle){66,6,6,20};
-    model.uvs[partI][east] = (Rectangle){72,6,6,20};
-    model.uvs[partI][south] = (Rectangle){78,6,6,20};
-    model.uvs[partI][west] = (Rectangle){60,6,6,20};
-    model.uvs[partI][up] = (Rectangle){72,6,-6,-6};
-    model.uvs[partI][down] = (Rectangle){78,0,-6,6};
+    model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){66,6,6,20};
+    model.uvs[partI][MODEL_FACE_EAST] = (Rectangle){72,6,6,20};
+    model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){78,6,6,20};
+    model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){60,6,6,20};
+    model.uvs[partI][MODEL_FACE_UP] = (Rectangle){72,6,-6,-6};
+    model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){78,0,-6,6};
     partI++;
 
     //torso
-    model.types[partI] = PartType_None;
+    model.types[partI] = PART_TYPE_NONE;
     model.positions[partI] = (Vector3){0.4f,18.3f,-0.4f};
     model.boxes[partI].min = (Vector3) {-3.9f,-8.3f,-1.6f};
     model.boxes[partI].max = (Vector3) {3.1f,0.7f,1.4f};
-    model.uvs[partI][north] = (Rectangle){6,36,14,18};
-    model.uvs[partI][east] = (Rectangle){20,36,6,18};
-    model.uvs[partI][south] = (Rectangle){26,36,14,18};
-    model.uvs[partI][west] = (Rectangle){0,36,6,18};
-    model.uvs[partI][up] = (Rectangle){20,36,-14,-6};
-    model.uvs[partI][down] = (Rectangle){34,30,-14,6};
+    model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){6,36,14,18};
+    model.uvs[partI][MODEL_FACE_EAST] = (Rectangle){20,36,6,18};
+    model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){26,36,14,18};
+    model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){0,36,6,18};
+    model.uvs[partI][MODEL_FACE_UP] = (Rectangle){20,36,-14,-6};
+    model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){34,30,-14,6};
     partI++;
 
     //leftarm
-    model.types[partI] = PartType_None;
+    model.types[partI] = PART_TYPE_NONE;
     model.positions[partI] = (Vector3){-3.5f,17.5f,0.0f};
     model.boxes[partI].min = (Vector3) {-2.8f,-9.0f,-2.0f};
     model.boxes[partI].max = (Vector3) {0.3f,1.0f,1.0f};
-    model.uvs[partI][north] = (Rectangle){52,36,-6,20};
-    model.uvs[partI][east] = (Rectangle){58,36,-6,20};
-    model.uvs[partI][south] = (Rectangle){64,36,-6,20};
-    model.uvs[partI][west] = (Rectangle){46,36,-6,20};
-    model.uvs[partI][up] = (Rectangle){46,36,6,-6};
-    model.uvs[partI][down] = (Rectangle){52,30,6,6};
+    model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){52,36,-6,20};
+    model.uvs[partI][MODEL_FACE_EAST] = (Rectangle){58,36,-6,20};
+    model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){64,36,-6,20};
+    model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){46,36,-6,20};
+    model.uvs[partI][MODEL_FACE_UP] = (Rectangle){46,36,6,-6};
+    model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){52,30,6,6};
     partI++;
 
     //rightarm
-    model.types[partI] = PartType_None;
+    model.types[partI] = PART_TYPE_NONE;
     model.positions[partI] = (Vector3){3.5f,17.5f,0.0f};
     model.boxes[partI].min = (Vector3) {-0.3f,-9.0f,-2.0f};
     model.boxes[partI].max = (Vector3) {2.8f,1.0f,1.0f};
-    model.uvs[partI][north] = (Rectangle){76,36,-6,20};
-    model.uvs[partI][east] = (Rectangle){82,36,-6,20};
-    model.uvs[partI][south] = (Rectangle){88,36,-6,20};
-    model.uvs[partI][west] = (Rectangle){70,36,-6,20};
-    model.uvs[partI][up] = (Rectangle){70,36,6,-6};
-    model.uvs[partI][down] = (Rectangle){76,30,6,6};
+    model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){76,36,-6,20};
+    model.uvs[partI][MODEL_FACE_EAST] = (Rectangle){82,36,-6,20};
+    model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){88,36,-6,20};
+    model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){70,36,-6,20};
+    model.uvs[partI][MODEL_FACE_UP] = (Rectangle){70,36,6,-6};
+    model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){76,30,6,6};
     partI++;
 
     //leftleg
-    model.types[partI] = PartType_None;
+    model.types[partI] = PART_TYPE_NONE;
     model.positions[partI] = (Vector3){-1.4f,8.6f,0.0f};
     model.boxes[partI].min = (Vector3) {-1.6f,-8.6f,-2.0f};
     model.boxes[partI].max = (Vector3) {1.4f,1.4f,1.0f};
-    model.uvs[partI][north] = (Rectangle){90,6,6,20};
-    model.uvs[partI][east] = (Rectangle){96,6,6,20};
-    model.uvs[partI][south] = (Rectangle){102,6,6,20};
-    model.uvs[partI][west] = (Rectangle){84,6,6,20};
-    model.uvs[partI][up] = (Rectangle){96,6,-6,-6};
-    model.uvs[partI][down] = (Rectangle){102,0,-6,6};
+    model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){90,6,6,20};
+    model.uvs[partI][MODEL_FACE_EAST] = (Rectangle){96,6,6,20};
+    model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){102,6,6,20};
+    model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){84,6,6,20};
+    model.uvs[partI][MODEL_FACE_UP] = (Rectangle){96,6,-6,-6};
+    model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){102,0,-6,6};
     partI++;
 
     model.defaultTexture = Resource_LoadTexture("humanoid.png");
@@ -119,36 +119,36 @@ void EntityModelDefinitions_Init(void) {
 
 void EntityModelDefinitions_Shutdown(void) {
     for (int i = 0; i < 256; i++) {
-        EntityModelDef *model = &entityModels[i];
-        if (model->amountBoxes == 0) continue;
+        EntityModelDefinition *model = &entityModels[i];
+        if (model->boxCount == 0) continue;
 
         MemFree(model->boxes);
         MemFree(model->positions);
         MemFree(model->uvs);
         MemFree(model->types);
         UnloadTexture(model->defaultTexture);
-        *model = (EntityModelDef){0};
+        *model = (EntityModelDefinition){0};
     }
 }
 
-void EntityModel_Create(EntityModel *model, EntityModelDef modelDef) {
-    model->amountParts = modelDef.amountBoxes;
-    model->parts = MemAlloc(modelDef.amountBoxes * sizeof(EntityModelPart));
+void EntityModel_Create(EntityModel *model, EntityModelDefinition modelDef) {
+    model->partCount = modelDef.boxCount;
+    model->parts = MemAlloc(modelDef.boxCount * sizeof(EntityModelPart));
 
-    model->mat = LoadMaterialDefault();
-    SetMaterialTexture(&model->mat, MATERIAL_MAP_DIFFUSE, modelDef.defaultTexture);
+    model->material = LoadMaterialDefault();
+    SetMaterialTexture(&model->material, MATERIAL_MAP_DIFFUSE, modelDef.defaultTexture);
     
-    for (int i = 0; i < modelDef.amountBoxes; i++) {
+    for (int i = 0; i < modelDef.boxCount; i++) {
         model->parts[i].type = modelDef.types[i];
         EntityModelPart_Build(&model->parts[i], modelDef.boxes[i], modelDef.uvs[i], (Vector2) {modelDef.defaultTexture.width, modelDef.defaultTexture.height}, modelDef.positions[i]);
     }
 }
 
 void EntityModel_Unload(EntityModel *model) {
-    for (int i = 0; i < model->amountParts; i++) { 
+    for (int i = 0; i < model->partCount; i++) { 
         UnloadMesh(model->parts[i].mesh);
     }
-    UnloadMaterial(model->mat);
+    UnloadMaterial(model->material);
 }
 
 void EntityModel_Destroy(EntityModel *model) {

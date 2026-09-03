@@ -21,9 +21,9 @@
 #include "client.h"
 #include "clientws.h"
 
-Screen Screen_Current = SCREEN_LOGIN;
-bool Screen_cursorEnabled = false;
-bool Screen_showDebug = false;
+Screen currentScreen = SCREEN_LOGIN;
+bool screenCursorEnabled = false;
+bool screenShowDebug = false;
 int screenHeight;
 int screenWidth;
 bool *exitGame;
@@ -33,7 +33,7 @@ const char* maxFPS = "60";
 
 Texture2D mapTerrain;
 
-void Screens_init(Texture2D terrain, bool *exit) {
+void Screen_Init(Texture2D terrain, bool *exit) {
     mapTerrain = terrain;
     exitGame = exit;
 
@@ -70,15 +70,15 @@ void Screens_init(Texture2D terrain, bool *exit) {
     GuiSetStyle(TEXTBOX, TEXT_COLOR_PRESSED,    0x338bafff); 
 }
 
-void Screen_MakeGame(void) {
+void Screen_DrawGame(void) {
 
     //Draw debug infos
-    if (Screen_showDebug) {
+    if (screenShowDebug) {
         const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
         const char* debugText;
 
-        if (Network_connectedToServer) {
-            debugText = TextFormat("%2i FPS %2i PING", GetFPS(), Network_ping);
+        if (networkConnectedToServer) {
+            debugText = TextFormat("%2i FPS %2i PING", GetFPS(), networkPing);
         } else {
             debugText = TextFormat("%2i FPS", GetFPS());
         }
@@ -124,7 +124,7 @@ void Screen_MakeGame(void) {
     Chat_Draw((Vector2){16, screenHeight - 52}, uiColBg);
 }
 
-void Screen_MakePause(void) {
+void Screen_DrawPause(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, uiColBg);
 
     int offsetY = screenHeight / 2 - 75;
@@ -136,7 +136,7 @@ void Screen_MakePause(void) {
     if (GuiButton((Rectangle) {offsetX , offsetY + (index++ * 35), 200, 30 }, "Continue")) {
         Screen_Switch(SCREEN_GAME);
         DisableCursor();
-        Screen_cursorEnabled = false;
+        screenCursorEnabled = false;
     }
 
     //Options Button
@@ -146,11 +146,11 @@ void Screen_MakePause(void) {
 
     //Main Menu Button
     if (GuiButton((Rectangle) {offsetX, offsetY + (index++ * 35), 200, 30 }, "Main Menu")) {
-        if (Network_connectedToServer) {
+        if (networkConnectedToServer) {
             Network_Disconnect();
         } else {
             Screen_Switch(SCREEN_LOGIN);
-             Screen_cursorEnabled = false;
+             screenCursorEnabled = false;
             World_Clear();
         }
     }
@@ -161,7 +161,7 @@ void Screen_MakePause(void) {
     }
 }
 
-void Screen_MakeOptions(void) {
+void Screen_DrawOptions(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, uiColBg);
 
     int offsetY = screenHeight / 2 - 75;
@@ -184,7 +184,7 @@ void Screen_MakeOptions(void) {
             World_Reload();
         }
 
-        if (Network_connectedToServer) {
+        if (networkConnectedToServer) {
             Network_Send(Packet_CreateSetDrawDistance(world.drawDistance));
         }
     }
@@ -193,10 +193,10 @@ void Screen_MakeOptions(void) {
 
     //Draw Debug Button
     const char* debugStateTxt = "OFF";
-    if (Screen_showDebug) debugStateTxt = "ON";
+    if (screenShowDebug) debugStateTxt = "ON";
     const char* showDebugTxt = TextFormat("Show Debug: %s", debugStateTxt);
     if (GuiButton((Rectangle) {offsetX, offsetY, 200, 30 }, showDebugTxt)) {
-        Screen_showDebug = !Screen_showDebug;
+        screenShowDebug = !screenShowDebug;
     }
 
     offsetY += 35;
@@ -227,20 +227,20 @@ void Screen_MakeOptions(void) {
 
 }
 
-void Screen_MakeJoining(void) {
+void Screen_DrawJoining(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
     DrawText("Joining Server...", screenWidth / 2 - 80, screenHeight / 2 - 30, 20, WHITE);
 }
 
-char name_input[16] = "Player";
-char ip_input[128] = "localhost";
-char port_input[5] = "25565";
+char nameInput[16] = "Player";
+char ipInput[128] = "localhost";
+char portInput[5] = "25565";
 
-bool login_editMode = false;
-bool ip_editMode = false;
-bool port_editMode = false;
+bool loginEditMode = false;
+bool ipEditMode = false;
+bool portEditMode = false;
 
-void Screen_MakeLogin(void) {
+void Screen_DrawLogin(void) {
     if(IsCursorHidden()) EnableCursor();
     DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
 
@@ -251,43 +251,43 @@ void Screen_MakeLogin(void) {
     DrawText(title, offsetX - (MeasureText(title, 80) / 2), offsetY - 100, 80, WHITE);
 
     //Name Input
-    if (GuiTextBox((Rectangle) { offsetX - 80, offsetY - 15, 160, 30 }, name_input, 16, login_editMode)) {
-        login_editMode = !login_editMode;
+    if (GuiTextBox((Rectangle) { offsetX - 80, offsetY - 15, 160, 30 }, nameInput, 16, loginEditMode)) {
+        loginEditMode = !loginEditMode;
     }
 
     //IP Input
-    if (GuiTextBox((Rectangle) { offsetX - 80, offsetY + 20, 116, 30 }, ip_input, 128, ip_editMode)) {
-        ip_editMode = !ip_editMode;
+    if (GuiTextBox((Rectangle) { offsetX - 80, offsetY + 20, 116, 30 }, ipInput, 128, ipEditMode)) {
+        ipEditMode = !ipEditMode;
     }
 
     //Port Input
-    if (GuiTextBox((Rectangle) { offsetX + 40, offsetY + 20, 40, 30 }, port_input, 5, port_editMode)) {
-        port_editMode = !port_editMode;
+    if (GuiTextBox((Rectangle) { offsetX + 40, offsetY + 20, 40, 30 }, portInput, 5, portEditMode)) {
+        portEditMode = !portEditMode;
     }
 
     //Login button
     if (GuiButton((Rectangle) { offsetX - 80, offsetY + 55, 160, 30 }, "Login")) {
         DisableCursor();
         Screen_Switch(SCREEN_JOINING);
-        Network_threadState = 0;
-        Network_name = name_input;
-        Network_ip = ip_input;
-        Network_port = TextToInteger(port_input);
+        networkThreadState = 0;
+        networkName = nameInput;
+        networkIp = ipInput;
+        networkPort = TextToInteger(portInput);
 
         char fullAddress[128] = "";
-        strcat(fullAddress, ip_input);
+        strcat(fullAddress, ipInput);
         strcat(fullAddress, ":");
-        strcat(fullAddress, port_input);
+        strcat(fullAddress, portInput);
 
-        Network_fullAddress = fullAddress;
+        networkFullAddress = fullAddress;
 
         //Start Client on a new thread
-        pthread_t clientThread_id;
+        pthread_t clientThreadId;
 
         #if !defined(PLATFORM_WEB)
-            pthread_create(&clientThread_id, NULL, Client_Init, (void*)&Network_threadState);
+            pthread_create(&clientThreadId, NULL, Client_Init, (void*)&networkThreadState);
         #else
-            pthread_create(&clientThread_id, NULL, ClientWS_Init, (void*)&Network_threadState);
+            pthread_create(&clientThreadId, NULL, ClientWs_Init, (void*)&networkThreadState);
         #endif
     }
     
@@ -300,7 +300,7 @@ void Screen_MakeLogin(void) {
 }
 
 bool loadingNextFrame = false;
-void Screen_MakeLoading(void) {
+void Screen_DrawLoading(void) {
     DrawRectangle(0, 0, screenWidth, screenHeight, BLACK);
     DrawText("Loading World", screenWidth / 2 - 80, screenHeight / 2, 20, WHITE);
     if(loadingNextFrame) {
@@ -310,26 +310,26 @@ void Screen_MakeLoading(void) {
     loadingNextFrame = true;
 }
 
-void Screen_Make(void) {
+void Screen_Draw(void) {
     screenHeight = GetScreenHeight();
     screenWidth = GetScreenWidth();
     
     uiColBg = (Color){ 0, 0, 0, 80 };
     
-    if (Screen_Current == SCREEN_GAME)
-        Screen_MakeGame();
-    else if (Screen_Current == SCREEN_PAUSE)
-        Screen_MakePause();
-    else if(Screen_Current == SCREEN_LOADING)
-        Screen_MakeLoading();
-    else if (Screen_Current == SCREEN_JOINING)
-        Screen_MakeJoining();
-    else if (Screen_Current == SCREEN_LOGIN)
-        Screen_MakeLogin();
-    else if (Screen_Current == SCREEN_OPTIONS)
-        Screen_MakeOptions();
+    if (currentScreen == SCREEN_GAME)
+        Screen_DrawGame();
+    else if (currentScreen == SCREEN_PAUSE)
+        Screen_DrawPause();
+    else if(currentScreen == SCREEN_LOADING)
+        Screen_DrawLoading();
+    else if (currentScreen == SCREEN_JOINING)
+        Screen_DrawJoining();
+    else if (currentScreen == SCREEN_LOGIN)
+        Screen_DrawLogin();
+    else if (currentScreen == SCREEN_OPTIONS)
+        Screen_DrawOptions();
 }
 
 void Screen_Switch(Screen screen) {
-    Screen_Current = screen;
+    currentScreen = screen;
 }

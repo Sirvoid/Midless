@@ -6,17 +6,17 @@
  */
 
 
-#ifndef G_CHUNKMESHGEN_H
-#define G_CHUNKMESHGEN_H
+#ifndef MIDLESS_CLIENT_CHUNK_MESH_GENERATION_H
+#define MIDLESS_CLIENT_CHUNK_MESH_GENERATION_H
 
 #include "chunk.h"
 #include "block.h"
 
-void Chunk_MeshGenerationInit(void);
-void Chunk_MeshGenerationShutdown(void);
+void ChunkMeshGeneration_Init(void);
+void ChunkMeshGeneration_Shutdown(void);
 //Build/Refresh a chunk's mesh.
-void Chunk_BuildMesh(Chunk *chunk);
-bool Chunk_TestOpaque(const Block *blockDef, const Block *nextDef);
-bool Chunk_TestTranslucent(const Block *blockDef, const Block *nextDef);
+void ChunkMeshGeneration_Build(Chunk *chunk);
+bool ChunkMeshGeneration_IsOpaqueFaceVisible(const Block *blockDef, const Block *nextDef);
+bool ChunkMeshGeneration_IsTranslucentFaceVisible(const Block *blockDef, const Block *nextDef);
 
 #endif

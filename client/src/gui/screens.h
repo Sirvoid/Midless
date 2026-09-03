@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_SCREEN_H
-#define G_SCREEN_H
+#ifndef MIDLESS_CLIENT_SCREEN_H
+#define MIDLESS_CLIENT_SCREEN_H
 
 typedef enum Screen {
     SCREEN_GAME,
@@ -17,18 +17,18 @@ typedef enum Screen {
     SCREEN_OPTIONS
 } Screen;
 
-extern bool Screen_cursorEnabled;
+extern bool screenCursorEnabled;
 
-void Screens_init(Texture2D terrain, bool *exit);
+void Screen_Init(Texture2D terrain, bool *exit);
 void Screen_Switch(Screen screen);
 
-void Screen_Make(void);
+void Screen_Draw(void);
 
-void Screen_MakeGame(void);
-void Screen_MakePause(void);
-void Screen_MakeOptions(void);
-void Screen_MakeLoading(void);
-void Screen_MakeJoining(void);
-void Screen_MakeLogin(void);
+void Screen_DrawGame(void);
+void Screen_DrawPause(void);
+void Screen_DrawOptions(void);
+void Screen_DrawLoading(void);
+void Screen_DrawJoining(void);
+void Screen_DrawLogin(void);
 
 #endif

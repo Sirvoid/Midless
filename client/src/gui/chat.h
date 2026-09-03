@@ -5,10 +5,10 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_CHAT_H
-#define G_CHAT_H
+#ifndef MIDLESS_CLIENT_CHAT_H
+#define MIDLESS_CLIENT_CHAT_H
 
-extern bool Chat_open;
+extern bool chatOpen;
 
 //Add a line and take ownership.
 void Chat_AddOwnedLine(char *line);

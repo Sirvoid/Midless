@@ -5,13 +5,13 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef S_ENTITY_H
-#define S_ENTITY_H
+#ifndef MIDLESS_SERVER_ENTITY_H
+#define MIDLESS_SERVER_ENTITY_H
 
 #include "raylib.h"
 
 typedef struct Entity{
-    int ID;
+    int id;
     char type;
     Vector3 position;
     Vector3 rotation;

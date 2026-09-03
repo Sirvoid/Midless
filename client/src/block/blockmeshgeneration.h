@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_BLOCKFACEHELPER_H
-#define G_BLOCKFACEHELPER_H
+#ifndef MIDLESS_CLIENT_BLOCK_MESH_GENERATION_H
+#define MIDLESS_CLIENT_BLOCK_MESH_GENERATION_H
 
 #include "raylib.h"
 #include "block.h"

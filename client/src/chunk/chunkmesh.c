@@ -83,15 +83,15 @@ void ChunkMesh_Unload(ChunkMesh *mesh) {
     mesh->indexCapacity = 0;
 }
 
-void ChunkMesh_PrepareDrawing(Material mat) {
-    rlEnableShader(mat.shader.id);
-    rlEnableTexture(mat.maps[0].texture.id);
+void ChunkMesh_PrepareDrawing(Material material) {
+    rlEnableShader(material.shader.id);
+    rlEnableTexture(material.maps[0].texture.id);
 
     float drawDistance = (world.drawDistance + 2) * 16.0f;
-    rlSetUniform(rlGetLocationUniform(mat.shader.id, "drawDistance"), &drawDistance, RL_SHADER_UNIFORM_FLOAT, 1);
+    rlSetUniform(rlGetLocationUniform(material.shader.id, "drawDistance"), &drawDistance, RL_SHADER_UNIFORM_FLOAT, 1);
 
     float sunlightStrength = World_GetSunlightStrength();
-    rlSetUniform(rlGetLocationUniform(mat.shader.id, "sunlightStrength"), &sunlightStrength, RL_SHADER_UNIFORM_FLOAT, 1);
+    rlSetUniform(rlGetLocationUniform(material.shader.id, "sunlightStrength"), &sunlightStrength, RL_SHADER_UNIFORM_FLOAT, 1);
 }
 
 void ChunkMesh_FinishDrawing(void) {

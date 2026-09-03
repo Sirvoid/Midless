@@ -9,19 +9,19 @@
 #include "block.h"
 #include "blockmeshgeneration.h"
 
-Block Block_definition[256];
+Block blockDefinitions[256];
 
 void Block_BuildDefinition(void) {
 
     for (int i = 0; i < 256; i++) {
         Block_Define(i, "invalid", 0, 0, 0);
-        Block_definition[i].colliderType = BlockColliderType_None;
+        blockDefinitions[i].colliderType = BLOCK_COLLIDER_NONE;
     }
 
     Block_Define(0, "air", 0, 0, 0);
-    Block_definition[0].modelType = BlockModelType_Gas;
-    Block_definition[0].renderType = BlockRenderType_Transparent;
-    Block_definition[0].colliderType = BlockColliderType_None;
+    blockDefinitions[0].modelType = BLOCK_MODEL_GAS;
+    blockDefinitions[0].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[0].colliderType = BLOCK_COLLIDER_NONE;
 
     Block_Define(1, "stone", 1, 1, 1);
     Block_Define(2, "dirt", 2, 2, 2);
@@ -29,8 +29,8 @@ void Block_BuildDefinition(void) {
     Block_Define(4, "wood", 4, 4, 4);
     
     Block_Define(5, "water", 14, 14, 14);
-    Block_definition[5].renderType = BlockRenderType_Translucent;
-    Block_definition[5].colliderType = BlockColliderType_Liquid;
+    blockDefinitions[5].renderType = BLOCK_RENDER_TRANSLUCENT;
+    blockDefinitions[5].colliderType = BLOCK_COLLIDER_LIQUID;
     
     Block_Define(6, "sand", 11, 11, 11);
     Block_Define(7, "iron_ore", 6, 6, 6);
@@ -38,81 +38,81 @@ void Block_BuildDefinition(void) {
     Block_Define(9, "gold_ore", 5, 5, 5);
     Block_Define(10, "log", 9, 9, 8);
     Block_Define(11, "leaves", 10, 10, 10);
-    Block_definition[11].renderType = BlockRenderType_Transparent;
+    blockDefinitions[11].renderType = BLOCK_RENDER_TRANSPARENT;
     
     Block_Define(12, "rose", 12, 12, 12);
-    Block_definition[12].modelType = BlockModelType_Sprite;
-    Block_definition[12].renderType = BlockRenderType_Transparent;
-    Block_definition[12].colliderType = BlockColliderType_None;
-    Block_definition[12].minBB = (Vector3) {4, 0, 4};
-    Block_definition[12].maxBB = (Vector3) {12, 10, 12};
+    blockDefinitions[12].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[12].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[12].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[12].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[12].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(13, "dandelion", 13, 13, 13);
-    Block_definition[13].modelType = BlockModelType_Sprite;
-    Block_definition[13].renderType = BlockRenderType_Transparent;
-    Block_definition[13].colliderType = BlockColliderType_None;
-    Block_definition[13].minBB = (Vector3) {4, 0, 4};
-    Block_definition[13].maxBB = (Vector3) {12, 10, 12};
+    blockDefinitions[13].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[13].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[13].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[13].minBB = (Vector3) {4, 0, 4};
+    blockDefinitions[13].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(14, "glass", 17, 17, 17);
-    Block_definition[14].renderType = BlockRenderType_Transparent;
+    blockDefinitions[14].renderType = BLOCK_RENDER_TRANSPARENT;
 
     Block_Define(15, "fire", 16, 16, 16);
-    Block_definition[15].renderType = BlockRenderType_Transparent;
-    Block_definition[15].modelType = BlockModelType_Sprite;
-    Block_definition[15].colliderType = BlockColliderType_None;
-    Block_definition[15].lightType = BlockLightType_Emit;
+    blockDefinitions[15].renderType = BLOCK_RENDER_TRANSPARENT;
+    blockDefinitions[15].modelType = BLOCK_MODEL_SPRITE;
+    blockDefinitions[15].colliderType = BLOCK_COLLIDER_NONE;
+    blockDefinitions[15].lightType = BLOCK_LIGHT_EMIT;
 
     Block_Define(16, "lava", 15, 15, 15);
-    Block_definition[16].colliderType = BlockColliderType_Liquid;
-    Block_definition[16].lightType = BlockLightType_Emit;
+    blockDefinitions[16].colliderType = BLOCK_COLLIDER_LIQUID;
+    blockDefinitions[16].lightType = BLOCK_LIGHT_EMIT;
 
     Block_Define(17, "stone_slab", 1, 1, 1);
-    Block_definition[17].maxBB = (Vector3) {16, 8, 16};
+    blockDefinitions[17].maxBB = (Vector3) {16, 8, 16};
 
     Block_Define(18, "wood_slab", 4, 4, 4);
-    Block_definition[18].maxBB = (Vector3) {16, 8, 16};
+    blockDefinitions[18].maxBB = (Vector3) {16, 8, 16};
 
     for (int i = 0; i < 256; i++) {
-        Block *block = &Block_definition[i];
+        Block *block = &blockDefinitions[i];
         block->fullCube = Block_IsFullSize(block);
         block->fastOpaqueCube = block->fullCube &&
-                                block->modelType == BlockModelType_Solid &&
-                                block->renderType == BlockRenderType_Opaque;
+                                block->modelType == BLOCK_MODEL_SOLID &&
+                                block->renderType == BLOCK_RENDER_OPAQUE;
     }
     BlockMesh_BuildTemplates();
 }
 
-const Block *Block_GetDefinition(int ID) {
-    if ((unsigned int)ID < 256) {
-        return &Block_definition[ID];
+const Block *Block_GetDefinition(int id) {
+    if ((unsigned int)id < 256) {
+        return &blockDefinitions[id];
     }
-    return &Block_definition[0];
+    return &blockDefinitions[0];
 }
 
-Block* Block_Define(int ID, char name[], int topTex, int bottomTex, int sideTex) {
-    Block *block = &Block_definition[ID];
+Block* Block_Define(int id, char name[], int topTexture, int bottomTexture, int sideTexture) {
+    Block *block = &blockDefinitions[id];
     TextCopy(block->name, name);
     
-    block->modelType = BlockModelType_Solid;
-    block->renderType = BlockRenderType_Opaque;
-    block->colliderType = BlockColliderType_Solid;
-    block->lightType = BlockLightType_None;
+    block->modelType = BLOCK_MODEL_SOLID;
+    block->renderType = BLOCK_RENDER_OPAQUE;
+    block->colliderType = BLOCK_COLLIDER_SOLID;
+    block->lightType = BLOCK_LIGHT_NONE;
     block->minBB = (Vector3) {0, 0, 0};
     block->maxBB = (Vector3) {16, 16, 16};
 
-    Block_SetTexture(block, BlockFace_Top, topTex);
-    Block_SetTexture(block, BlockFace_Bottom, bottomTex);
-    Block_SetTexture(block, BlockFace_Left, sideTex);
-    Block_SetTexture(block, BlockFace_Right, sideTex);
-    Block_SetTexture(block, BlockFace_Front, sideTex);
-    Block_SetTexture(block, BlockFace_Back, sideTex);
+    Block_SetTexture(block, BLOCK_FACE_TOP, topTexture);
+    Block_SetTexture(block, BLOCK_FACE_BOTTOM, bottomTexture);
+    Block_SetTexture(block, BLOCK_FACE_LEFT, sideTexture);
+    Block_SetTexture(block, BLOCK_FACE_RIGHT, sideTexture);
+    Block_SetTexture(block, BLOCK_FACE_FRONT, sideTexture);
+    Block_SetTexture(block, BLOCK_FACE_BACK, sideTexture);
     
     return block;
 }
 
-void Block_SetTexture(Block *block, BlockFace face, int texIndex) {
-    block->textures[(int)face] = texIndex;
+void Block_SetTexture(Block *block, BlockFace face, int textureIndex) {
+    block->textures[(int)face] = textureIndex;
 }
 
 int Block_GetTexture(Block *block, BlockFace face) {

@@ -35,9 +35,9 @@ void Chat_Shutdown(void) {
     currentLine = 0;
 }
 
-char Chat_input[64] = "";
-bool Chat_editMode = false;
-bool Chat_open = false;
+char chatInput[64] = "";
+bool chatEditMode = false;
+bool chatOpen = false;
 
 void Chat_Draw(Vector2 offset, Color uiColor) {
 
@@ -45,11 +45,11 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
     int fontSize = 10;
 
     //Draw Background
-    if (Chat_editMode) DrawRectangle(offset.x, offset.y - 184 + 46, chatWidth, 184, uiColor);
+    if (chatEditMode) DrawRectangle(offset.x, offset.y - 184 + 46, chatWidth, 184, uiColor);
 
     Color textColor = WHITE;
     Color shadowColor = BLACK;
-    if (!Chat_editMode) {
+    if (!chatEditMode) {
         textColor.a = 150; 
         shadowColor.a = 150;
     }
@@ -87,31 +87,31 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
     }
 
     //Chat input
-    if (Chat_editMode) GuiTextBox((Rectangle) { offset.x, offset.y + 22, chatWidth, 24 }, Chat_input, 64, Chat_editMode);
+    if (chatEditMode) GuiTextBox((Rectangle) { offset.x, offset.y + 22, chatWidth, 24 }, chatInput, 64, chatEditMode);
     
     if (IsKeyPressed(KEY_ENTER)) {
-        if (Chat_open) {
+        if (chatOpen) {
             char *message = MemAlloc(64);
             for (int i = 0; i < 64; i++) {
-                message[i] = Chat_input[i];
-                Chat_input[i] = '\0';
+                message[i] = chatInput[i];
+                chatInput[i] = '\0';
             }
-            if (Network_connectedToServer) {
+            if (networkConnectedToServer) {
                 Network_Send(Packet_CreateMessage(message));
                 MemFree(message);
             } else {
                 Chat_AddOwnedLine(message);
             }
             DisableCursor();
-            Chat_open = false;
-            Screen_cursorEnabled = false;
+            chatOpen = false;
+            screenCursorEnabled = false;
         }
     }
 
-    if (Chat_open) {
-        Chat_editMode = true;
+    if (chatOpen) {
+        chatEditMode = true;
     } else {
-        Chat_editMode = false;
+        chatEditMode = false;
     }
 
 }

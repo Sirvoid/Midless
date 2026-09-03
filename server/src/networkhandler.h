@@ -5,26 +5,26 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef S_NETWORK_H
-#define S_NETWORK_H
+#ifndef MIDLESS_SERVER_NETWORK_HANDLER_H
+#define MIDLESS_SERVER_NETWORK_HANDLER_H
 
-typedef struct PacketDefinition {
+typedef struct PacketHandlerEntry {
     void (*handler)(void);
-} PacketDefinition;
+} PacketHandlerEntry;
 
 typedef struct IncomingPacket {
     unsigned char *data;
-    void *playerPtr;
+    void *player;
 } IncomingPacket;
 
 void ServerNetwork_Init(void);
 void ServerNetwork_Shutdown(void);
-void ServerNetwork_Connect(void *playerPtr);
-void ServerNetwork_Disconnect(void *playerPtr);
-void ServerNetwork_ReadIncomingPackets(void);
-void ServerNetwork_Receive(void *playerPtr, unsigned char* data, int dataLength);
+void ServerNetwork_Connect(void *playerData);
+void ServerNetwork_Disconnect(void *playerData);
+void ServerNetwork_ProcessIncomingPackets(void);
+void ServerNetwork_Receive(void *playerData, unsigned char* data, int dataLength);
 //Send a packet and take ownership.
-void ServerNetwork_Send(void *playerPtr, unsigned char* packet);
+void ServerNetwork_Send(void *playerData, unsigned char* packet);
 void ServerNetwork_ExecutePacket(unsigned char* packet);
 
 #endif

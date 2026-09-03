@@ -13,7 +13,7 @@ typedef struct BlockMeshTemplate {
 } BlockMeshTemplate;
 
 static BlockMeshTemplate templates[256];
-static int verticesIndex[2], texIndex[2], colorsIndex[2], indicesIndex[2];
+static int verticesIndex[2], textureIndex[2], colorsIndex[2], indicesIndex[2];
 
 static const unsigned char spriteVertices[4][12] = {
     {0,0,0, 16,16,16, 0,16,0, 16,0,16},
@@ -38,21 +38,21 @@ static void BuildSolidVertices(const Block *block, BlockMeshTemplate *out) {
 
 void BlockMesh_BuildTemplates(void) {
     for (int id = 0; id < 256; id++) {
-        const Block *block = &Block_definition[id];
+        const Block *block = &blockDefinitions[id];
         BlockMeshTemplate *out = &templates[id];
-        if (block->modelType == BlockModelType_Sprite) memcpy(out->vertices, spriteVertices, sizeof(spriteVertices));
+        if (block->modelType == BLOCK_MODEL_SPRITE) memcpy(out->vertices, spriteVertices, sizeof(spriteVertices));
         else BuildSolidVertices(block, out);
 
-        int faceCount = block->modelType == BlockModelType_Sprite ? 4 : 6;
+        int faceCount = block->modelType == BLOCK_MODEL_SPRITE ? 4 : 6;
         for (int face = 0; face < faceCount; face++) {
             int textureX = (block->textures[face] % 16) * 16;
             int textureY = (block->textures[face] / 16) * 16;
             int minX = textureX, minY = textureY, maxX = textureX + 16, maxY = textureY + 16;
-            if (block->modelType != BlockModelType_Sprite) {
-                if (face == BlockFace_Front || face == BlockFace_Back) {
+            if (block->modelType != BLOCK_MODEL_SPRITE) {
+                if (face == BLOCK_FACE_FRONT || face == BLOCK_FACE_BACK) {
                     maxY -= 16 - (int)block->maxBB.y; minY += (int)block->minBB.y;
                     maxX -= 16 - (int)block->maxBB.x; minX += (int)block->minBB.x;
-                } else if (face == BlockFace_Left || face == BlockFace_Right) {
+                } else if (face == BLOCK_FACE_LEFT || face == BLOCK_FACE_RIGHT) {
                     maxX -= 16 - (int)block->maxBB.z; minX += (int)block->minBB.z;
                     maxY -= 16 - (int)block->maxBB.y; minY += (int)block->minBB.y;
                 } else {
@@ -73,7 +73,7 @@ Vector3 BlockMesh_GetDirection(BlockFace face) {
 
 void BlockMesh_ResetIndexes(void) {
     memset(verticesIndex, 0, sizeof(verticesIndex));
-    memset(texIndex, 0, sizeof(texIndex));
+    memset(textureIndex, 0, sizeof(textureIndex));
     memset(colorsIndex, 0, sizeof(colorsIndex));
     memset(indicesIndex, 0, sizeof(indicesIndex));
 }
@@ -81,9 +81,9 @@ void BlockMesh_ResetIndexes(void) {
 static unsigned char FaceColor(BlockFace face, bool sprite, int light, int sunlight) {
     int shade = 0;
     if (!sprite) {
-        if (face == BlockFace_Bottom) shade = 8;
-        else if (face == BlockFace_Left || face == BlockFace_Right) shade = 5;
-        else if (face == BlockFace_Front || face == BlockFace_Back) shade = 3;
+        if (face == BLOCK_FACE_BOTTOM) shade = 8;
+        else if (face == BLOCK_FACE_LEFT || face == BLOCK_FACE_RIGHT) shade = 5;
+        else if (face == BLOCK_FACE_FRONT || face == BLOCK_FACE_BACK) shade = 3;
     }
     light -= shade; sunlight -= shade;
     if (light < 0) light = 0;
@@ -94,13 +94,13 @@ static unsigned char FaceColor(BlockFace face, bool sprite, int light, int sunli
 void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords,
                        unsigned char *colors, BlockFace face, int x, int y, int z,
                        const Block *block, int translucent, int light, int sunlight) {
-    const BlockMeshTemplate *meshTemplate = &templates[block - Block_definition];
+    const BlockMeshTemplate *meshTemplate = &templates[block - blockDefinitions];
     const unsigned char *source = meshTemplate->vertices[(int)face];
     int baseVertex = verticesIndex[translucent] / 3;
     static const unsigned short faceIndices[6] = {0, 1, 2, 1, 0, 3};
     for (int i = 0; i < 6; i++) indices[indicesIndex[translucent]++] = (unsigned short)(baseVertex + faceIndices[i]);
 
-    unsigned char color = FaceColor(face, block->modelType == BlockModelType_Sprite, light, sunlight);
+    unsigned char color = FaceColor(face, block->modelType == BLOCK_MODEL_SPRITE, light, sunlight);
     int offsetX = x * 15, offsetY = y * 15, offsetZ = z * 15;
     for (int i = 0; i < 4; i++) {
         vertices[verticesIndex[translucent]++] = (unsigned char)(offsetX + source[i*3] * 15 / 16);
@@ -108,6 +108,6 @@ void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigne
         vertices[verticesIndex[translucent]++] = (unsigned char)(offsetZ + source[i*3+2] * 15 / 16);
         colors[colorsIndex[translucent]++] = color;
     }
-    memcpy(&texcoords[texIndex[translucent]], meshTemplate->texcoords[(int)face], 8 * sizeof(unsigned short));
-    texIndex[translucent] += 8;
+    memcpy(&texcoords[textureIndex[translucent]], meshTemplate->texcoords[(int)face], 8 * sizeof(unsigned short));
+    textureIndex[translucent] += 8;
 }

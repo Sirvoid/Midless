@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef S_LOGGER_H
-#define S_LOGGER_H
+#ifndef MIDLESS_SERVER_LOGGER_H
+#define MIDLESS_SERVER_LOGGER_H
 
 void ServerLogger_Log(const char* message);
 

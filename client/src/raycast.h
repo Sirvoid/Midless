@@ -5,19 +5,19 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_RAYCAST_H
-#define G_RAYCAST_H
+#ifndef MIDLESS_CLIENT_RAYCAST_H
+#define MIDLESS_CLIENT_RAYCAST_H
 
 #include "raylib.h"
 
 typedef struct RaycastResult {
     Vector3 hitPos;
     Vector3 prevPos;
-    int hitBlockID;
+    int hitblockId;
     Vector3 normal;
 } RaycastResult;
 
-RaycastResult Raycast_Do(Vector3 position, Vector3 direction, bool ignoreLiquid);
+RaycastResult Raycast_Cast(Vector3 position, Vector3 direction, bool ignoreLiquid);
 
 
 #endif

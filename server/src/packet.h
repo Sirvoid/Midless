@@ -5,15 +5,15 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef S_PACKET_H
-#define S_PACKET_H
+#ifndef MIDLESS_SERVER_PACKET_H
+#define MIDLESS_SERVER_PACKET_H
 
 #include "player.h"
 #include "entity.h"
 
 typedef struct ServerBlockUpdate {
     Vector3 position;
-    unsigned char blockID;
+    unsigned char blockId;
 } ServerBlockUpdate;
 
 extern unsigned char *serverPacketData;
@@ -35,16 +35,16 @@ void ServerPacket_WriteUShort(unsigned char* packet, unsigned short value);
 void ServerPacket_WriteInt(unsigned char* packet, int value);
 void ServerPacket_WriteArray(unsigned char* packet, unsigned char* array, int size);
 
-void ServerPacket_H_Identification(void);
-void ServerPacket_H_SetBlock(void);
-void ServerPacket_H_PlayerPosition(void);
-void ServerPacket_H_Message(void);
-void ServerPacket_H_SetDrawDistance(void);
+void ServerPacket_HandleIdentification(void);
+void ServerPacket_HandleSetBlock(void);
+void ServerPacket_HandlePlayerPosition(void);
+void ServerPacket_HandleMessage(void);
+void ServerPacket_HandleSetDrawDistance(void);
 
 unsigned char* ServerPacket_CreateMapInit(void);
 unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition);
 unsigned char* ServerPacket_CreateUnloadChunk(Vector3 chunkPosition);
-unsigned char* ServerPacket_CreateSetBlock(unsigned char blockID, Vector3 position);
+unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 position);
 unsigned char* ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, unsigned short count);
 unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity);
 unsigned char* ServerPacket_CreateDespawnEntity(Entity *entity);

@@ -13,7 +13,7 @@
 #include "networkhandler.h"
 
 struct Player;
-struct Player *ServerPlayer_Create(void *peerPtr, bool isWeb);
+struct Player *ServerPlayer_Create(void *peer, bool isWeb);
 
 #define MAX_CLIENTS 64
 

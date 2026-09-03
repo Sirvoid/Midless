@@ -5,11 +5,11 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef S_SERVERWSS_H
-#define S_SERVERWSS_H
+#ifndef MIDLESS_SERVER_WEB_SOCKET_H
+#define MIDLESS_SERVER_WEB_SOCKET_H
 
-void ServerWSS_Init(void);
-void ServerWSS_Poll(void);
-void ServerWSS_Send(void *peer, unsigned char* packet, int length);
+void ServerWss_Init(void);
+void ServerWss_Poll(void);
+void ServerWss_Send(void *peer, unsigned char* packet, int length);
 
 #endif

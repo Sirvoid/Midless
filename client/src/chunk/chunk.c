@@ -54,17 +54,17 @@ Chunk *Chunk_Create(Vector3 pos) {
 }
 
 void Chunk_SaveFile(Chunk *chunk) {
-    if (Network_connectedToServer) return;
+    if (networkConnectedToServer) return;
     
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
-    int newLength;
-    unsigned short* compressed = Chunk_CreateCompressedData(chunk, &newLength);
-    SaveFileData(fileName, compressed, newLength * 2);
+    int compressedLength;
+    unsigned short* compressed = Chunk_CreateCompressedData(chunk, &compressedLength);
+    SaveFileData(fileName, compressed, compressedLength * 2);
     MemFree(compressed);
 }
 
 bool Chunk_LoadFile(Chunk *chunk) {
-    if (Network_connectedToServer) return false;
+    if (networkConnectedToServer) return false;
 
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     if (FileExists(fileName)) {
@@ -77,12 +77,12 @@ bool Chunk_LoadFile(Chunk *chunk) {
     return false;
 }
 
-void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength) {
-    ChunkData_Decompress(chunk->data, compressed, currentLength);
+void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int compressedLength) {
+    ChunkData_Decompress(chunk->data, compressed, compressedLength);
 }
 
-unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int *newLength) {
-    return ChunkData_CreateCompressed(chunk->data, newLength);
+unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int *compressedLength) {
+    return ChunkData_CreateCompressed(chunk->data, compressedLength);
 }
 
 void Chunk_Unload(Chunk *chunk) {
@@ -110,15 +110,15 @@ void Chunk_Generate(Chunk *chunk) {
 
 
 
-void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
+void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
     if (Chunk_IsValidPos(pos)) {
         int index = Chunk_PosToIndex(pos);
 
-        chunk->data[index] = blockID;
+        chunk->data[index] = blockId;
         chunk->modified = true;
 
-        const Block *blockDef = Block_GetDefinition(blockID);
-        if (blockDef->lightType == BlockLightType_Emit) {
+        const Block *blockDef = Block_GetDefinition(blockId);
+        if (blockDef->lightType == BLOCK_LIGHT_EMIT) {
             Chunk_AddLightSource(chunk,pos, 15, false);
         } else {
             Chunk_RemoveLightSource(chunk,pos);
@@ -254,7 +254,7 @@ void Chunk_RefreshBorderingChunks(Chunk *chunk, bool sidesOnly) {
      for (int i = 0; i < nb; i++) {
         if (chunk->neighbours[i] == NULL) continue;
         if (!chunk->neighbours[i]->isBuilt) continue;
-        Chunk_BuildMesh(chunk->neighbours[i]);
+        ChunkMeshGeneration_Build(chunk->neighbours[i]);
      }
 }
 

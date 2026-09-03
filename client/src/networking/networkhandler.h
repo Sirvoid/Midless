@@ -5,27 +5,27 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_NETWORK_H
-#define G_NETWORK_H
+#ifndef MIDLESS_CLIENT_NETWORK_HANDLER_H
+#define MIDLESS_CLIENT_NETWORK_HANDLER_H
 
-typedef struct PacketDefinition {
+typedef struct PacketHandlerEntry {
     void (*handler)(void);
-} PacketDefinition;
+} PacketHandlerEntry;
 
-extern int Network_ping;
-extern int Network_threadState;
-extern char *Network_name;
-extern char *Network_ip;
-extern char *Network_fullAddress;
-extern int Network_port;
-extern int Network_connectedToServer;
-extern void (*Network_Internal_Client_Send)(unsigned char*, int);
-extern void (*Network_Internal_Client_Disconnect)(void);
+extern int networkPing;
+extern int networkThreadState;
+extern char *networkName;
+extern char *networkIp;
+extern char *networkFullAddress;
+extern int networkPort;
+extern int networkConnectedToServer;
+extern void (*networkClientSend)(unsigned char*, int);
+extern void (*networkClientDisconnect)(void);
 
 void Network_Init(void);
 void Network_Connect(void);
 void Network_Disconnect(void);
-void Network_ReadQueue(void);
+void Network_ProcessIncomingPackets(void);
 void Network_ClearQueue(void);
 void Network_Receive(unsigned char* data, int dataLength);
 //Send a packet and take ownership.

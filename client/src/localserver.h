@@ -1,5 +1,5 @@
-#ifndef G_LOCALSERVER_H
-#define G_LOCALSERVER_H
+#ifndef MIDLESS_CLIENT_LOCAL_SERVER_H
+#define MIDLESS_CLIENT_LOCAL_SERVER_H
 
 #include <stdbool.h>
 

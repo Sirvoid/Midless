@@ -21,9 +21,9 @@
 
 #define MOUSE_SENSITIVITY 0.003f
 
-Vector2 Player_oldMousePos = {0.0f, 0.0f};
-Vector2 Player_cameraAngle = {0.0f, 0.0f};
-double Player_LastPositionPacketTime;
+Vector2 playerOldMousePosition = {0.0f, 0.0f};
+Vector2 playerCameraAngle = {0.0f, 0.0f};
+double playerLastPositionPacketTime;
 Player player;
 
 void Player_Init(void) {
@@ -44,7 +44,7 @@ void Player_Init(void) {
 
     player.blockSelected = 15;
 
-    Player_LastPositionPacketTime = 0;
+    playerLastPositionPacketTime = 0;
 
     UpdateCamera(&player.camera, CAMERA_CUSTOM);
     DisableCursor();
@@ -53,24 +53,24 @@ void Player_Init(void) {
 void Player_CheckInputs() {
     
     if (IsKeyPressed(KEY_ESCAPE)) {
-        if (Screen_cursorEnabled) {
+        if (screenCursorEnabled) {
             DisableCursor();
-            Chat_open = false;
+            chatOpen = false;
             Screen_Switch(SCREEN_GAME);
         } else {
             EnableCursor();
             Screen_Switch(SCREEN_PAUSE);
         }
-        Screen_cursorEnabled = !Screen_cursorEnabled;
+        screenCursorEnabled = !screenCursorEnabled;
     } else if (IsKeyPressed(KEY_T)) {
-        if (Screen_cursorEnabled && !Chat_open) {
+        if (screenCursorEnabled && !chatOpen) {
             DisableCursor();
-            Screen_cursorEnabled = false;
+            screenCursorEnabled = false;
             Screen_Switch(SCREEN_GAME);
         } else {
-            Chat_open = true;
+            chatOpen = true;
             EnableCursor();
-            Screen_cursorEnabled = true;
+            screenCursorEnabled = true;
         }
     }
     
@@ -78,41 +78,41 @@ void Player_CheckInputs() {
     Vector2 mousePositionDelta = { 0.0f, 0.0f };
     Vector2 mousePos = GetMousePosition();
     
-    mousePositionDelta.x = mousePos.x - Player_oldMousePos.x;
-    mousePositionDelta.y = mousePos.y - Player_oldMousePos.y;
+    mousePositionDelta.x = mousePos.x - playerOldMousePosition.x;
+    mousePositionDelta.y = mousePos.y - playerOldMousePosition.y;
     
-    Player_oldMousePos = GetMousePosition();
+    playerOldMousePosition = GetMousePosition();
     
-    if (!Screen_cursorEnabled) {
-        Player_cameraAngle.x -= (mousePositionDelta.x * -MOUSE_SENSITIVITY);
-        Player_cameraAngle.y -= (mousePositionDelta.y * -MOUSE_SENSITIVITY);
+    if (!screenCursorEnabled) {
+        playerCameraAngle.x -= (mousePositionDelta.x * -MOUSE_SENSITIVITY);
+        playerCameraAngle.y -= (mousePositionDelta.y * -MOUSE_SENSITIVITY);
         
         //Limit head rotation
         float maxCamAngleY = PI - 0.01f;
         float minCamAngleY = 0.01f;
         
-        if (Player_cameraAngle.y >= maxCamAngleY) 
-            Player_cameraAngle.y = maxCamAngleY;
-        else if (Player_cameraAngle.y <= minCamAngleY) 
-            Player_cameraAngle.y = minCamAngleY;
+        if (playerCameraAngle.y >= maxCamAngleY) 
+            playerCameraAngle.y = maxCamAngleY;
+        else if (playerCameraAngle.y <= minCamAngleY) 
+            playerCameraAngle.y = minCamAngleY;
     }
     
     
     //Calculate direction vectors of the camera angle
-    float cx = cosf(Player_cameraAngle.x);
-    float sx = sinf(Player_cameraAngle.x);
+    float cx = cosf(playerCameraAngle.x);
+    float sx = sinf(playerCameraAngle.x);
     
-    float cx90 = cosf(Player_cameraAngle.x + PI / 2);
-    float sx90 = sinf(Player_cameraAngle.x + PI / 2);
+    float cx90 = cosf(playerCameraAngle.x + PI / 2);
+    float sx90 = sinf(playerCameraAngle.x + PI / 2);
     
-    float sy = sinf(Player_cameraAngle.y);
-    float cy = cosf(Player_cameraAngle.y);
+    float sy = sinf(playerCameraAngle.y);
+    float cy = cosf(playerCameraAngle.y);
     
     float forwardX = cx * sy;
     float forwardY = cy;
     float forwardZ = sx * sy;
     
-    if (!Screen_cursorEnabled) {
+    if (!screenCursorEnabled) {
         //Handle keys & mouse
         if (IsKeyDown(KEY_SPACE) && player.canJump) {
             player.velocity.y += 0.2f;
@@ -150,18 +150,18 @@ void Player_CheckInputs() {
         if (player.blockSelected > 18) player.blockSelected = 1;
         if (player.blockSelected < 1) player.blockSelected = 18;
         
-        player.rayResult = Raycast_Do(player.camera.position, (Vector3) { forwardX, forwardY, forwardZ}, true);
+        player.rayResult = Raycast_Cast(player.camera.position, (Vector3) { forwardX, forwardY, forwardZ}, true);
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Break Block
-            if (player.rayResult.hitBlockID != -1) {
+            if (player.rayResult.hitblockId != -1) {
                 World_SetBlock(player.rayResult.hitPos, 0, true);
                 Network_Send(Packet_CreateSetBlock(0, player.rayResult.hitPos));
             }
         } else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
             Vector3 placePos = Vector3Add(player.rayResult.hitPos, player.rayResult.normal);
             
-            if (player.rayResult.hitBlockID != -1) {
-                int bottomBlockID = World_GetBlock(Vector3Add(placePos, (Vector3){0, -1, 0}));
+            if (player.rayResult.hitblockId != -1) {
+                int bottomblockId = World_GetBlock(Vector3Add(placePos, (Vector3){0, -1, 0}));
                 switch (player.blockSelected)
                 {
                     case -1: // null
@@ -170,19 +170,19 @@ void Player_CheckInputs() {
 
                     case 12:
                     case 13:
-                        if (bottomBlockID == 2 || bottomBlockID == 3 || bottomBlockID == 6) { // dirt, grass, sand
+                        if (bottomblockId == 2 || bottomblockId == 3 || bottomblockId == 6) { // dirt, grass, sand
                             Player_TryPlaceBlock(placePos, player.blockSelected);
                         }
                         break;
                         
                     case 17: // stone_slab
-                        if (player.rayResult.normal.y == 1 && player.rayResult.hitBlockID == 17) {
+                        if (player.rayResult.normal.y == 1 && player.rayResult.hitblockId == 17) {
                             Player_TryPlaceBlock(player.rayResult.hitPos, 1);
                             break;
                         }
 
                     case 18: // wood_slab
-                        if (player.rayResult.normal.y == 1 && player.rayResult.hitBlockID == 18) {
+                        if (player.rayResult.normal.y == 1 && player.rayResult.hitblockId == 18) {
                             Player_TryPlaceBlock(player.rayResult.hitPos, 4);
                             break;
                         }
@@ -193,8 +193,8 @@ void Player_CheckInputs() {
                 }
             }
         } else if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) { //Pick Block
-            int pickedID = World_GetBlock(player.rayResult.hitPos);
-            player.blockSelected = pickedID;
+            int pickedId = World_GetBlock(player.rayResult.hitPos);
+            player.blockSelected = pickedId;
         }
     }
     //Place camera's target to the direction looking at.
@@ -203,17 +203,17 @@ void Player_CheckInputs() {
     player.camera.target.z = player.camera.position.z + forwardZ;
 }
 
-bool Player_TryPlaceBlock(Vector3 pos, int blockID)
+bool Player_TryPlaceBlock(Vector3 pos, int blockId)
 {
     int oldBlock = World_GetBlock(pos);
-    World_SetBlock(pos, blockID, true);
+    World_SetBlock(pos, blockId, true);
     if (Player_TestCollision((Vector3){ 0 }))
     {
         World_SetBlock(pos, oldBlock, true);
         return false;
     }
 
-    Network_Send(Packet_CreateSetBlock(blockID, pos));
+    Network_Send(Packet_CreateSetBlock(blockId, pos));
     return true;
 }
 
@@ -221,9 +221,9 @@ bool Player_TryPlaceBlock(Vector3 pos, int blockID)
 
 void Player_Update(void) {
     
-    if(GetTime() - Player_LastPositionPacketTime > 0.05) {
-        Network_Send(Packet_CreatePlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector2) { -Player_cameraAngle.x + PI / 2,  Player_cameraAngle.y - PI / 2}));
-        Player_LastPositionPacketTime = GetTime();
+    if(GetTime() - playerLastPositionPacketTime > 0.05) {
+        Network_Send(Packet_CreatePlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector2) { -playerCameraAngle.x + PI / 2,  playerCameraAngle.y - PI / 2}));
+        playerLastPositionPacketTime = GetTime();
     }
 
     //Gravity
@@ -302,9 +302,9 @@ bool Player_TestCollision(Vector3 offset) {
                 Chunk* chunk = World_GetChunkAt(chunkPos);
                 if (chunk == NULL || chunk->isMapGenerated == false) return true;
 
-                int blockID = World_GetBlock(blockPos);
-                const Block *blockDef = Block_GetDefinition(blockID);
-                if (blockDef->colliderType != BlockColliderType_Solid) continue;
+                int blockId = World_GetBlock(blockPos);
+                const Block *blockDef = Block_GetDefinition(blockId);
+                if (blockDef->colliderType != BLOCK_COLLIDER_SOLID) continue;
                 
                 BoundingBox blockB;
                 blockB.min = (Vector3) {x + (blockDef->minBB.x / 16), y + (blockDef->minBB.y / 16), z + (blockDef->minBB.z / 16)};
@@ -320,11 +320,11 @@ bool Player_TestCollision(Vector3 offset) {
 
 
 Vector3 Player_GetForwardVector(void) {
-    float cx = cosf(Player_cameraAngle.x);
-    float sx = sinf(Player_cameraAngle.x);
+    float cx = cosf(playerCameraAngle.x);
+    float sx = sinf(playerCameraAngle.x);
     
-    float sy = sinf(Player_cameraAngle.y);
-    float cy = cosf(Player_cameraAngle.y);
+    float sy = sinf(playerCameraAngle.y);
+    float cy = cosf(playerCameraAngle.y);
     
     return (Vector3) {cx * sy, cy, sx * sy};
 }

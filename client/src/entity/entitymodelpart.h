@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_ENTITYMP_H
-#define G_ENTITYMP_H
+#ifndef MIDLESS_CLIENT_ENTITY_MODEL_PART_H
+#define MIDLESS_CLIENT_ENTITY_MODEL_PART_H
 
 #include "raylib.h"
 

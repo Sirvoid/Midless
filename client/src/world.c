@@ -35,7 +35,7 @@
 World world;
 
 void World_Init(void) {
-    world.mat = LoadMaterialDefault();
+    world.material = LoadMaterialDefault();
     world.loadChunks = false;
     world.drawDistance = 8;
     world.time = 0;
@@ -43,7 +43,7 @@ void World_Init(void) {
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
 
-    Chunk_MeshGenerationInit();
+    ChunkMeshGeneration_Init();
 }
 
 void World_LoadMultiplayer(void) {
@@ -94,7 +94,7 @@ void World_ReadChunksQueues(void) {
                 }
 
                 Chunk_Generate(chunk);
-                Chunk_BuildMesh(chunk);
+                ChunkMeshGeneration_Build(chunk);
 
                 arrdel(world.generateChunksQueue, index);
 
@@ -159,28 +159,28 @@ void World_AddChunk(Vector3 position) {
     }
 }
 
-void World_RemoveChunk(Chunk *curChunk) {
+void World_RemoveChunk(Chunk *currentChunk) {
 
-    if(curChunk->isGenerating == true) {
+    if(currentChunk->isGenerating == true) {
         for(int i = 0; i < arrlen(world.generateChunksQueue); i++) {
-            if(world.generateChunksQueue[i] == curChunk) {
+            if(world.generateChunksQueue[i] == currentChunk) {
                 arrdel(world.generateChunksQueue, i);
             }
         }
     }
 
-    long int p = Chunk_GetPackedPos(curChunk->position);
+    long int p = Chunk_GetPackedPos(currentChunk->position);
     hmdel(world.chunks, p);
 
-    Chunk_UpdateNeighbours(curChunk, true);
-    if (curChunk->modified) Chunk_SaveFile(curChunk);
-    Chunk_Unload(curChunk);
-    Chunk_Destroy(curChunk);
+    Chunk_UpdateNeighbours(currentChunk, true);
+    if (currentChunk->modified) Chunk_SaveFile(currentChunk);
+    Chunk_Unload(currentChunk);
+    Chunk_Destroy(currentChunk);
 }
 
 void World_LoadChunks(void) {
 
-    if (!world.loadChunks || Network_connectedToServer) return;
+    if (!world.loadChunks || networkConnectedToServer) return;
 
     Vector3 pos = Player_GetChunkPosition();
 
@@ -210,7 +210,7 @@ void World_LoadChunks(void) {
 }
 
 void World_Reload(void) {
-    if (!Network_connectedToServer) World_Clear();
+    if (!networkConnectedToServer) World_Clear();
     world.loadChunks = true;
 }
 
@@ -235,23 +235,23 @@ void World_Clear(void) {
 
 void World_Shutdown(void) {
     World_Clear();
-    UnloadMaterial(world.mat);
+    UnloadMaterial(world.material);
     MemFree(world.entities);
     world.entities = NULL;
-    Chunk_MeshGenerationShutdown();
+    ChunkMeshGeneration_Shutdown();
 }
 
 void World_ApplyTexture(Texture2D texture) {
-    SetMaterialTexture(&world.mat, MATERIAL_MAP_DIFFUSE, texture);
+    SetMaterialTexture(&world.material, MATERIAL_MAP_DIFFUSE, texture);
 }
 
 void World_ApplyShader(Shader shader) {
-    world.mat.shader = shader;
+    world.material.shader = shader;
 }
 
 void World_Draw(Vector3 camPosition) {
 
-    ChunkMesh_PrepareDrawing(world.mat);
+    ChunkMesh_PrepareDrawing(world.material);
 
     int amountChunks = hmlen(world.chunks);
     float frustumAngle = DEG2RAD * player.camera.fovy + 0.3f;
@@ -288,7 +288,7 @@ void World_Draw(Vector3 camPosition) {
                 0, 0, 1, chunk->blockPosition.z,
                 0, 0, 0, 1 };
         
-            ChunkMesh_Draw(&chunk->mesh, world.mat, matrix);
+            ChunkMesh_Draw(&chunk->mesh, world.material, matrix);
         }
     }
     
@@ -307,7 +307,7 @@ void World_Draw(Vector3 camPosition) {
         }
     }
     
-    ChunkMesh_PrepareDrawing(world.mat);
+    ChunkMesh_PrepareDrawing(world.material);
 
     //Draw sorted chunks
     for (int i = 0; i < sortedLength; i++) {
@@ -318,9 +318,9 @@ void World_Draw(Vector3 camPosition) {
                                    0, 0, 1, chunk->blockPosition.z,
                                    0, 0, 0, 1 };
         
-        ChunkMesh_Draw(&chunk->mesh, world.mat, matrix);
+        ChunkMesh_Draw(&chunk->mesh, world.material, matrix);
         rlDisableBackfaceCulling();
-        ChunkMesh_Draw(&chunk->meshTransparent, world.mat, matrix);
+        ChunkMesh_Draw(&chunk->meshTransparent, world.material, matrix);
         rlEnableBackfaceCulling();
     }
 
@@ -352,7 +352,7 @@ int World_GetBlock(Vector3 blockPos) {
     return Chunk_GetBlock(chunk, blockPosInChunk);
 }
 
-void World_SetBlock(Vector3 blockPos, int blockID, bool immediate) {
+void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
     
     //Get Chunk
     Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
@@ -369,14 +369,14 @@ void World_SetBlock(Vector3 blockPos, int blockID, bool immediate) {
 
     if (!chunk->isLightGenerated) {
         if (Chunk_IsValidPos(blockPosInChunk)) {
-            chunk->data[Chunk_PosToIndex(blockPosInChunk)] = blockID;
+            chunk->data[Chunk_PosToIndex(blockPosInChunk)] = blockId;
         }
         return;
     }
     
-    Chunk_SetBlock(chunk, blockPosInChunk, blockID);
+    Chunk_SetBlock(chunk, blockPosInChunk, blockId);
 
-    if (blockID == 0) {
+    if (blockId == 0) {
         World_QueueChunk(chunk, immediate);
         for (int i = 0; i < 26; i++) {
             if (chunk->neighbours[i] == NULL) continue;
@@ -400,26 +400,26 @@ float World_GetSunlightStrength(void) {
 *-------------------------------------------World Entities-----------------------------------------------*
 *--------------------------------------------------------------------------------------------------------*/
 
-void World_TeleportEntity(int ID, Vector3 position, Vector3 rotation) {
-    Entity *entity = &world.entities[ID];
+void World_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
+    Entity *entity = &world.entities[id];
     entity->position = position;
     entity->rotation = (Vector3) { 0, rotation.y, 0 };
     
-    for (int i = 0; i < entity->model.amountParts; i++) {
-        if (entity->model.parts[i].type == PartType_Head) {
+    for (int i = 0; i < entity->model.partCount; i++) {
+        if (entity->model.parts[i].type == PART_TYPE_HEAD) {
             entity->model.parts[i].rotation.x = rotation.x;
         }
     }
 }
 
-void World_AddEntity(int ID, int type, Vector3 position, Vector3 rotation) {
-    world.entities[ID].type = type;
-    world.entities[ID].position = position;
-    world.entities[ID].rotation = rotation;
+void World_AddEntity(int id, int type, Vector3 position, Vector3 rotation) {
+    world.entities[id].type = type;
+    world.entities[id].position = position;
+    world.entities[id].rotation = rotation;
     
-    EntityModel_Create(&world.entities[ID].model, entityModels[0]);
+    EntityModel_Create(&world.entities[id].model, entityModels[0]);
 }
 
-void World_RemoveEntity(int ID) {
-    Entity_Destroy(&world.entities[ID]);
+void World_RemoveEntity(int id) {
+    Entity_Destroy(&world.entities[id]);
 }

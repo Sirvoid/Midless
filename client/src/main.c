@@ -26,7 +26,7 @@
 #include "localserver.h"
 
 
-void GameLoop(void);
+void Game_RunLoop(void);
 
 int main(void) {
 
@@ -80,17 +80,17 @@ int main(void) {
     Player_Init();
     
     bool exitProgram = false;
-    Screens_init(texture, &exitProgram);
+    Screen_Init(texture, &exitProgram);
 
 
     #if defined(PLATFORM_WEB)
-        emscripten_set_main_loop(GameLoop, 0, 1);
+        emscripten_set_main_loop(Game_RunLoop, 0, 1);
     #else
         while (!WindowShouldClose() && !exitProgram) {
-            GameLoop();
+            Game_RunLoop();
         }
         
-        Network_threadState = -1;
+        networkThreadState = -1;
 
         LocalServer_Stop();
         UnloadShader(shader);
@@ -105,8 +105,8 @@ int main(void) {
     return 0;
 }
 
-void GameLoop(void) {
-    Network_ReadQueue();
+void Game_RunLoop(void) {
+    Network_ProcessIncomingPackets();
     
     // Update
     Player_Update();
@@ -122,8 +122,8 @@ void GameLoop(void) {
 
         BeginMode3D(player.camera);
             World_Draw(player.camera.position);
-            if (player.rayResult.hitBlockID != -1) {
-                const Block *block = Block_GetDefinition(player.rayResult.hitBlockID);
+            if (player.rayResult.hitblockId != -1) {
+                const Block *block = Block_GetDefinition(player.rayResult.hitblockId);
                 Vector3 blockSize = Vector3Subtract(block->maxBB, block->minBB);
                 blockSize = Vector3Scale(blockSize, 1.0f / 16);
                 selectionBoxPos.y += blockSize.y / 2;
@@ -132,7 +132,7 @@ void GameLoop(void) {
                 
         EndMode3D();
         
-        Screen_Make();
+        Screen_Draw();
 
     EndDrawing();
 }

@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_PLAYER_H
-#define G_PLAYER_H
+#ifndef MIDLESS_CLIENT_PLAYER_H
+#define MIDLESS_CLIENT_PLAYER_H
 
 #include "raylib.h"
 #include "raycast.h"
@@ -33,7 +33,7 @@ void Player_CheckInputs(void);
 //Update a player.
 void Player_Update(void);
 
-bool Player_TryPlaceBlock(Vector3 pos, int blockID);
+bool Player_TryPlaceBlock(Vector3 pos, int blockId);
 
 bool Player_TestCollision(Vector3 offset);
 Vector3 Player_GetForwardVector(void);

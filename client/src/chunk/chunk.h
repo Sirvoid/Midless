@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef G_CHUNK_H
-#define G_CHUNK_H
+#ifndef MIDLESS_CLIENT_CHUNK_H
+#define MIDLESS_CLIENT_CHUNK_H
 
 #include "raylib.h"
 #include "chunkmesh.h"
@@ -44,12 +44,12 @@ typedef struct LightNode{
     struct LightNode *next;
 } LightNode;
 
-typedef struct LightDelNode{
+typedef struct LightRemovalNode{
     int index;
     int val;
     Chunk *chunk;
-    struct LightDelNode *next;
-} LightDelNode;
+    struct LightRemovalNode *next;
+} LightRemovalNode;
 
 //Allocate and initialize a chunk.
 Chunk *Chunk_Create(Vector3 pos);
@@ -64,9 +64,9 @@ void Chunk_SaveFile(Chunk *chunk);
 //Load a chunk from a file.
 bool Chunk_LoadFile(Chunk *chunk);
 //Decompress chunk
-void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength);
+void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int compressedLength);
 //Create compressed chunk data.
-unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int *newLength);
+unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int *compressedLength);
 //Get a neighbour from a direction
 Chunk* Chunk_GetNeighbour(Chunk* chunk, Vector3 dir);
 //Update a chunk's neighbour list.
@@ -78,8 +78,8 @@ bool Chunk_AreNeighbourGenerated(Chunk* chunk);
 //Check if the chunk's neighbours mesh is building.
 bool Chunk_AreNeighbourBuilding(Chunk* chunk);
 //Set a block in a chunk and refresh mesh.
-void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID);
-//Get a block ID in a chunk.
+void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId);
+//Get a block id in a chunk.
 int Chunk_GetBlock(Chunk *chunk, Vector3 pos);
 //Check if block position is valid in chunk.
 bool Chunk_IsValidPos(Vector3 pos);

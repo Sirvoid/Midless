@@ -18,39 +18,39 @@
 #include "world.h"
 #include "localserver.h"
 
-PacketDefinition packets[256];
-int Network_connectedToServer = 0;
-void (*Network_Internal_Client_Send)(unsigned char*, int);
-void (*Network_Internal_Client_Disconnect)(void);
+PacketHandlerEntry packets[256];
+int networkConnectedToServer = 0;
+void (*networkClientSend)(unsigned char*, int);
+void (*networkClientDisconnect)(void);
 
 unsigned char* *queuedData = NULL;
 unsigned char* *terrainQueuedData = NULL;
-int packetsNb;
+int packetCount;
 
-int Network_ping = 0;
-int Network_threadState = 0;
-char *Network_name = "Player";
-char *Network_ip = "127.0.0.1";
-char *Network_fullAddress = "127.0.0.1:25565";
-int Network_port = 25565;
+int networkPing = 0;
+int networkThreadState = 0;
+char *networkName = "Player";
+char *networkIp = "127.0.0.1";
+char *networkFullAddress = "127.0.0.1:25565";
+int networkPort = 25565;
 
 void Network_Init(void) {
-    packetsNb = 0;
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_MapInit}; //0
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_LoadChunk}; //1
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_SetBlock}; //2
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_SpawnEntity}; //3
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_TeleportEntity}; //4
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_Message}; //5
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_DespawnEntity}; //6
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_UnloadChunk}; //7
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_BlockBatch}; //8
-    packets[packetsNb++] = (PacketDefinition) {&Packet_H_WorldTime}; //9
+    packetCount = 0;
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMapInit}; //0
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleLoadChunk}; //1
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetBlock}; //2
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSpawnEntity}; //3
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleTeleportEntity}; //4
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMessage}; //5
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDespawnEntity}; //6
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleUnloadChunk}; //7
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleBlockBatch}; //8
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleWorldTime}; //9
 }
 
 void Network_Connect(void) {
-    Network_connectedToServer = true;
-    Network_Send(Packet_CreateIdentification(1, Network_name));
+    networkConnectedToServer = true;
+    Network_Send(Packet_CreateIdentification(1, networkName));
     Network_Send(Packet_CreateSetDrawDistance(world.drawDistance));
 }
 
@@ -64,25 +64,25 @@ void Network_Disconnect(void) {
         World_Clear();
         Network_ClearQueue();
     }
-    Network_threadState = -1; //End network thread
-    Screen_cursorEnabled = false;
+    networkThreadState = -1; //End network thread
+    screenCursorEnabled = false;
 
     #if defined(PLATFORM_WEB)
-    Network_Internal_Client_Disconnect();
+    networkClientDisconnect();
     #endif
 }
 
-pthread_mutex_t queue_mutex;
+pthread_mutex_t networkQueueMutex;
 
 static void Network_ExecutePacket(unsigned char *packet) {
-    Packet_data = packet;
-    PacketReader_index = 1;
-    if (packet[0] < packetsNb) (*packets[packet[0]].handler)();
+    packetData = packet;
+    packetReaderIndex = 1;
+    if (packet[0] < packetCount) (*packets[packet[0]].handler)();
     MemFree(packet);
 }
 
 //Executed on the main thread
-void Network_ReadQueue(void) {
+void Network_ProcessIncomingPackets(void) {
     const int maxPacketsPerFrame = 1024;
     const double terrainPacketBudgetSeconds = 0.002;
     unsigned char *gameplayPackets[maxPacketsPerFrame];
@@ -90,7 +90,7 @@ void Network_ReadQueue(void) {
     int gameplayPacketCount = 0;
     int terrainPacketCount = 0;
 
-    pthread_mutex_lock(&queue_mutex);
+    pthread_mutex_lock(&networkQueueMutex);
     gameplayPacketCount = arrlen(queuedData);
     if (gameplayPacketCount > maxPacketsPerFrame) gameplayPacketCount = maxPacketsPerFrame;
     for (int i = 0; i < gameplayPacketCount; i++) gameplayPackets[i] = queuedData[i];
@@ -100,7 +100,7 @@ void Network_ReadQueue(void) {
     if (terrainPacketCount > maxPacketsPerFrame) terrainPacketCount = maxPacketsPerFrame;
     for (int i = 0; i < terrainPacketCount; i++) terrainPackets[i] = terrainQueuedData[i];
     if (terrainPacketCount > 0) arrdeln(terrainQueuedData, 0, terrainPacketCount);
-    pthread_mutex_unlock(&queue_mutex);
+    pthread_mutex_unlock(&networkQueueMutex);
 
     for (int i = 0; i < gameplayPacketCount; i++) {
         Network_ExecutePacket(gameplayPackets[i]);
@@ -115,12 +115,12 @@ void Network_ReadQueue(void) {
 
     int remainingCount = terrainPacketCount - terrainProcessedCount;
     if (remainingCount > 0) {
-        pthread_mutex_lock(&queue_mutex);
+        pthread_mutex_lock(&networkQueueMutex);
         arrinsn(terrainQueuedData, 0, remainingCount);
         for (int i = 0; i < remainingCount; i++) {
             terrainQueuedData[i] = terrainPackets[terrainProcessedCount + i];
         }
-        pthread_mutex_unlock(&queue_mutex);
+        pthread_mutex_unlock(&networkQueueMutex);
     }
 }
 
@@ -131,33 +131,33 @@ void Network_Receive(unsigned char *data, int dataLength) {
     unsigned char* nextData = MemAlloc(dataLength);
     memcpy(nextData, data, dataLength);
 
-    pthread_mutex_lock(&queue_mutex);
+    pthread_mutex_lock(&networkQueueMutex);
     unsigned char opcode = nextData[0];
     bool modifiesTerrain = opcode == 1 || opcode == 2 || opcode == 7 || opcode == 8;
     if (modifiesTerrain) arrput(terrainQueuedData, nextData);
     else arrput(queuedData, nextData);
-    pthread_mutex_unlock(&queue_mutex);
+    pthread_mutex_unlock(&networkQueueMutex);
     
 }
 
 void Network_Send(unsigned char *packet) {
      if (packet == NULL) return;
 
-    if (Network_connectedToServer) {
+    if (networkConnectedToServer) {
         int packetLength = Packet_GetLength(packet[0]);
-        Network_Internal_Client_Send(packet, packetLength);
+        networkClientSend(packet, packetLength);
     }
 
     MemFree(packet);
 }
 
 void Network_ClearQueue(void) {
-    pthread_mutex_lock(&queue_mutex);
+    pthread_mutex_lock(&networkQueueMutex);
     for (int i = 0; i < arrlen(queuedData); i++) MemFree(queuedData[i]);
     arrfree(queuedData);
     queuedData = NULL;
     for (int i = 0; i < arrlen(terrainQueuedData); i++) MemFree(terrainQueuedData[i]);
     arrfree(terrainQueuedData);
     terrainQueuedData = NULL;
-    pthread_mutex_unlock(&queue_mutex);
+    pthread_mutex_unlock(&networkQueueMutex);
 }

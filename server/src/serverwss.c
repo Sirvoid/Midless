@@ -23,28 +23,28 @@
 #include "networkhandler.h"
 #include "player.h"
 
-struct mg_mgr event_manager;
+struct mg_mgr eventManager;
 
-static void ServerWSS_OnOpen(struct mg_connection *client) {
+static void ServerWss_OnOpen(struct mg_connection *client) {
     void *player = ServerPlayer_Create(client, true);
     client->fn_data = player;
     ServerNetwork_Connect(player);
 }
 
 
-static void ServerWSS_OnClose(struct mg_connection *client) {
+static void ServerWss_OnClose(struct mg_connection *client) {
     void *player = client->fn_data;
     if(player == NULL) return;
     ServerNetwork_Disconnect(player);
 }
 
-static void ServerWSS_OnMessage(struct mg_connection *client, const unsigned char *data, size_t size) {
+static void ServerWss_OnMessage(struct mg_connection *client, const unsigned char *data, size_t size) {
     void *player = client->fn_data;
     if(player == NULL) return;
     ServerNetwork_Receive(player, (unsigned char *)data, size);
 }
 
-static void ServerWSS_EventHandler(struct mg_connection *client, int ev, void *ev_data, void *fn_data) {
+static void ServerWss_EventHandler(struct mg_connection *client, int ev, void *ev_data, void *fn_data) {
     if (ev == MG_EV_ACCEPT) {
         struct mg_tls_opts opts = {
             .cert = "cert.pem",    // Certificate file
@@ -56,37 +56,37 @@ static void ServerWSS_EventHandler(struct mg_connection *client, int ev, void *e
         mg_ws_upgrade(client, hm, NULL);
     } else if (ev == MG_EV_WS_MSG) {
         struct mg_ws_message *wm = (struct mg_ws_message *) ev_data;
-        ServerWSS_OnMessage(client, (const unsigned char*)wm->data.ptr, wm->data.len);
+        ServerWss_OnMessage(client, (const unsigned char*)wm->data.ptr, wm->data.len);
     } else if (ev == MG_EV_WS_OPEN) {
-        ServerWSS_OnOpen(client);
+        ServerWss_OnOpen(client);
     } else if (ev == MG_EV_CLOSE) {
-        ServerWSS_OnClose(client);
+        ServerWss_OnClose(client);
     }
 
 }
 
-static int ServerWSS_GetConnectionsLength(void) {
+static int ServerWss_GetConnectionsLength(void) {
     int length = 0;
-    for (struct mg_connection *c =  event_manager.conns; c != NULL; c = c->next) {
+    for (struct mg_connection *c =  eventManager.conns; c != NULL; c = c->next) {
         length++;
     }
     return length - 1;
 }
 
-void ServerWSS_Init(void) {
-    const char *s_listen_on = "ws://0.0.0.0:8088";
-    mg_mgr_init(&event_manager);
-    mg_http_listen(&event_manager, s_listen_on, ServerWSS_EventHandler, NULL);
+void ServerWss_Init(void) {
+    const char *listenAddress = "ws://0.0.0.0:8088";
+    mg_mgr_init(&eventManager);
+    mg_http_listen(&eventManager, listenAddress, ServerWss_EventHandler, NULL);
 }
 
-void ServerWSS_Poll(void) {
-    int amountWSS =  ServerWSS_GetConnectionsLength();
-    for(int i = 0; i <= 128 * amountWSS; i++) {
-        mg_mgr_poll(&event_manager, 0);
+void ServerWss_Poll(void) {
+    int connectionCount =  ServerWss_GetConnectionsLength();
+    for(int i = 0; i <= 128 * connectionCount; i++) {
+        mg_mgr_poll(&eventManager, 0);
     }
 }
 
-void ServerWSS_Send(void *peer, unsigned char* packet, int length) {
+void ServerWss_Send(void *peer, unsigned char* packet, int length) {
     struct mg_connection *connection = (struct mg_connection*)peer;
     mg_ws_send(connection, packet, length, WEBSOCKET_OP_BINARY);
 }
