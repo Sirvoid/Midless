@@ -18,6 +18,7 @@ int Packet_GetLength(unsigned char opcode);
 unsigned char Packet_ReadByte(void);
 char Packet_ReadSByte(void);
 unsigned short Packet_ReadUShort(void);
+int Packet_ReadInt(void);
 char* Packet_ReadString(void);
 unsigned char* Packet_ReadArray(int size);
 
@@ -36,6 +37,8 @@ void Packet_H_SpawnEntity(void);
 void Packet_H_TeleportEntity(void);
 void Packet_H_DespawnEntity(void);
 void Packet_H_Message(void);
+void Packet_H_BlockBatch(void);
+void Packet_H_WorldTime(void);
 
 unsigned char* Packet_CreateIdentification(unsigned short version, char* name);
 unsigned char* Packet_CreateSetBlock(unsigned char blockID, Vector3 position);

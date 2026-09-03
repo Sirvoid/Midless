@@ -11,39 +11,45 @@
 #include "player.h"
 #include "entity.h"
 
-extern unsigned char *Packet_data;
-extern Player *Packet_player;
-extern int Packet_LastDynamicLength;
-extern int PacketReader_index;
+typedef struct ServerBlockUpdate {
+    Vector3 position;
+    unsigned char blockID;
+} ServerBlockUpdate;
 
-int Packet_GetLength(unsigned char opcode);
+extern unsigned char *serverPacketData;
+extern Player *serverPacketPlayer;
+extern int serverPacketLastDynamicLength;
+extern int serverPacketReaderIndex;
 
-unsigned char Packet_ReadByte(void);
-unsigned short Packet_ReadUShort(void);
-char* Packet_ReadString(void);
-unsigned char* Packet_ReadArray(int size);
+int ServerPacket_GetLength(unsigned char opcode);
 
-void Packet_WriteString(unsigned char* packet, const char* string);
-void Packet_WriteByte(unsigned char* packet, unsigned char value);
-void Packet_WriteShort(unsigned char* packet, short value);
-void Packet_WriteUShort(unsigned char* packet, unsigned short value);
-void Packet_WriteInt(unsigned char* packet, int value);
-void Packet_WriteArray(unsigned char* packet, unsigned char* array, int size);
+unsigned char ServerPacket_ReadByte(void);
+unsigned short ServerPacket_ReadUShort(void);
+char* ServerPacket_ReadString(void);
+unsigned char* ServerPacket_ReadArray(int size);
 
-void Packet_H_Identification(void);
-void Packet_H_SetBlock(void);
-void Packet_H_PlayerPosition(void);
-void Packet_H_Message(void);
-void Packet_H_SetDrawDistance(void);
+void ServerPacket_WriteString(unsigned char* packet, const char* string);
+void ServerPacket_WriteByte(unsigned char* packet, unsigned char value);
+void ServerPacket_WriteShort(unsigned char* packet, short value);
+void ServerPacket_WriteUShort(unsigned char* packet, unsigned short value);
+void ServerPacket_WriteInt(unsigned char* packet, int value);
+void ServerPacket_WriteArray(unsigned char* packet, unsigned char* array, int size);
 
-//Packet_Create* functions return caller-owned CPU memory.
-unsigned char* Packet_CreateMapInit(void);
-unsigned char* Packet_CreateLoadChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition);
-unsigned char* Packet_CreateUnloadChunk(Vector3 chunkPosition);
-unsigned char* Packet_CreateSetBlock(unsigned char blockID, Vector3 position);
-unsigned char* Packet_CreateSpawnEntity(Entity *entity);
-unsigned char* Packet_CreateDespawnEntity(Entity *entity);
-unsigned char* Packet_CreateTeleportEntity(Entity *entity, Vector3 position, Vector3 rotation);
-unsigned char* Packet_CreateMessage(const char* message);
+void ServerPacket_H_Identification(void);
+void ServerPacket_H_SetBlock(void);
+void ServerPacket_H_PlayerPosition(void);
+void ServerPacket_H_Message(void);
+void ServerPacket_H_SetDrawDistance(void);
+
+unsigned char* ServerPacket_CreateMapInit(void);
+unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition);
+unsigned char* ServerPacket_CreateUnloadChunk(Vector3 chunkPosition);
+unsigned char* ServerPacket_CreateSetBlock(unsigned char blockID, Vector3 position);
+unsigned char* ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, unsigned short count);
+unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity);
+unsigned char* ServerPacket_CreateDespawnEntity(Entity *entity);
+unsigned char* ServerPacket_CreateTeleportEntity(Entity *entity, Vector3 position, Vector3 rotation);
+unsigned char* ServerPacket_CreateMessage(const char* message);
+unsigned char* ServerPacket_CreateWorldTime(float timeSeconds);
 
 #endif

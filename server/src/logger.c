@@ -9,6 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void Logger_Log(const char* message) {
+void ServerLogger_Log(const char* message) {
     printf(message);
 }

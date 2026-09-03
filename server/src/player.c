@@ -12,11 +12,11 @@
 #include "raymath.h"
 #include "player.h"
 #include "world.h"
-#include "chunk.h"
+#include "chunk/chunk.h"
 #include "networkhandler.h"
 #include "packet.h"
 
-Player *Player_Create(void *peerPtr, bool isWeb) {
+Player *ServerPlayer_Create(void *peerPtr, bool isWeb) {
     Player *player = MemAlloc(sizeof(*player));
     if (player == NULL) return NULL;
 
@@ -27,44 +27,65 @@ Player *Player_Create(void *peerPtr, bool isWeb) {
     return player;
 }
 
-void Player_Destroy(Player *player) {
+void ServerPlayer_Destroy(Player *player) {
     if (player == NULL) return;
     MemFree(player->name);
     MemFree(player);
 }
 
-void Player_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation) {
-    World_TeleportEntity(player->id, position, rotation);
+void ServerPlayer_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation) {
+    ServerWorld_TeleportEntity(player->id, position, rotation);
 }
 
-void Player_LoadChunks(Player* player) {
+void ServerPlayer_LoadChunks(Player* player) {
 
-    Entity entity = world.entities[player->id];
+    Entity entity = serverWorld.entities[player->id];
+    double loadDeadline = GetTime() + 0.008;
 
     Vector3 playerChunkPos = (Vector3) {(int)floor(entity.position.x / CHUNK_SIZE_X), (int)floor(entity.position.y / CHUNK_SIZE_Y), (int)floor(entity.position.z / CHUNK_SIZE_Z)};
 
     int loadingHeight = fmin(player->drawDistance, 4);
-    for (int y = loadingHeight; y >= -loadingHeight; y--) {
-        for (int x = -player->drawDistance; x <= player->drawDistance; x++) {
-            for (int z = -player->drawDistance; z <= player->drawDistance; z++) {
-                Vector3 chunkPos = (Vector3) {playerChunkPos.x + x, playerChunkPos.y + y, playerChunkPos.z + z};
-                
-                if (Vector3Distance(chunkPos, playerChunkPos) < player->drawDistance + 3) {
-                    Chunk* chunk = World_RequestChunk(chunkPos);
-                    if (!Chunk_PlayerInChunk(chunk, player)) {
-                        Chunk_AddPlayer(chunk, player);
+    while (true) {
+        bool foundChunk = false;
+        float closestDistanceSquared = INFINITY;
+        Vector3 closestPosition = {0};
 
-                        int compressedLength = 0;
-                        unsigned short *compressedChunk = Chunk_CreateCompressedData(chunk, CHUNK_SIZE, &compressedLength);
+        for (int y = -loadingHeight; y <= loadingHeight; y++) {
+            for (int x = -player->drawDistance; x <= player->drawDistance; x++) {
+                for (int z = -player->drawDistance; z <= player->drawDistance; z++) {
+                    float distanceSquared = (float)(x*x + y*y + z*z);
+                    float loadingRadius = player->drawDistance + 3;
+                    if (distanceSquared >= loadingRadius * loadingRadius ||
+                        distanceSquared >= closestDistanceSquared) continue;
 
-                        Network_Send(player, Packet_CreateLoadChunk(compressedChunk, compressedLength, chunkPos));
+                    Vector3 chunkPos = {
+                        playerChunkPos.x + x,
+                        playerChunkPos.y + y,
+                        playerChunkPos.z + z
+                    };
+                    Chunk *chunk = ServerWorld_GetChunkAt(chunkPos);
+                    if (chunk != NULL && ServerChunk_PlayerInChunk(chunk, player)) continue;
 
-                        MemFree(compressedChunk);
-                    }
+                    foundChunk = true;
+                    closestDistanceSquared = distanceSquared;
+                    closestPosition = chunkPos;
                 }
             }
         }
+
+        if (!foundChunk) return;
+
+        Chunk *chunk = ServerWorld_RequestChunk(closestPosition);
+        if (chunk == NULL) return;
+        ServerChunk_AddPlayer(chunk, player);
+
+        int compressedLength = 0;
+        unsigned short *compressedChunk = ServerChunk_CreateCompressedData(chunk, &compressedLength);
+        ServerNetwork_Send(player, ServerPacket_CreateLoadChunk(
+            compressedChunk, compressedLength, closestPosition));
+        MemFree(compressedChunk);
+
+        if (GetTime() >= loadDeadline) return;
     }
-    
 }
 

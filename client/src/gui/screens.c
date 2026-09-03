@@ -20,7 +20,6 @@
 #include "packet.h"
 #include "client.h"
 #include "clientws.h"
-#include "worldgenerator.h"
 
 Screen Screen_Current = SCREEN_LOGIN;
 bool Screen_cursorEnabled = false;

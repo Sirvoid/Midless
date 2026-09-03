@@ -9,10 +9,10 @@
 #include <stdlib.h>
 #include "raylib.h"
 #include "luaengine.h"
-#include "networkhandler.h"
-#include "packet.h"
-#include "world.h"
-#include "utils.h"
+#include "../networkhandler.h"
+#include "../packet.h"
+#include "../world.h"
+#include "../utils.h"
 #include "stb_ds.h"
 
 typedef struct LMethod {
@@ -59,7 +59,7 @@ static int LD_SetBlock(void) {
     int y = Lua_GetInt(2);
     int z = Lua_GetInt(3);
     int blockID = Lua_GetInt(4);
-    World_SetBlock((Vector3) {x, y, z}, blockID, true);
+    ServerWorld_SetBlock((Vector3) {x, y, z}, blockID, true);
     return 0;
 }
 
@@ -68,7 +68,7 @@ static int LD_GetBlock(void) {
     int y = Lua_GetInt(2);
     int z = Lua_GetInt(3);
 
-    int blockID = World_GetBlock((Vector3){x, y, z});
+    int blockID = ServerWorld_GetBlock((Vector3){x, y, z});
     Lua_PushInt(blockID);
     return 1;
 }
@@ -100,7 +100,7 @@ void LD_OnChatMessageCall(const char *name, const char *message) {
 
 int LD_BroadcastMessage(void) {
     const char *message = Lua_GetString(1);
-    World_SendMessage(message);
+    ServerWorld_SendMessage(message);
     return 0;
 }
 
@@ -117,5 +117,12 @@ void LuaDefinition_Init(void) {
     Lua_DefineLib("world", worldLib);
 
     Lua_DefineGlobalFunc("sleep", LD_Sleep);
+}
+
+void LuaDefinition_Shutdown(void) {
+    arrfree(LD_OnBlockUpdates);
+    LD_OnBlockUpdates = NULL;
+    arrfree(LD_OnChatMessages);
+    LD_OnChatMessages = NULL;
 }
 

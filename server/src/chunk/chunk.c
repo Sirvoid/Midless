@@ -13,158 +13,117 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "chunk.h"
-#include "worldgenerator.h"
+#include "../worldgenerator.h"
 
-static void Chunk_Init(Chunk *chunk, Vector3 pos) {
+static void ServerChunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->position = pos;
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
     chunk->fromFile = false;
     chunk->modified = false;
     chunk->players = NULL;
+    memset(chunk->data, 0, sizeof(chunk->data));
 
-    if (Chunk_LoadFile(chunk)) {
+    if (ServerChunk_LoadFile(chunk)) {
         chunk->fromFile = true;
-    } else {
-        Chunk_Generate(chunk);
     }
 
 }
 
-Chunk *Chunk_Create(Vector3 pos) {
+Chunk *ServerChunk_Create(Vector3 pos) {
     Chunk *chunk = MemAlloc(sizeof(*chunk));
     if (chunk == NULL) return NULL;
 
-    Chunk_Init(chunk, pos);
+    ServerChunk_Init(chunk, pos);
     return chunk;
 }
 
-void Chunk_Destroy(Chunk *chunk) {
+void ServerChunk_Destroy(Chunk *chunk) {
     if (chunk == NULL) return;
 
     arrfree(chunk->players);
     MemFree(chunk);
 }
 
-void Chunk_SaveFile(Chunk *chunk) {
+void ServerChunk_SaveFile(Chunk *chunk) {
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     int newLength;
-    unsigned short* compressed = Chunk_CreateCompressedData(chunk, CHUNK_SIZE, &newLength);
+    unsigned short* compressed = ServerChunk_CreateCompressedData(chunk, &newLength);
     SaveFileData(fileName, compressed, newLength * 2);
     MemFree(compressed);
 }
 
-bool Chunk_LoadFile(Chunk *chunk) {
+bool ServerChunk_LoadFile(Chunk *chunk) {
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     if (FileExists(fileName)) {
         unsigned int length = 0;
         unsigned char *saveFile = LoadFileData(fileName, &length);
-        Chunk_Decompress(chunk, (unsigned short*)saveFile, length / 2);
+        ServerChunk_Decompress(chunk, (unsigned short*)saveFile, length / 2);
         UnloadFileData(saveFile);
         return true;
     }
     return false;
 }
 
-void Chunk_Generate(Chunk *chunk) {
+void ServerChunk_Generate(Chunk *chunk) {
     if (!chunk->fromFile) {
-        //Map Generation
-        for (int i = CHUNK_SIZE - 1; i >= 0; i--) {
-            Vector3 npos = Vector3Add(Chunk_IndexToPos(i), chunk->blockPosition);
-            chunk->data[i] = WorldGenerator_Generate(chunk, npos, i);
-        }
+        float *heightMap = ServerWorldGenerator_Generate(chunk);
+        ServerWorldGenerator_GenerateStructures(chunk, heightMap);
     }
 }
 
-void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength) {
-    int newLength = 0;
-
-    for (int i = 0; i < currentLength; i+=2) {
-        for (int j = 0; j < compressed[i + 1]; j++) {
-            chunk->data[newLength] = compressed[i];
-            newLength += 1;
-        } 
-    }
-    
+void ServerChunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength) {
+    ChunkData_Decompress(chunk->data, compressed, currentLength);
 }
 
-unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int currentLength, int *newLength) {
-    
-    //BlockID:UShort, Amount:UShort, ...
-    
-    unsigned short *compressed = MemAlloc(currentLength * 2 * 2);
-    
-    int oldID = chunk->data[0];
-    int bCount = 1;
-    int len = 0;
-    for (int i = 1; i <= currentLength; i++) {
-        
-        int curID = 0;
-        if (i != currentLength) curID = chunk->data[i];
-        
-        if (oldID != curID || bCount >= USHRT_MAX || i == currentLength) {
-            compressed[len++] = (unsigned short)oldID;
-            compressed[len++] = (unsigned short)bCount;
-
-            bCount = 0;
-            oldID = curID;
-        }
-        
-        bCount++;
-        
-    }
-    
-    *newLength = len;
-    
-    compressed = MemRealloc(compressed, *newLength * 2);
-    return compressed;
+unsigned short* ServerChunk_CreateCompressedData(Chunk *chunk, int *newLength) {
+    return ChunkData_CreateCompressed(chunk->data, newLength);
 }
 
-bool Chunk_PlayerInChunk(Chunk* chunk, Player* player) {
+bool ServerChunk_PlayerInChunk(Chunk* chunk, Player* player) {
     for (int i = 0; i < arrlen(chunk->players); i++) {
         if (chunk->players[i] == player) return true;
     }
     return false;
 }
 
-void Chunk_AddPlayer(Chunk* chunk, Player* player) {
+void ServerChunk_AddPlayer(Chunk* chunk, Player* player) {
     arrput(chunk->players, player);
 }
 
-void Chunk_RemovePlayer(Chunk* chunk, int index) {
+void ServerChunk_RemovePlayer(Chunk* chunk, int index) {
     arrdel(chunk->players, index);
 }
 
-void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
-    if (Chunk_IsValidPos(pos)) {
-        int index = Chunk_PosToIndex(pos);
+void ServerChunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID) {
+    if (ServerChunk_IsValidPos(pos)) {
+        int index = ServerChunk_PosToIndex(pos);
 
         chunk->data[index] = blockID;
         chunk->modified = true;
     }
 }
 
-int Chunk_GetBlock(Chunk *chunk, Vector3 pos) {
-    if (Chunk_IsValidPos(pos)) {
-        return chunk->data[Chunk_PosToIndex(pos)];
+int ServerChunk_GetBlock(Chunk *chunk, Vector3 pos) {
+    if (ServerChunk_IsValidPos(pos)) {
+        return chunk->data[ServerChunk_PosToIndex(pos)];
     }
     return 0;
 }
 
-bool Chunk_IsValidPos(Vector3 pos) {
-    return pos.x >= 0 && pos.x < CHUNK_SIZE_X && pos.y >= 0 && pos.y < CHUNK_SIZE_Y && pos.z >= 0 && pos.z < CHUNK_SIZE_Z;
+bool ServerChunk_IsValidPos(Vector3 pos) {
+    return ChunkData_IsValidPosition((int)pos.x, (int)pos.y, (int)pos.z);
 }
 
-Vector3 Chunk_IndexToPos(int index) {
-    int x = (index % CHUNK_SIZE_X);
-	int y = (index / CHUNK_SIZE_XZ);
-	int z = (index / CHUNK_SIZE_X) % CHUNK_SIZE_Z;
+Vector3 ServerChunk_IndexToPos(int index) {
+    int x, y, z;
+    ChunkData_IndexToPosition(index, &x, &y, &z);
     return (Vector3){x, y, z};
 }
 
-int Chunk_PosToIndex(Vector3 pos) {
-    return ((int)pos.y * CHUNK_SIZE_Z + (int)pos.z) * CHUNK_SIZE_X + (int)pos.x;
+int ServerChunk_PosToIndex(Vector3 pos) {
+    return ChunkData_PositionToIndex((int)pos.x, (int)pos.y, (int)pos.z);
 }
 
-long int Chunk_GetPackedPos(Vector3 pos) {
-    return (long)((int)(pos.x)&4095)<<20 | (long)((int)(pos.z)&4095)<<8 | (long)((int)(pos.y)&255);
+long int ServerChunk_GetPackedPos(Vector3 pos) {
+    return ChunkData_PackPosition((int)pos.x, (int)pos.y, (int)pos.z);
 }

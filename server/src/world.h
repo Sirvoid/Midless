@@ -14,42 +14,47 @@
 #include "raylib.h"
 #include "player.h"
 #include "entity.h"
-#include "chunk.h"
+#include "chunk/chunk.h"
+#include "worldtime.h"
 
 typedef struct World{
     Player** players;
     Entity* entities;
     struct { long int key; Chunk* value; } *chunks;
+    struct PendingWorldBlock *pendingBlocks;
+    struct GeneratedBlockUpdate *generatedBlockUpdates;
     int maxDrawDistance;
+    float time;
 } World;
 
-extern World world;
+extern World serverWorld;
 
-void World_Init(void);
-void World_Shutdown(void);
-void World_Update(void);
+void ServerWorld_Init(void);
+void ServerWorld_Shutdown(void);
+void ServerWorld_Update(void);
 
-void World_RemovePlayerFromChunks(Player *playerToRemove);
+void ServerWorld_RemovePlayerFromChunks(Player *playerToRemove);
 
-Chunk* World_AddChunk(Vector3 position);
-void World_RemoveChunk(Chunk *curChunk);
-Chunk* World_GetChunkAt(Vector3 position);
-Chunk* World_RequestChunk(Vector3 position);
+Chunk* ServerWorld_AddChunk(Vector3 position);
+void ServerWorld_RemoveChunk(Chunk *curChunk);
+Chunk* ServerWorld_GetChunkAt(Vector3 position);
+Chunk* ServerWorld_RequestChunk(Vector3 position);
 
-void World_AddPlayer(void *player);
-void World_RemovePlayer(void *player);
+void ServerWorld_AddPlayer(void *player);
+void ServerWorld_RemovePlayer(void *player);
 
-void World_TeleportEntity(int ID, Vector3 position, Vector3 rotation);
-void World_AddEntity(int ID, int type, Vector3 position);
-void World_RemoveEntity(int ID);
+void ServerWorld_TeleportEntity(int ID, Vector3 position, Vector3 rotation);
+void ServerWorld_AddEntity(int ID, int type, Vector3 position);
+void ServerWorld_RemoveEntity(int ID);
 
-void World_Send(void *playerPtr);
-void World_SendMessage(const char* message);
+void ServerWorld_Send(void *playerPtr);
+void ServerWorld_SendMessage(const char* message);
 //Broadcast and take ownership.
-void World_Broadcast(unsigned char* packet);
-void World_BroadcastExcluding(unsigned char* packet, int excludedPlayerID);
+void ServerWorld_Broadcast(unsigned char* packet);
+void ServerWorld_BroadcastExcluding(unsigned char* packet, int excludedPlayerID);
 
-int World_GetBlock(Vector3 blockPos);
-void World_SetBlock(Vector3 blockPos, int blockID, bool broadcast);
+int ServerWorld_GetBlock(Vector3 blockPos);
+void ServerWorld_SetBlockFast(Vector3 blockPos, int blockID);
+void ServerWorld_SetBlock(Vector3 blockPos, int blockID, bool broadcast);
 
 #endif

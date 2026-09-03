@@ -23,6 +23,7 @@
 #include "block.h"
 #include "networkhandler.h"
 #include "chat.h"
+#include "localserver.h"
 
 
 void GameLoop(void);
@@ -91,6 +92,7 @@ int main(void) {
         
         Network_threadState = -1;
 
+        LocalServer_Stop();
         UnloadShader(shader);
         UnloadTexture(texture);
         World_Shutdown();

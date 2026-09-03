@@ -32,14 +32,14 @@ int main(void) {
 
     SetTraceLogLevel(LOG_WARNING);
 
-    Logger_Log("Started Server.");
+    ServerLogger_Log("Started Server.");
 
     Lua_Init();
     LuaDefinition_Init();
     Lua_Run();
 
-    World_Init();
-    Network_Init();
+    ServerWorld_Init();
+    ServerNetwork_Init();
 
     int serverThread_state = 0;
     pthread_t serverThread_id;
@@ -60,19 +60,19 @@ int main(void) {
         ServerWSS_Poll();
         #endif
 
-        Network_ReadIncomingPackets();
+        ServerNetwork_ReadIncomingPackets();
 
-        World_Update();
+        ServerWorld_Update();
 
         #if !defined(SERVER_HEADLESS)
         BeginDrawing();
             ClearBackground(BLACK);
             DrawText("Server Running", 16, 16, 20, WHITE);
-            DrawText(TextFormat("Chunks: %i", hmlen(world.chunks)), 200, 48, 12, WHITE);
+            DrawText(TextFormat("Chunks: %i", hmlen(serverWorld.chunks)), 200, 48, 12, WHITE);
             DrawText("Players:", 16, 48, 12, WHITE);
             for (int i = 0; i < 256; i++) {
-                if (world.players[i]) {
-                    DrawText(TextFormat("%s (ping: %2i ms)", world.players[i]->name, 0), 16, 64 + (i * 16), 12, WHITE);
+                if (serverWorld.players[i]) {
+                    DrawText(TextFormat("%s (ping: %2i ms)", serverWorld.players[i]->name, 0), 16, 64 + (i * 16), 12, WHITE);
                 }
             }
         EndDrawing();
@@ -80,9 +80,12 @@ int main(void) {
     }
 
     serverThread_state = -1;
+    pthread_join(serverThread_id, NULL);
 
-    World_Shutdown();
+    ServerNetwork_Shutdown();
+    ServerWorld_Shutdown();
 
+    LuaDefinition_Shutdown();
     Lua_Stop();
 
     #if !defined(SERVER_HEADLESS)

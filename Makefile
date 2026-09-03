@@ -16,6 +16,11 @@ OPENSSL_LIB_PATH = C:/curl/lib
 # Compiler
 CC := gcc
 
+rwildcard = $(foreach entry,$(wildcard $1*),$(call rwildcard,$(entry)/,$2) $(filter $(subst *,%,$2),$(entry)))
+SERVER_ALL_SRC := $(call rwildcard,./server/src/,*.c)
+SERVER_DEDICATED_SRC := ./server/src/main.c ./server/src/server.c ./server/src/serverwss.c
+SERVER_CORE_SRC := $(filter-out $(SERVER_DEDICATED_SRC),$(SERVER_ALL_SRC))
+
 ifndef PLATFORM
 	PLATFORM = PLATFORM_DESKTOP
 endif
@@ -30,7 +35,9 @@ else
 	    PLATFORM_OS = LINUX
 	endif
 endif
-CDIRECTIVES += -DOS_$(PLATFORM_OS)
+ifneq ($(PLATFORM),PLATFORM_WEB)
+	CDIRECTIVES += -DOS_$(PLATFORM_OS)
+endif
 
 ifeq ($(BUILD_SERVER), TRUE)
 	PROJECT := server$(EXT)
@@ -68,21 +75,37 @@ else
 	DIR_SRC += ./client/src/gui
 	DIR_SRC += ./client/src/networking
 
+	EMBEDDED_SERVER_SRC := $(SERVER_CORE_SRC)
+
 endif
 
 DIR_SRC += ./libs/
+DIR_SRC += ./shared
 
 DIR_INC = $(addprefix -I, $(DIR_SRC))
 
 SRC_C += $(wildcard $(addsuffix /*.c, $(DIR_SRC)))
-OBJS := $(patsubst %.c, %.o, $(SRC_C))
+SRC_C += $(EMBEDDED_SERVER_SRC)
+ifeq ($(BUILD_SERVER),TRUE)
+	SRC_C += $(SERVER_ALL_SRC)
+endif
+SRC_C := $(sort $(SRC_C))
+
+ifneq ($(BUILD_SERVER),TRUE)
+	SRC_C := $(filter-out ./libs/mongoose.c ./libs//mongoose.c,$(SRC_C))
+endif
+
+BUILD_FLAVOR := $(if $(filter TRUE,$(BUILD_SERVER)),server,client)-$(PLATFORM)-$(if $(filter TRUE,$(DEBUG)),debug,release)
+BUILD_FLAVOR := $(BUILD_FLAVOR)-websocket$(if $(filter TRUE,$(SERVER_WEB_SUPPORT)),1,0)-headless$(if $(filter TRUE,$(SERVER_HEADLESS)),1,0)
+OBJ_DIR ?= build/obj/$(BUILD_FLAVOR)
+OBJS := $(patsubst ./%.c,$(OBJ_DIR)/%.o,$(SRC_C))
 
 CFLAGS = -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces
 ifeq ($(DEBUG), TRUE)
 	CFLAGS += -g -Og
 else
 	ifeq ($(PLATFORM),PLATFORM_WEB)
-        	CFLAGS += -Os
+		CFLAGS += -Os
 	else ifeq ($(PLATFORM_OS), WINDOWS)
 		CFLAGS += -s -Os -Wl,--subsystem,windows
 	else ifeq ($(PLATFORM_OS), LINUX)
@@ -90,7 +113,11 @@ else
 	endif
 endif
 
-INCLUDE_PATHS = $(DIR_INC) -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external -I$(RAYLIB_PATH)/src/extras -I./libs
+ifeq ($(PLATFORM),PLATFORM_WEB)
+	CFLAGS += -pthread
+endif
+
+INCLUDE_PATHS = $(DIR_INC) -I./server/src -I./server/src/chunk -I./server/src/scripting -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external -I$(RAYLIB_PATH)/src/extras -I./libs
 LDFLAGS = -L. -L$(RAYLIB_PATH)/src -L./libs
 
 ifeq ($(SERVER_WEB_SUPPORT), TRUE)
@@ -105,7 +132,9 @@ ifeq ($(PLATFORM),PLATFORM_WEB)
     endif
 	LDFLAGS += --shell-file $(BUILD_WEB_SHELL)
 	LDLIBS = $(BUILD_WEB_RAYLIB_LIB) -pthread -sPTHREAD_POOL_SIZE=5 -sFORCE_FILESYSTEM -sALLOW_MEMORY_GROWTH -lwebsocket.js -sWEBSOCKET_SUBPROTOCOL:'binary'
+	BUILD_DEPENDENCIES += $(BUILD_WEB_RAYLIB_LIB)
 else
+	BUILD_DEPENDENCIES += $(RAYLIB_PATH)/src/libraylib.a
 	ifeq ($(PLATFORM_OS),LINUX)
 		LDLIBS = -lraylib -lGL -lm -lpthread -ldl -lrt -lX11
 		
@@ -124,13 +153,24 @@ else
 	
 endif
 
-all: $(PROJECT)
+all: $(BUILD_DIR)
 
-$(PROJECT): $(OBJS)
+$(BUILD_DIR): $(OBJS) $(BUILD_DEPENDENCIES)
 	$(CC) $(OBJS) -o $(BUILD_DIR) $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LDLIBS) $(CDIRECTIVES)
 
-%.o: %.c
+ifeq ($(PLATFORM_OS),WINDOWS)
+$(OBJ_DIR)/%.o: %.c
+	@if not exist "$(@D)" mkdir "$(@D)"
 	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDE_PATHS) $(CDIRECTIVES)
+else
+$(OBJ_DIR)/%.o: %.c
+	@mkdir -p "$(@D)"
+	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDE_PATHS) $(CDIRECTIVES)
+endif
+
+ifneq ($(BUILD_SERVER),TRUE)
+$(OBJ_DIR)/server/src/world.o: CDIRECTIVES += -DISLEFORGE_STB_DS_EXTERNAL
+endif
 
 clean:
     ifeq ($(PLATFORM_OS),WINDOWS)

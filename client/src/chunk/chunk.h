@@ -10,13 +10,9 @@
 
 #include "raylib.h"
 #include "chunkmesh.h"
+#include "chunkdata.h"
 
-#define CHUNK_SIZE_X 16
-#define CHUNK_SIZE_Y 16
-#define CHUNK_SIZE_Z 16
-#define CHUNK_SIZE_XZ (CHUNK_SIZE_X * CHUNK_SIZE_Z)
 #define CHUNK_SIZE_VEC3 CLITERAL(Vector3){ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }
-#define CHUNK_SIZE (CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z)
 
 typedef struct Chunk{
     ChunkMesh mesh;
@@ -70,7 +66,7 @@ bool Chunk_LoadFile(Chunk *chunk);
 //Decompress chunk
 void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength);
 //Create compressed chunk data.
-unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int currentLength, int *newLength);
+unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int *newLength);
 //Get a neighbour from a direction
 Chunk* Chunk_GetNeighbour(Chunk* chunk, Vector3 dir);
 //Update a chunk's neighbour list.

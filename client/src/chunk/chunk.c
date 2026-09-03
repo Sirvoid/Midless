@@ -16,7 +16,6 @@
 #include "chunkmeshgeneration.h"
 #include "chunkmesh.h"
 #include "world.h"
-#include "worldgenerator.h"
 #include "networkhandler.h"
 #include "block.h"
 
@@ -59,7 +58,7 @@ void Chunk_SaveFile(Chunk *chunk) {
     
     const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     int newLength;
-    unsigned short* compressed = Chunk_CreateCompressedData(chunk, CHUNK_SIZE, &newLength);
+    unsigned short* compressed = Chunk_CreateCompressedData(chunk, &newLength);
     SaveFileData(fileName, compressed, newLength * 2);
     MemFree(compressed);
 }
@@ -79,47 +78,11 @@ bool Chunk_LoadFile(Chunk *chunk) {
 }
 
 void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength) {
-    int newLength = 0;
-
-    for (int i = 0; i < currentLength; i+=2) {
-        for (int j = 0; j < compressed[i + 1]; j++) {
-            chunk->data[newLength] = compressed[i];
-            newLength += 1;
-        } 
-    }
-    
+    ChunkData_Decompress(chunk->data, compressed, currentLength);
 }
 
-unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int currentLength, int *newLength) {
-    
-    //BlockID:UShort, Amount:UShort, ...
-    
-    unsigned short *compressed = MemAlloc(currentLength * 2 * 2);
-    
-    int oldID = chunk->data[0];
-    int bCount = 1;
-    int len = 0;
-    for (int i = 1; i <= currentLength; i++) {
-        
-        int curID = 0;
-        if (i != currentLength) curID = chunk->data[i];
-        
-        if (oldID != curID || bCount >= USHRT_MAX || i == currentLength) {
-            compressed[len++] = (unsigned short)oldID;
-            compressed[len++] = (unsigned short)bCount;
-
-            bCount = 0;
-            oldID = curID;
-        }
-        
-        bCount++;
-        
-    }
-    
-    *newLength = len;
-    
-    compressed = MemRealloc(compressed, *newLength * 2);
-    return compressed;
+unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int *newLength) {
+    return ChunkData_CreateCompressed(chunk->data, newLength);
 }
 
 void Chunk_Unload(Chunk *chunk) {
@@ -138,19 +101,6 @@ void Chunk_Destroy(Chunk *chunk) {
 
 void Chunk_Generate(Chunk *chunk) {
     if (!chunk->isMapGenerated) {
-        if (!chunk->fromFile && !Network_connectedToServer) {
-
-            float* heightMap = WorldGenerator_Generate(chunk);
-            bool generatedStructure = WorldGenerator_GenerateStructures(chunk, heightMap);
-
-            if(generatedStructure) {
-               for (int i = 0; i < 26; i++) {
-                    if (chunk->neighbours[i] == NULL) continue;
-                    World_QueueChunk(chunk->neighbours[i], false);
-                }
-            }
-        }
-
         chunk->isMapGenerated = true;
         Chunk_DoSunlight(chunk);
         Chunk_DoLightSources(chunk);
@@ -336,20 +286,19 @@ bool Chunk_AreNeighbourBuilding(Chunk* chunk) {
 }
 
 bool Chunk_IsValidPos(Vector3 pos) {
-    return pos.x >= 0 && pos.x < CHUNK_SIZE_X && pos.y >= 0 && pos.y < CHUNK_SIZE_Y && pos.z >= 0 && pos.z < CHUNK_SIZE_Z;
+    return ChunkData_IsValidPosition((int)pos.x, (int)pos.y, (int)pos.z);
 }
 
 Vector3 Chunk_IndexToPos(int index) {
-    int x = (index % CHUNK_SIZE_X);
-	int y = (index / CHUNK_SIZE_XZ);
-	int z = (index / CHUNK_SIZE_X) % CHUNK_SIZE_Z;
+    int x, y, z;
+    ChunkData_IndexToPosition(index, &x, &y, &z);
     return (Vector3){x, y, z};
 }
 
 int Chunk_PosToIndex(Vector3 pos) {
-    return ((int)pos.y * CHUNK_SIZE_Z + (int)pos.z) * CHUNK_SIZE_X + (int)pos.x;
+    return ChunkData_PositionToIndex((int)pos.x, (int)pos.y, (int)pos.z);
 }
 
 long int Chunk_GetPackedPos(Vector3 pos) {
-    return (long)((int)(pos.x)&4095)<<20 | (long)((int)(pos.z)&4095)<<8 | (long)((int)(pos.y)&255);
+    return ChunkData_PackPosition((int)pos.x, (int)pos.y, (int)pos.z);
 }

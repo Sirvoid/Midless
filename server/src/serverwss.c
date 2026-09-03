@@ -7,6 +7,13 @@
 
 #if defined(SERVER_WEB_SUPPORT)
 
+#if defined(OS_WINDOWS)
+    // Mongoose needs Winsock, but it collides with Raylib
+    #define WIN32_LEAN_AND_MEAN
+    #define NOGDI
+    #define NOUSER
+#endif
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,22 +26,22 @@
 struct mg_mgr event_manager;
 
 static void ServerWSS_OnOpen(struct mg_connection *client) {
-    void *player = Player_Create(client, true);
+    void *player = ServerPlayer_Create(client, true);
     client->fn_data = player;
-    Network_Connect(player);
+    ServerNetwork_Connect(player);
 }
 
 
 static void ServerWSS_OnClose(struct mg_connection *client) {
     void *player = client->fn_data;
     if(player == NULL) return;
-    Network_Disconnect(player);
+    ServerNetwork_Disconnect(player);
 }
 
 static void ServerWSS_OnMessage(struct mg_connection *client, const unsigned char *data, size_t size) {
     void *player = client->fn_data;
     if(player == NULL) return;
-    Network_Receive(player, (unsigned char *)data, size);
+    ServerNetwork_Receive(player, (unsigned char *)data, size);
 }
 
 static void ServerWSS_EventHandler(struct mg_connection *client, int ev, void *ev_data, void *fn_data) {

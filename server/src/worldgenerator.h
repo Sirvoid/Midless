@@ -9,9 +9,10 @@
 #define S_WORLDGEN_H
 
 #include "raylib.h"
-#include "chunk.h"
+#include "chunk/chunk.h"
 
-void WorldGenerator_Init(int worldSeed);
-int WorldGenerator_Generate(Chunk *chunk, Vector3 blockPos, int index);
+void ServerWorldGenerator_Init(int worldSeed);
+float *ServerWorldGenerator_Generate(Chunk *chunk);
+bool ServerWorldGenerator_GenerateStructures(Chunk *chunk, const float *heightMap);
 
 #endif

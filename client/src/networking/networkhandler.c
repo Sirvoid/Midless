@@ -16,6 +16,7 @@
 #include "packet.h"
 #include "screens.h"
 #include "world.h"
+#include "localserver.h"
 
 PacketDefinition packets[256];
 int Network_connectedToServer = 0;
@@ -23,6 +24,7 @@ void (*Network_Internal_Client_Send)(unsigned char*, int);
 void (*Network_Internal_Client_Disconnect)(void);
 
 unsigned char* *queuedData = NULL;
+unsigned char* *terrainQueuedData = NULL;
 int packetsNb;
 
 int Network_ping = 0;
@@ -42,6 +44,8 @@ void Network_Init(void) {
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_Message}; //5
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_DespawnEntity}; //6
     packets[packetsNb++] = (PacketDefinition) {&Packet_H_UnloadChunk}; //7
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_BlockBatch}; //8
+    packets[packetsNb++] = (PacketDefinition) {&Packet_H_WorldTime}; //9
 }
 
 void Network_Connect(void) {
@@ -51,8 +55,15 @@ void Network_Connect(void) {
 }
 
 void Network_Disconnect(void) {
+    bool wasLocal = LocalServer_IsRunning();
+    if (wasLocal) {
+        LocalServer_Stop();
+    }
     Screen_Switch(SCREEN_LOGIN);
-    World_Clear();
+    if (!wasLocal) {
+        World_Clear();
+        Network_ClearQueue();
+    }
     Network_threadState = -1; //End network thread
     Screen_cursorEnabled = false;
 
@@ -63,26 +74,53 @@ void Network_Disconnect(void) {
 
 pthread_mutex_t queue_mutex;
 
+static void Network_ExecutePacket(unsigned char *packet) {
+    Packet_data = packet;
+    PacketReader_index = 1;
+    if (packet[0] < packetsNb) (*packets[packet[0]].handler)();
+    MemFree(packet);
+}
+
 //Executed on the main thread
 void Network_ReadQueue(void) {
-    while (true) {
+    const int maxPacketsPerFrame = 1024;
+    const double terrainPacketBudgetSeconds = 0.002;
+    unsigned char *gameplayPackets[maxPacketsPerFrame];
+    unsigned char *terrainPackets[maxPacketsPerFrame];
+    int gameplayPacketCount = 0;
+    int terrainPacketCount = 0;
 
-        if (arrlen(queuedData) == 0) return;
-        
-        //Find start of queue.
-        unsigned char* startQueuedData = queuedData[0];
-        
-        //Handle packet
-        Packet_data = startQueuedData;
-        PacketReader_index = 1;
-        if (startQueuedData[0] < packetsNb) (*packets[startQueuedData[0]].handler)();
+    pthread_mutex_lock(&queue_mutex);
+    gameplayPacketCount = arrlen(queuedData);
+    if (gameplayPacketCount > maxPacketsPerFrame) gameplayPacketCount = maxPacketsPerFrame;
+    for (int i = 0; i < gameplayPacketCount; i++) gameplayPackets[i] = queuedData[i];
+    if (gameplayPacketCount > 0) arrdeln(queuedData, 0, gameplayPacketCount);
 
-        MemFree(startQueuedData);
+    terrainPacketCount = arrlen(terrainQueuedData);
+    if (terrainPacketCount > maxPacketsPerFrame) terrainPacketCount = maxPacketsPerFrame;
+    for (int i = 0; i < terrainPacketCount; i++) terrainPackets[i] = terrainQueuedData[i];
+    if (terrainPacketCount > 0) arrdeln(terrainQueuedData, 0, terrainPacketCount);
+    pthread_mutex_unlock(&queue_mutex);
 
+    for (int i = 0; i < gameplayPacketCount; i++) {
+        Network_ExecutePacket(gameplayPackets[i]);
+    }
+
+    int terrainProcessedCount = 0;
+    double terrainDeadline = GetTime() + terrainPacketBudgetSeconds;
+    for (; terrainProcessedCount < terrainPacketCount; terrainProcessedCount++) {
+        if (terrainProcessedCount > 0 && GetTime() >= terrainDeadline) break;
+        Network_ExecutePacket(terrainPackets[terrainProcessedCount]);
+    }
+
+    int remainingCount = terrainPacketCount - terrainProcessedCount;
+    if (remainingCount > 0) {
         pthread_mutex_lock(&queue_mutex);
-        arrdel(queuedData, 0);
+        arrinsn(terrainQueuedData, 0, remainingCount);
+        for (int i = 0; i < remainingCount; i++) {
+            terrainQueuedData[i] = terrainPackets[terrainProcessedCount + i];
+        }
         pthread_mutex_unlock(&queue_mutex);
-        
     }
 }
 
@@ -94,7 +132,10 @@ void Network_Receive(unsigned char *data, int dataLength) {
     memcpy(nextData, data, dataLength);
 
     pthread_mutex_lock(&queue_mutex);
-    arrput(queuedData, nextData);
+    unsigned char opcode = nextData[0];
+    bool modifiesTerrain = opcode == 1 || opcode == 2 || opcode == 7 || opcode == 8;
+    if (modifiesTerrain) arrput(terrainQueuedData, nextData);
+    else arrput(queuedData, nextData);
     pthread_mutex_unlock(&queue_mutex);
     
 }
@@ -108,4 +149,15 @@ void Network_Send(unsigned char *packet) {
     }
 
     MemFree(packet);
+}
+
+void Network_ClearQueue(void) {
+    pthread_mutex_lock(&queue_mutex);
+    for (int i = 0; i < arrlen(queuedData); i++) MemFree(queuedData[i]);
+    arrfree(queuedData);
+    queuedData = NULL;
+    for (int i = 0; i < arrlen(terrainQueuedData); i++) MemFree(terrainQueuedData[i]);
+    arrfree(terrainQueuedData);
+    terrainQueuedData = NULL;
+    pthread_mutex_unlock(&queue_mutex);
 }

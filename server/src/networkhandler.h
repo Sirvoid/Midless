@@ -17,13 +17,14 @@ typedef struct IncomingPacket {
     void *playerPtr;
 } IncomingPacket;
 
-void Network_Init(void);
-void Network_Connect(void *playerPtr);
-void Network_Disconnect(void *playerPtr);
-void Network_ReadIncomingPackets(void);
-void Network_Receive(void *playerPtr, unsigned char* data, int dataLength);
+void ServerNetwork_Init(void);
+void ServerNetwork_Shutdown(void);
+void ServerNetwork_Connect(void *playerPtr);
+void ServerNetwork_Disconnect(void *playerPtr);
+void ServerNetwork_ReadIncomingPackets(void);
+void ServerNetwork_Receive(void *playerPtr, unsigned char* data, int dataLength);
 //Send a packet and take ownership.
-void Network_Send(void *playerPtr, unsigned char* packet);
-void Network_ExecutePacket(unsigned char* packet);
+void ServerNetwork_Send(void *playerPtr, unsigned char* packet);
+void ServerNetwork_ExecutePacket(unsigned char* packet);
 
 #endif

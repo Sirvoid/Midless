@@ -9,14 +9,10 @@
 #define S_CHUNK_H
 
 #include "raylib.h"
-#include "player.h"
+#include "../player.h"
+#include "chunkdata.h"
 
-#define CHUNK_SIZE_X 16
-#define CHUNK_SIZE_Y 16
-#define CHUNK_SIZE_Z 16
-#define CHUNK_SIZE_XZ (CHUNK_SIZE_X * CHUNK_SIZE_Z)
 #define CHUNK_SIZE_VEC3 CLITERAL(Vector3){ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }
-#define CHUNK_SIZE (CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z)
 
 typedef struct Chunk{
     unsigned short data[CHUNK_SIZE];
@@ -28,27 +24,27 @@ typedef struct Chunk{
 } Chunk;
 
 //Allocate and initialize a chunk.
-Chunk *Chunk_Create(Vector3 pos);
+Chunk *ServerChunk_Create(Vector3 pos);
 //Unload the chunk.
-void Chunk_Destroy(Chunk *chunk);
+void ServerChunk_Destroy(Chunk *chunk);
 
-void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength);
+void ServerChunk_Decompress(Chunk *chunk, unsigned short *compressed, int currentLength);
 //Create compressed chunk data.
-unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int currentLength, int *newLength);
-void Chunk_SaveFile(Chunk *chunk);
-bool Chunk_LoadFile(Chunk *chunk);
-void Chunk_Generate(Chunk *chunk);
+unsigned short* ServerChunk_CreateCompressedData(Chunk *chunk, int *newLength);
+void ServerChunk_SaveFile(Chunk *chunk);
+bool ServerChunk_LoadFile(Chunk *chunk);
+void ServerChunk_Generate(Chunk *chunk);
 
-bool Chunk_PlayerInChunk(Chunk* chunk, Player* player);
-void Chunk_AddPlayer(Chunk* chunk, Player* player);
-void Chunk_RemovePlayer(Chunk* chunk, int index);
+bool ServerChunk_PlayerInChunk(Chunk* chunk, Player* player);
+void ServerChunk_AddPlayer(Chunk* chunk, Player* player);
+void ServerChunk_RemovePlayer(Chunk* chunk, int index);
 
-void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID);
-int Chunk_GetBlock(Chunk *chunk, Vector3 pos);
+void ServerChunk_SetBlock(Chunk *chunk, Vector3 pos, int blockID);
+int ServerChunk_GetBlock(Chunk *chunk, Vector3 pos);
 
-bool Chunk_IsValidPos(Vector3 pos);
-Vector3 Chunk_IndexToPos(int index);
-int Chunk_PosToIndex(Vector3 pos);
-long int Chunk_GetPackedPos(Vector3 pos);
+bool ServerChunk_IsValidPos(Vector3 pos);
+Vector3 ServerChunk_IndexToPos(int index);
+int ServerChunk_PosToIndex(Vector3 pos);
+long int ServerChunk_GetPackedPos(Vector3 pos);
 
 #endif

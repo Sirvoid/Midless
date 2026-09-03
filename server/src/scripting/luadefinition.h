@@ -10,6 +10,7 @@
 
 
 void LuaDefinition_Init(void);
+void LuaDefinition_Shutdown(void);
 void LD_OnBlockUpdateCall(Vector3 position, unsigned short blockID, unsigned short prevBlockID);
 void LD_OnChatMessageCall(const char *name, const char *message);
 

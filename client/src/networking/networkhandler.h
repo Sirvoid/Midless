@@ -26,6 +26,7 @@ void Network_Init(void);
 void Network_Connect(void);
 void Network_Disconnect(void);
 void Network_ReadQueue(void);
+void Network_ClearQueue(void);
 void Network_Receive(unsigned char* data, int dataLength);
 //Send a packet and take ownership.
 void Network_Send(unsigned char* packet);

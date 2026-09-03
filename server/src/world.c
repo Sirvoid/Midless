@@ -6,7 +6,9 @@
  */
 
 #define __clang__ true
-#define STB_DS_IMPLEMENTATION
+#if !defined(ISLEFORGE_STB_DS_EXTERNAL)
+    #define STB_DS_IMPLEMENTATION
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,28 +19,107 @@
 #include "raymath.h"
 #include "stb_ds.h"
 #include "world.h"
-#include "chunk.h"
+#include "chunk/chunk.h"
 #include "networkhandler.h"
 #include "packet.h"
 #include "entity.h"
 #include "worldgenerator.h"
 #include "luadefinition.h"
+#include "utils.h"
 
-World world;
+typedef struct PendingWorldBlock {
+    Vector3 position;
+    unsigned short blockID;
+} PendingWorldBlock;
 
-void World_Init(void) {
-    world.players = MemAlloc(sizeof(Player*) * WORLD_MAX_PLAYERS);
-    memset(world.players, 0, sizeof(*world.players) * WORLD_MAX_PLAYERS);
+typedef struct GeneratedBlockUpdate {
+    Chunk *chunk;
+    ServerBlockUpdate update;
+} GeneratedBlockUpdate;
 
-    world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
-    memset(world.entities, 0, sizeof(*world.entities) * WORLD_MAX_ENTITIES);
+World serverWorld;
+static long long serverWorldLastUpdateMilliseconds;
+static long long serverWorldLastTimeSyncMilliseconds;
 
-    world.maxDrawDistance = 8;
+static void ServerWorld_WriteGeneratedBlock(Chunk *chunk, Vector3 blockPos, int blockID) {
+    Vector3 localPos = {
+        floor(blockPos.x) - chunk->blockPosition.x,
+        floor(blockPos.y) - chunk->blockPosition.y,
+        floor(blockPos.z) - chunk->blockPosition.z
+    };
+    if (!ServerChunk_IsValidPos(localPos)) return;
 
-    //Create world directory
+    chunk->data[ServerChunk_PosToIndex(localPos)] = blockID;
+
+    if (arrlen(chunk->players) > 0) {
+        arrput(serverWorld.generatedBlockUpdates, ((GeneratedBlockUpdate) {
+            .chunk = chunk,
+            .update = {.position = blockPos, .blockID = (unsigned char)blockID}
+        }));
+    }
+}
+
+static void ServerWorld_FlushGeneratedBlockUpdates(void) {
+    while (arrlen(serverWorld.generatedBlockUpdates) > 0) {
+        Chunk *chunk = serverWorld.generatedBlockUpdates[0].chunk;
+        ServerBlockUpdate *updates = NULL;
+        GeneratedBlockUpdate *remaining = NULL;
+
+        for (int i = 0; i < arrlen(serverWorld.generatedBlockUpdates); i++) {
+            if (serverWorld.generatedBlockUpdates[i].chunk != chunk) {
+                arrput(remaining, serverWorld.generatedBlockUpdates[i]);
+                continue;
+            }
+            arrput(updates, serverWorld.generatedBlockUpdates[i].update);
+        }
+        arrfree(serverWorld.generatedBlockUpdates);
+        serverWorld.generatedBlockUpdates = remaining;
+
+        for (int i = 0; i < arrlen(chunk->players); i++) {
+            ServerNetwork_Send(chunk->players[i], ServerPacket_CreateBlockBatch(
+                updates, (unsigned short)arrlen(updates)));
+        }
+        arrfree(updates);
+    }
+}
+
+static void ServerWorld_ApplyPendingBlocks(Chunk *chunk) {
+    for (int i = 0; i < arrlen(serverWorld.pendingBlocks);) {
+        PendingWorldBlock pending = serverWorld.pendingBlocks[i];
+        Vector3 pendingChunkPos = {
+            floor(pending.position.x / CHUNK_SIZE_X),
+            floor(pending.position.y / CHUNK_SIZE_Y),
+            floor(pending.position.z / CHUNK_SIZE_Z)
+        };
+        if (!Vector3Equals(pendingChunkPos, chunk->position)) {
+            i++;
+            continue;
+        }
+
+        ServerWorld_WriteGeneratedBlock(chunk, pending.position, pending.blockID);
+        arrdel(serverWorld.pendingBlocks, i);
+    }
+}
+
+void ServerWorld_Init(void) {
+    serverWorld.players = MemAlloc(sizeof(Player*) * WORLD_MAX_PLAYERS);
+    memset(serverWorld.players, 0, sizeof(*serverWorld.players) * WORLD_MAX_PLAYERS);
+
+    serverWorld.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
+    memset(serverWorld.entities, 0, sizeof(*serverWorld.entities) * WORLD_MAX_ENTITIES);
+
+    serverWorld.chunks = NULL;
+    serverWorld.pendingBlocks = NULL;
+    serverWorld.generatedBlockUpdates = NULL;
+    serverWorld.maxDrawDistance = 8;
+    serverWorld.time = 0.0f;
+    serverWorldLastUpdateMilliseconds = GetTimeMilliseconds();
+    serverWorldLastTimeSyncMilliseconds = serverWorldLastUpdateMilliseconds;
+
+    // Create world directory.
     struct stat st = {0};
     if (stat("./world", &st) == -1) {
-        #if defined(OS_LINUX)
+        #if defined(OS_LINUX) || defined(PLATFORM_WEB)
             mkdir("./world", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         #else
             mkdir("./world");
@@ -57,218 +138,243 @@ void World_Init(void) {
         SaveFileData("./world/seed.dat", data, 4);
     }
 
-    WorldGenerator_Init(seed);
+    ServerWorldGenerator_Init(seed);
 }
 
-void World_Shutdown(void)
+void ServerWorld_Shutdown(void)
 {
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
-        if (world.players[i] != NULL) {
-            World_RemovePlayer(world.players[i]);
+        if (serverWorld.players[i] != NULL) {
+            ServerWorld_RemovePlayer(serverWorld.players[i]);
         }
     }
 
-    for (int i = hmlen(world.chunks) - 1; i >= 0; i--) {
-        World_RemoveChunk(world.chunks[i].value);
+    for (int i = hmlen(serverWorld.chunks) - 1; i >= 0; i--) {
+        ServerWorld_RemoveChunk(serverWorld.chunks[i].value);
     }
 
-    MemFree(world.players);
-    world.players = NULL;
+    MemFree(serverWorld.players);
+    serverWorld.players = NULL;
 
-    MemFree(world.entities);
-    world.entities = NULL;
+    MemFree(serverWorld.entities);
+    serverWorld.entities = NULL;
 
-    hmfree(world.chunks);
-    world.chunks = NULL;
+    hmfree(serverWorld.chunks);
+    serverWorld.chunks = NULL;
+
+    arrfree(serverWorld.pendingBlocks);
+    serverWorld.pendingBlocks = NULL;
+
+    arrfree(serverWorld.generatedBlockUpdates);
+    serverWorld.generatedBlockUpdates = NULL;
 }
 
-void World_Update(void) {
+void ServerWorld_Update(void) {
+    long long nowMilliseconds = GetTimeMilliseconds();
+    long long elapsedMilliseconds = nowMilliseconds - serverWorldLastUpdateMilliseconds;
+    serverWorldLastUpdateMilliseconds = nowMilliseconds;
 
-    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
-        Player *player = world.players[i];
-        if (player != NULL) {
-            if(player->disconnected) {
-                World_RemovePlayer(player);
-                continue;
-            }
-            Player_LoadChunks(player);
+    if (elapsedMilliseconds > 0) {
+        serverWorld.time += elapsedMilliseconds / 1000.0f;
+        while (serverWorld.time >= WORLD_DAY_LENGTH_SECONDS) {
+            serverWorld.time -= WORLD_DAY_LENGTH_SECONDS;
         }
     }
 
-    for (int i = 0; i < hmlen(world.chunks); i++) {
-        Chunk *chunk = world.chunks[i].value; 
+    if (nowMilliseconds - serverWorldLastTimeSyncMilliseconds >= WORLD_TIME_SYNC_INTERVAL_MILLISECONDS) {
+        ServerWorld_Broadcast(ServerPacket_CreateWorldTime(serverWorld.time));
+        serverWorldLastTimeSyncMilliseconds = nowMilliseconds;
+    }
+
+    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+        Player *player = serverWorld.players[i];
+        if (player != NULL) {
+            if(player->disconnected) {
+                ServerWorld_RemovePlayer(player);
+                continue;
+            }
+            ServerPlayer_LoadChunks(player);
+        }
+    }
+
+    ServerWorld_FlushGeneratedBlockUpdates();
+
+    for (int i = 0; i < hmlen(serverWorld.chunks); i++) {
+        Chunk *chunk = serverWorld.chunks[i].value;
 
         for (int j = arrlen(chunk->players) - 1; j >= 0; j--) {
             Player *player = chunk->players[j];
             
-            Entity entity = world.entities[player->id];
+            Entity entity = serverWorld.entities[player->id];
             Vector3 playerChunkPos = (Vector3) {(int)floor(entity.position.x / CHUNK_SIZE_X), (int)floor(entity.position.y / CHUNK_SIZE_Y), (int)floor(entity.position.z / CHUNK_SIZE_Z)};
             if (Vector3Distance(chunk->position, playerChunkPos) >= player->drawDistance + 3) {
-                Network_Send(player, Packet_CreateUnloadChunk(chunk->position));
-                Chunk_RemovePlayer(chunk, j);
+                ServerNetwork_Send(player, ServerPacket_CreateUnloadChunk(chunk->position));
+                ServerChunk_RemovePlayer(chunk, j);
             }
         }
 
         if (arrlen(chunk->players) == 0) {
-            World_RemoveChunk(chunk);
+            ServerWorld_RemoveChunk(chunk);
         }
     }
 }
 
-void World_RemovePlayerFromChunks(Player *playerToRemove) {
-    for(int i = 0; i < hmlen(world.chunks); i++) {
-        Chunk *chunk = world.chunks[i].value; 
+void ServerWorld_RemovePlayerFromChunks(Player *playerToRemove) {
+    for(int i = 0; i < hmlen(serverWorld.chunks); i++) {
+        Chunk *chunk = serverWorld.chunks[i].value;
 
         for(int j = arrlen(chunk->players) - 1; j >= 0; j--) {
             Player *player = chunk->players[j];
 
             if(player != playerToRemove) continue;
-            Chunk_RemovePlayer(chunk, j);
+            ServerChunk_RemovePlayer(chunk, j);
         }
 
     }
 }
 
-Chunk* World_AddChunk(Vector3 position) {
+Chunk* ServerWorld_AddChunk(Vector3 position) {
 
-    long int p = Chunk_GetPackedPos(position);
-    int index = hmgeti(world.chunks, p);
+    long int p = ServerChunk_GetPackedPos(position);
+    int index = hmgeti(serverWorld.chunks, p);
     Chunk *chunk;
     if(index == -1) {
-        chunk = Chunk_Create(position);
+        chunk = ServerChunk_Create(position);
         if (chunk == NULL) return NULL;
 
-        //The world takes ownership of the chunk.
-        hmput(world.chunks, p, chunk);
+        // The server world takes ownership of the chunk.
+        hmput(serverWorld.chunks, p, chunk);
+        ServerChunk_Generate(chunk);
+        ServerWorld_ApplyPendingBlocks(chunk);
     } else {
-        chunk = world.chunks[index].value;
+        chunk = serverWorld.chunks[index].value;
     }
 
     return chunk;
 }
 
-void World_RemoveChunk(Chunk *curChunk) {
-    long int p = Chunk_GetPackedPos(curChunk->position);
+void ServerWorld_RemoveChunk(Chunk *curChunk) {
+    long int p = ServerChunk_GetPackedPos(curChunk->position);
 
-    int index = hmgeti(world.chunks, p);
+    int index = hmgeti(serverWorld.chunks, p);
     if(index >= 0) {
-        hmdel(world.chunks, p);
-        if (curChunk->modified) Chunk_SaveFile(curChunk);
-        Chunk_Destroy(curChunk);
+        hmdel(serverWorld.chunks, p);
+        if (curChunk->modified) ServerChunk_SaveFile(curChunk);
+        ServerChunk_Destroy(curChunk);
     }
     
 }
 
-Chunk* World_GetChunkAt(Vector3 position) {
-    long int p = Chunk_GetPackedPos(position);
-    int index = hmgeti(world.chunks, p);
+Chunk* ServerWorld_GetChunkAt(Vector3 position) {
+    long int p = ServerChunk_GetPackedPos(position);
+    int index = hmgeti(serverWorld.chunks, p);
     if(index >= 0) {
-        return world.chunks[index].value;
+        return serverWorld.chunks[index].value;
     }
     
     return NULL;
 }
 
-Chunk* World_RequestChunk(Vector3 position) {
-    return World_AddChunk(position);
+Chunk* ServerWorld_RequestChunk(Vector3 position) {
+    return ServerWorld_AddChunk(position);
 }
 
-void World_AddPlayer(void *player) {
+void ServerWorld_AddPlayer(void *player) {
     
     Player* p = (Player*)player;
     
     for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
-        if(world.players[i]) continue;
-        world.players[i] = p;
-        world.players[i]->id = i;
-        World_AddEntity(i, 1, (Vector3) {0, 80, 0});
+        if(serverWorld.players[i]) continue;
+        serverWorld.players[i] = p;
+        serverWorld.players[i]->id = i;
+        ServerWorld_AddEntity(i, 1, (Vector3) {0, 80, 0});
         break;
     }
     
     for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
-        if(!world.players[i] || i == p->id) continue;
-        Network_Send(player, Packet_CreateSpawnEntity(&world.entities[i]));
+        if(!serverWorld.players[i] || i == p->id) continue;
+        ServerNetwork_Send(player, ServerPacket_CreateSpawnEntity(&serverWorld.entities[i]));
     }
     
-    World_SendMessage(TextFormat("%s joined the game!", p->name));
+    ServerWorld_SendMessage(TextFormat("%s joined the game!", p->name));
 }
 
-void World_RemovePlayer(void *player) {
-    World_RemovePlayerFromChunks(player);
+void ServerWorld_RemovePlayer(void *player) {
+    ServerWorld_RemovePlayerFromChunks(player);
     Player* curPlayer = (Player*)player;
     for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
-        if(world.players[i] == NULL) continue;
-        if(world.players[i] == curPlayer) {
-            world.players[i] = NULL;
-            World_RemoveEntity(i);
+        if(serverWorld.players[i] == NULL) continue;
+        if(serverWorld.players[i] == curPlayer) {
+            serverWorld.players[i] = NULL;
+            ServerWorld_RemoveEntity(i);
             break;
         }
     }
-    Player_Destroy(curPlayer);
+    ServerPlayer_Destroy(curPlayer);
 }
 
-void World_TeleportEntity(int ID, Vector3 position, Vector3 rotation) {
-    if(world.entities[ID].type == 0) return;
-    world.entities[ID].position = position;
-    world.entities[ID].rotation = rotation;
-    World_BroadcastExcluding(Packet_CreateTeleportEntity(&world.entities[ID], position, rotation), ID);
+void ServerWorld_TeleportEntity(int ID, Vector3 position, Vector3 rotation) {
+    if(serverWorld.entities[ID].type == 0) return;
+    serverWorld.entities[ID].position = position;
+    serverWorld.entities[ID].rotation = rotation;
+    ServerWorld_BroadcastExcluding(ServerPacket_CreateTeleportEntity(&serverWorld.entities[ID], position, rotation), ID);
 }
 
-void World_AddEntity(int ID, int type, Vector3 position) {
-    world.entities[ID].ID = ID;
-    world.entities[ID].type = type;
-    world.entities[ID].position = position;
-    World_BroadcastExcluding(Packet_CreateSpawnEntity(&world.entities[ID]), ID);
+void ServerWorld_AddEntity(int ID, int type, Vector3 position) {
+    serverWorld.entities[ID].ID = ID;
+    serverWorld.entities[ID].type = type;
+    serverWorld.entities[ID].position = position;
+    ServerWorld_BroadcastExcluding(ServerPacket_CreateSpawnEntity(&serverWorld.entities[ID]), ID);
 }
 
-void World_RemoveEntity(int ID) {
-    world.entities[ID].type = 0;
-    World_BroadcastExcluding(Packet_CreateDespawnEntity(&world.entities[ID]), ID);
+void ServerWorld_RemoveEntity(int ID) {
+    serverWorld.entities[ID].type = 0;
+    ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(&serverWorld.entities[ID]), ID);
 }
 
-void World_SendMessage(const char* message) {
+void ServerWorld_SendMessage(const char* message) {
     int parts = TextLength(message) / 64;
     
     for(int i = 0; i <= parts; i++) {
         const char *messageChunk = TextSubtext(message, i * 64, 64);
-        World_Broadcast(Packet_CreateMessage(messageChunk));
+        ServerWorld_Broadcast(ServerPacket_CreateMessage(messageChunk));
     }
     
 }
 
-void World_Broadcast(unsigned char* packet) {
+void ServerWorld_Broadcast(unsigned char* packet) {
     for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
-        if(!world.players[i]) continue;
+        if(!serverWorld.players[i]) continue;
 
-        int packetLength = Packet_GetLength(packet[0]);
+        int packetLength = ServerPacket_GetLength(packet[0]);
         unsigned char* packetCopy = MemAlloc(packetLength);
         memcpy(packetCopy, packet, packetLength);
 
-        Network_Send((void*)world.players[i], packetCopy);
+        ServerNetwork_Send((void*)serverWorld.players[i], packetCopy);
     }
 
     MemFree(packet);
     
 }
 
-void World_BroadcastExcluding(unsigned char* packet, int excludedPlayerID) {
+void ServerWorld_BroadcastExcluding(unsigned char* packet, int excludedPlayerID) {
     for(int i = 0; i < WORLD_MAX_PLAYERS; i++) {
-        if(!world.players[i]) continue;
-        if(world.players[i]->id == excludedPlayerID) continue;
+        if(!serverWorld.players[i]) continue;
+        if(serverWorld.players[i]->id == excludedPlayerID) continue;
 
-        int packetLength = Packet_GetLength(packet[0]);
+        int packetLength = ServerPacket_GetLength(packet[0]);
         unsigned char* packetCopy = MemAlloc(packetLength);
         memcpy(packetCopy, packet, packetLength);
 
-        Network_Send((void*)world.players[i], packetCopy);
+        ServerNetwork_Send((void*)serverWorld.players[i], packetCopy);
     }
     MemFree(packet);
 }
 
-int World_GetBlock(Vector3 blockPos) {
+int ServerWorld_GetBlock(Vector3 blockPos) {
     //Get Chunk
     Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
-    Chunk* chunk = World_GetChunkAt(chunkPos);
+    Chunk* chunk = ServerWorld_GetChunkAt(chunkPos);
     
     if(chunk == NULL) return 0;
     
@@ -279,14 +385,36 @@ int World_GetBlock(Vector3 blockPos) {
                                 floor(blockPos.z) - chunk->blockPosition.z 
                                };
 
-    return Chunk_GetBlock(chunk, blockPosInChunk);
+    return ServerChunk_GetBlock(chunk, blockPosInChunk);
 }
 
-void World_SetBlock(Vector3 blockPos, int blockID, bool broadcast) {
+void ServerWorld_SetBlockFast(Vector3 blockPos, int blockID) {
+    Vector3 chunkPos = {
+        floor(blockPos.x / CHUNK_SIZE_X),
+        floor(blockPos.y / CHUNK_SIZE_Y),
+        floor(blockPos.z / CHUNK_SIZE_Z)
+    };
+    Chunk *chunk = ServerWorld_GetChunkAt(chunkPos);
+    if (chunk != NULL) {
+        ServerWorld_WriteGeneratedBlock(chunk, blockPos, blockID);
+        return;
+    }
+
+    arrput(serverWorld.pendingBlocks, ((PendingWorldBlock) {
+        .position = {
+            floor(blockPos.x),
+            floor(blockPos.y),
+            floor(blockPos.z)
+        },
+        .blockID = (unsigned short)blockID
+    }));
+}
+
+void ServerWorld_SetBlock(Vector3 blockPos, int blockID, bool broadcast) {
     
     //Get Chunk
     Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
-    Chunk* chunk = World_GetChunkAt(chunkPos);
+    Chunk* chunk = ServerWorld_GetChunkAt(chunkPos);
     
     if(chunk == NULL) return;
 
@@ -297,14 +425,14 @@ void World_SetBlock(Vector3 blockPos, int blockID, bool broadcast) {
                                 floor(blockPos.z) - chunkPos.z * CHUNK_SIZE_Z 
                                };
     
-    int previousBlock = Chunk_GetBlock(chunk, blockPosInChunk);
+    int previousBlock = ServerChunk_GetBlock(chunk, blockPosInChunk);
 
     if(previousBlock == blockID) return;
 
-    Chunk_SetBlock(chunk, blockPosInChunk, blockID);
+    ServerChunk_SetBlock(chunk, blockPosInChunk, blockID);
 
     if(broadcast) {
-        World_Broadcast(Packet_CreateSetBlock(blockID, blockPos));
+        ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockID, blockPos));
     }
 
     LD_OnBlockUpdateCall(blockPos, blockID, previousBlock);

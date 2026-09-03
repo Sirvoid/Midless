@@ -8,6 +8,6 @@
 #ifndef S_LOGGER_H
 #define S_LOGGER_H
 
-void Logger_Log(const char* message);
+void ServerLogger_Log(const char* message);
 
 #endif

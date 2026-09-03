@@ -13,7 +13,7 @@
 #include "networkhandler.h"
 
 struct Player;
-struct Player *Player_Create(void *peerPtr, bool isWeb);
+struct Player *ServerPlayer_Create(void *peerPtr, bool isWeb);
 
 #define MAX_CLIENTS 64
 
@@ -42,18 +42,18 @@ void Server_Do(int *state) {
         while (enet_host_service(server, &event, 33) > 0) {
             switch (event.type) {
                 case ENET_EVENT_TYPE_CONNECT:
-                    event.peer->data = Player_Create(event.peer, false);
-                    Network_Connect(event.peer->data);
+                    event.peer->data = ServerPlayer_Create(event.peer, false);
+                    ServerNetwork_Connect(event.peer->data);
                     break;
 
                 case ENET_EVENT_TYPE_RECEIVE:
-                    Network_Receive(event.peer->data, (unsigned char*)event.packet->data, event.packet->dataLength);
+                    ServerNetwork_Receive(event.peer->data, (unsigned char*)event.packet->data, event.packet->dataLength);
                     enet_packet_destroy(event.packet);
                     break;
 
                 case ENET_EVENT_TYPE_DISCONNECT:
                 case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT:
-                    Network_Disconnect(event.peer->data);
+                    ServerNetwork_Disconnect(event.peer->data);
                     break;
                     
                 case ENET_EVENT_TYPE_NONE:

@@ -194,6 +194,22 @@ void Packet_H_Message(void) {
     Chat_AddOwnedLine(message);
 }
 
+void Packet_H_BlockBatch(void) {
+    int count = Packet_ReadUShort();
+    for (int i = 0; i < count; i++) {
+        int blockID = Packet_ReadByte();
+        Vector3 position = {
+            Packet_ReadInt(), Packet_ReadInt(), Packet_ReadInt()
+        };
+        World_SetBlock(position, blockID, false);
+    }
+}
+
+void Packet_H_WorldTime(void) {
+    int timeMilliseconds = Packet_ReadInt();
+    world.time = timeMilliseconds / 1000.0f;
+}
+
 /*-------------------------------------------------------------------------------------------------------*
 *--------------------------------------------Packets Sent------------------------------------------------*
 *--------------------------------------------------------------------------------------------------------*/

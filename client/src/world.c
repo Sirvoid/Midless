@@ -14,13 +14,11 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
-#include <sys/stat.h>
 #include "raylib.h"
 #include "stb_ds.h"
 #include "rlgl.h"
 #include "raymath.h"
 #include "world.h"
-#include "worldgenerator.h"
 #include "player.h"
 #include "chunkmeshgeneration.h"
 #include "screens.h"
@@ -28,6 +26,7 @@
 #include "packet.h"
 #include "entity.h"
 #include "entitymodel.h"
+#include "localserver.h"
 
 #if defined(PLATFORM_WEB)
     #include <emscripten/emscripten.h>
@@ -44,30 +43,7 @@ void World_Init(void) {
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
 
-    int seed = rand();
-
-    //Create world directory
-    struct stat st = {0};
-    if (stat("./world", &st) == -1) {
-        #if defined(PLATFORM_WEB) || defined(OS_LINUX)
-            mkdir("./world", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-        #else
-            mkdir("./world");
-        #endif
-    }
-    
-    if (FileExists("./world/seed.dat")) {
-        unsigned int bytesRead = 0;
-        unsigned char *data = LoadFileData("./world/seed.dat", &bytesRead);
-        seed = (int)(data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]); 
-        UnloadFileData(data);
-    } else {
-        char data[4] = {(char)(seed >> 24), (char)(seed >> 16), (char)(seed >> 8), (char)(seed)};
-        SaveFileData("./world/seed.dat", data, 4);
-    }
-
     Chunk_MeshGenerationInit();
-    WorldGenerator_Init(seed);
 }
 
 void World_LoadMultiplayer(void) {
@@ -77,24 +53,10 @@ void World_LoadMultiplayer(void) {
 }
 
 void World_LoadSingleplayer(void) {
-
-    //Prevent multiplayer chunks from being unloaded during a singleplayer game which causes them to be saved locally.
-    if (hmlen(world.chunks) != 0) return;
-
-    player.position = (Vector3) { 0, 80, 0 };
-    Network_connectedToServer = false;
-    Screen_Switch(SCREEN_GAME);
-    world.loadChunks = true;
-    World_LoadChunks();
-
-    //Build all chunks at the beginning
-    while(arrlen(world.generateChunksQueue) != 0) {
-        World_ReadChunksQueues();
-    }
+    LocalServer_Start();
 }
 
-void World_UpdateChunksWithBudget(double budgetMs)
-{
+void World_UpdateChunksWithBudget(double budgetMs) {
     double endTime = GetTime() + budgetMs / 1000.0;
 
     while (arrlen(world.generateChunksQueue) > 0) {
@@ -105,15 +67,11 @@ void World_UpdateChunksWithBudget(double budgetMs)
     }
 }
 
-clock_t updateClock;
 void World_Update(void) { 
-    
-    clock_t newClock = clock();
-    float time_spent = (float)(newClock - updateClock) / CLOCKS_PER_SEC;
-    updateClock = newClock;
-
-    world.time += time_spent;
-    if (world.time >= WORLD_DAY_LENGTH_SECONDS) world.time = 0;
+    world.time += GetFrameTime();
+    while (world.time >= WORLD_DAY_LENGTH_SECONDS) {
+        world.time -= WORLD_DAY_LENGTH_SECONDS;
+    }
 
     World_UpdateChunksWithBudget(4.0);
     
@@ -394,27 +352,6 @@ int World_GetBlock(Vector3 blockPos) {
     return Chunk_GetBlock(chunk, blockPosInChunk);
 }
 
-void World_FastBlock(Vector3 blockPos, int blockID) {
-    //Get Chunk
-    Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
-    Chunk* chunk = World_GetChunkAt(chunkPos);
-    
-    if (chunk == NULL) return;
-
-    //Set Block
-    Vector3 blockPosInChunk = (Vector3) { 
-                                floor(blockPos.x) - chunkPos.x * CHUNK_SIZE_X, 
-                                floor(blockPos.y) - chunkPos.y * CHUNK_SIZE_Y, 
-                                floor(blockPos.z) - chunkPos.z * CHUNK_SIZE_Z 
-                               };
-    
-    if (Chunk_IsValidPos(blockPosInChunk)) {
-        int index = Chunk_PosToIndex(blockPosInChunk);
-
-        chunk->data[index] = blockID;
-    }
-}
-
 void World_SetBlock(Vector3 blockPos, int blockID, bool immediate) {
     
     //Get Chunk
@@ -422,7 +359,6 @@ void World_SetBlock(Vector3 blockPos, int blockID, bool immediate) {
     Chunk* chunk = World_GetChunkAt(chunkPos);
     
     if (chunk == NULL) return;
-    if (chunk->isLightGenerated == false) return;
 
     //Set Block
     Vector3 blockPosInChunk = (Vector3) { 
@@ -430,6 +366,13 @@ void World_SetBlock(Vector3 blockPos, int blockID, bool immediate) {
                                 floor(blockPos.y) - chunkPos.y * CHUNK_SIZE_Y, 
                                 floor(blockPos.z) - chunkPos.z * CHUNK_SIZE_Z 
                                };
+
+    if (!chunk->isLightGenerated) {
+        if (Chunk_IsValidPos(blockPosInChunk)) {
+            chunk->data[Chunk_PosToIndex(blockPosInChunk)] = blockID;
+        }
+        return;
+    }
     
     Chunk_SetBlock(chunk, blockPosInChunk, blockID);
 

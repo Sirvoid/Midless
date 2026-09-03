@@ -75,6 +75,7 @@ void Lua_Run(void) {
 void Lua_Stop(void) {
     if(L == NULL) return;
     lua_close(L);
+    L = NULL;
     Lua_running = 0;
 }
 
@@ -82,7 +83,7 @@ int Lua_Ref(int table) {
     return luaL_ref(L, table);
 }
 
-int Lua_GetRegistryIndex() {
+int Lua_GetRegistryIndex(void) {
     return LUA_REGISTRYINDEX;
 }
 
@@ -99,7 +100,7 @@ float Lua_GetNumber(int arg) {
     return luaL_checknumber(L, arg);
 }
 
-int Lua_GetTop() {
+int Lua_GetTop(void) {
     return lua_gettop(L);
 }
 
