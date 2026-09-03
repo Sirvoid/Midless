@@ -43,7 +43,8 @@ void ServerPacket_HandleMessage(void);
 void ServerPacket_HandleSetDrawDistance(void);
 
 unsigned char* ServerPacket_CreateMapInit(void);
-unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition);
+unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length,
+                                            Vector3 chunkPosition, const unsigned char *skyMask);
 unsigned char* ServerPacket_CreateUnloadChunk(Vector3 chunkPosition);
 unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 position);
 unsigned char* ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, unsigned short count);

@@ -206,9 +206,10 @@ unsigned char* ServerPacket_CreateMapInit(void) {
     return packet;
 }
 
-unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length, Vector3 chunkPosition) {
+unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length,
+                                            Vector3 chunkPosition, const unsigned char *skyMask) {
     serverPacketWriterIndex = 0;
-    serverPacketLastDynamicLength = (length * 2) + 15;
+    serverPacketLastDynamicLength = (length * 2) + 15 + CHUNK_SKY_MASK_SIZE;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLastDynamicLength);
     ServerPacket_WriteByte(packet, 1);
     ServerPacket_WriteInt(packet, (int)chunkPosition.x);
@@ -216,6 +217,7 @@ unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned
     ServerPacket_WriteInt(packet, (int)chunkPosition.z);
     ServerPacket_WriteUShort(packet, length);
     ServerPacket_WriteArray(packet, (unsigned char*)chunkArray, length * 2);
+    ServerPacket_WriteArray(packet, (unsigned char*)skyMask, CHUNK_SKY_MASK_SIZE);
     return packet;
 }
 

@@ -30,6 +30,10 @@ Vector3 lightDirectionsXChunk[6] = {
     {0, 0, -CHUNK_SIZE_Z }
 };
 
+static bool Block_BlocksLight(const Block *block) {
+    return block->renderType == BLOCK_RENDER_OPAQUE && block->fullCube;
+}
+
 int Chunk_GetLight(Chunk* chunk, Vector3 pos, bool sunlight) {
     if (!Chunk_IsValidPos(pos)) return 15;
     int index = Chunk_PosToIndex(pos);
@@ -110,14 +114,18 @@ void Chunk_DoSunlight(Chunk *sourceChunk) {
             }
         }
     } else {
-        if (sourceChunk->position.y >= 3) {
-            for (int i = CHUNK_SIZE - CHUNK_SIZE_XZ; i < CHUNK_SIZE; i++) {
-                const Block *blockDefinition = Block_GetDefinition(sourceChunk->data[i]);
+        // This is the top of the currently loaded vertical column, so its top
+        // face uses the server-provided per-column sky visibility mask.
+        for (int i = CHUNK_SIZE - CHUNK_SIZE_XZ; i < CHUNK_SIZE; i++) {
+            int column = i - (CHUNK_SIZE - CHUNK_SIZE_XZ);
+            if ((sourceChunk->skyMask[column >> 3] & (1u << (column & 7))) == 0) continue;
 
-                if (blockDefinition->renderType == BLOCK_RENDER_TRANSPARENT) {
-                    Chunk_SetLightLevel(sourceChunk, i, 15, true);
-                    Chunk_LightQueueAdd(&queue, i, sourceChunk);
-                }
+            const Block *blockDefinition = Block_GetDefinition(sourceChunk->data[i]);
+
+            if (!Block_BlocksLight(blockDefinition)) {
+                int sunlight = blockDefinition->renderType == BLOCK_RENDER_TRANSPARENT ? 15 : 14;
+                Chunk_SetLightLevel(sourceChunk, i, sunlight, true);
+                Chunk_LightQueueAdd(&queue, i, sourceChunk);
             }
         }
     }
@@ -152,7 +160,7 @@ void Chunk_SpreadLight(LightQueue *queue, bool sunlight) {
             int nextLight = Chunk_GetLightLevel(nextChunk, nextIndex, sunlight);
             
             const Block *blockDefinition = Block_GetDefinition(nextChunk->data[nextIndex]);
-            if (blockDefinition->renderType == BLOCK_RENDER_OPAQUE && blockDefinition->fullCube) continue;
+            if (Block_BlocksLight(blockDefinition)) continue;
 
             //Sunlight goes infinitely down
             int subVal = 1;
@@ -197,7 +205,7 @@ void Chunk_UpdateLight(LightRemovalQueue *delQueue, LightQueue *spreadQueue, boo
                 Chunk_LightRemovalQueueAdd(delQueue, nextIndex, neighborLevel, nextChunk);
             } else if (neighborLevel != 0 && neighborLevel >= lightLevel) {
                 const Block *blockDefinition = Block_GetDefinition(nextChunk->data[nextIndex]);
-                if (blockDefinition->renderType == BLOCK_RENDER_OPAQUE) continue;
+                if (Block_BlocksLight(blockDefinition)) continue;
 
                 Chunk_LightQueueAdd(spreadQueue, nextIndex, nextChunk);
             } 

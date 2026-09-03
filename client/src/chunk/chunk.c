@@ -37,6 +37,7 @@ static void Chunk_Init(Chunk *chunk, Vector3 pos) {
         chunk->lightData[i] = 0;
         chunk->sunlightData[i] = 0;
     }
+    memset(chunk->skyMask, 0, sizeof(chunk->skyMask));
  
     if (Chunk_LoadFile(chunk)) {
         chunk->fromFile = true;
@@ -100,12 +101,23 @@ void Chunk_Destroy(Chunk *chunk) {
 
 
 void Chunk_Generate(Chunk *chunk) {
-    if (!chunk->isMapGenerated) {
-        chunk->isMapGenerated = true;
-        Chunk_DoSunlight(chunk);
-        Chunk_DoLightSources(chunk);
-        chunk->isLightGenerated = true;
+    if (chunk == NULL || chunk->isLightGenerated) return;
+
+    // Mark the map available before lighting the chunk above. Its sunlight
+    // flood can then cross back into this chunk while the column unwinds.
+    chunk->isMapGenerated = true;
+
+    // Initial sunlight must be calculated from the top down. Previously an
+    // existing but not-yet-lit top chunk was treated as missing, which could
+    // seed full skylight below opaque terrain depending on queue order.
+    Chunk *topChunk = chunk->neighbours[BLOCK_FACE_TOP];
+    if (topChunk != NULL && !topChunk->isLightGenerated) {
+        Chunk_Generate(topChunk);
     }
+
+    Chunk_DoSunlight(chunk);
+    Chunk_DoLightSources(chunk);
+    chunk->isLightGenerated = true;
 }
 
 
@@ -118,11 +130,15 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
         chunk->modified = true;
 
         const Block *blockDef = Block_GetDefinition(blockId);
+
+        // Sunlight and emitted light are independent. Recalculate sunlight for
+        // every block change, including transparent light-emitting blocks.
+        Chunk_RemoveSunlight(chunk, pos);
+
         if (blockDef->lightType == BLOCK_LIGHT_EMIT) {
             Chunk_AddLightSource(chunk,pos, 15, false);
         } else {
             Chunk_RemoveLightSource(chunk,pos);
-            Chunk_RemoveSunlight(chunk,pos);
         }
 
     }

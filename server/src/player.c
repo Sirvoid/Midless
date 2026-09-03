@@ -82,7 +82,7 @@ void ServerPlayer_LoadChunks(Player* player) {
         int compressedLength = 0;
         unsigned short *compressedChunk = ServerChunk_CreateCompressedData(chunk, &compressedLength);
         ServerNetwork_Send(player, ServerPacket_CreateLoadChunk(
-            compressedChunk, compressedLength, closestPosition));
+            compressedChunk, compressedLength, closestPosition, chunk->skyMask));
         MemFree(compressedChunk);
 
         if (GetTime() >= loadDeadline) return;

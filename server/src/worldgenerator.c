@@ -3,6 +3,7 @@
 #endif
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 #include "raylib.h"
 #include "raymath.h"
 #include "FastNoiseLite.h"
@@ -66,6 +67,37 @@ static int GetTerrainPoint(Vector3 p, float elevation) {
     float a = fnlGetNoise3D(&caveNoise, p.x * 1.5f, p.y * 1.5f, p.z * 1.5f);
     float b = fnlGetNoise3D(&caveNoise, p.x * 1.5f, (p.y + 2048) * 1.5f, p.z * 1.5f);
     return a * b > 0.6f ? 2 : 1;
+}
+
+void ServerWorldGenerator_GenerateSkyMask(Chunk *chunk) {
+    int firstYAboveChunk = (int)chunk->blockPosition.y + CHUNK_SIZE_Y;
+    memset(chunk->skyMask, 0, sizeof(chunk->skyMask));
+
+    for (int z = 0; z < CHUNK_SIZE_Z; z++) {
+        for (int x = 0; x < CHUNK_SIZE_X; x++) {
+            float worldX = chunk->blockPosition.x + x;
+            float worldZ = chunk->blockPosition.z + z;
+            float elevation = GetBiomeElevation(worldX, worldZ);
+
+            // Above this height GetTerrainPoint is guaranteed to return air,
+            int terrainCeiling = (int)ceilf(64.0f * elevation +
+                384.0f * elevation * fabsf(elevation - 1.0f)) + 1;
+            bool openToSky = true;
+
+            // Scan upward and stop at the first obstruction.
+            for (int y = firstYAboveChunk; y <= terrainCeiling; y++) {
+                if (GetTerrainPoint((Vector3){worldX, y, worldZ}, elevation) == 1) {
+                    openToSky = false;
+                    break;
+                }
+            }
+
+            if (openToSky) {
+                int column = z * CHUNK_SIZE_X + x;
+                chunk->skyMask[column >> 3] |= (unsigned char)(1u << (column & 7));
+            }
+        }
+    }
 }
 
 static bool HasSurfaceAbove(int i, const float *map) {

@@ -8,6 +8,7 @@
 #define CHUNK_SIZE_Z 16
 #define CHUNK_SIZE_XZ (CHUNK_SIZE_X * CHUNK_SIZE_Z)
 #define CHUNK_SIZE (CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z)
+#define CHUNK_SKY_MASK_SIZE ((CHUNK_SIZE_XZ + 7) / 8)
 
 bool ChunkData_IsValidPosition(int x, int y, int z);
 int ChunkData_PositionToIndex(int x, int y, int z);

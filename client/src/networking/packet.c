@@ -139,12 +139,15 @@ void Packet_HandleLoadChunk(void) {
     int z = Packet_ReadInt();
     int length = Packet_ReadUShort();
     unsigned short* chunkData = (unsigned short*)Packet_ReadArray(length * 2);
+    unsigned char* skyMask = Packet_ReadArray(CHUNK_SKY_MASK_SIZE);
 
     Vector3 position = (Vector3) {x,y,z};
     World_AddChunk(position);
     Chunk* chunk = World_GetChunkAt(position);
     Chunk_Decompress(chunk, chunkData, length);
+    memcpy(chunk->skyMask, skyMask, CHUNK_SKY_MASK_SIZE);
     MemFree(chunkData);
+    MemFree(skyMask);
 }
 
 void Packet_HandleUnloadChunk(void) {

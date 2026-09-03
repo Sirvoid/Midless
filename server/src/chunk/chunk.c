@@ -22,6 +22,7 @@ static void ServerChunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->modified = false;
     chunk->players = NULL;
     memset(chunk->data, 0, sizeof(chunk->data));
+    memset(chunk->skyMask, 0, sizeof(chunk->skyMask));
 
     if (ServerChunk_LoadFile(chunk)) {
         chunk->fromFile = true;
@@ -69,6 +70,7 @@ void ServerChunk_Generate(Chunk *chunk) {
         float *heightMap = ServerWorldGenerator_Generate(chunk);
         ServerWorldGenerator_GenerateStructures(chunk, heightMap);
     }
+    ServerWorldGenerator_GenerateSkyMask(chunk);
 }
 
 void ServerChunk_Decompress(Chunk *chunk, unsigned short *compressed, int compressedLength) {
