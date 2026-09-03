@@ -23,6 +23,7 @@
 unsigned char *serverPacketData;
 Player *serverPacketPlayer;
 int serverPacketLastDynamicLength;
+int serverPacketDataLength;
 
 int serverPacketLengths[256] = {
     1,  //map init
@@ -34,7 +35,8 @@ int serverPacketLengths[256] = {
     3, //despawnEntity
     13, //unload chunk
     0, //block batch
-    5 //world time
+    5, //world time
+    65 //message continuation
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -46,22 +48,26 @@ int ServerPacket_GetLength(unsigned char opcode) {
 int serverPacketReaderIndex = 1;
 
 unsigned char ServerPacket_ReadByte(void) {
+    if (serverPacketReaderIndex >= serverPacketDataLength) return 0;
     return serverPacketData[serverPacketReaderIndex++];
 }
 
 short ServerPacket_ReadShort(void) {
+    if (serverPacketReaderIndex > serverPacketDataLength - 2) return 0;
     short value = (short)(serverPacketData[serverPacketReaderIndex] << 8 | serverPacketData[serverPacketReaderIndex + 1]);
     serverPacketReaderIndex += 2;
     return value;
 }
 
 unsigned short ServerPacket_ReadUShort(void) {
+    if (serverPacketReaderIndex > serverPacketDataLength - 2) return 0;
     unsigned short value = (unsigned short)(serverPacketData[serverPacketReaderIndex] << 8 | serverPacketData[serverPacketReaderIndex + 1]);
     serverPacketReaderIndex += 2;
     return value;
 }
 
 int ServerPacket_ReadInt(void) {
+    if (serverPacketReaderIndex > serverPacketDataLength - 4) return 0;
     int value = (int)(serverPacketData[serverPacketReaderIndex] << 24 | serverPacketData[serverPacketReaderIndex + 1] << 16 | serverPacketData[serverPacketReaderIndex + 2] << 8 | serverPacketData[serverPacketReaderIndex + 3]);
     serverPacketReaderIndex += 4;
     return value;
@@ -69,6 +75,11 @@ int ServerPacket_ReadInt(void) {
 
 char* ServerPacket_ReadString(void) {
     char *string = MemAlloc(PACKET_STRING_SIZE + 1);
+    if (string == NULL) return NULL;
+    if (serverPacketReaderIndex > serverPacketDataLength - PACKET_STRING_SIZE) {
+        string[0] = 0;
+        return string;
+    }
     
     for (int i = 0; i < PACKET_STRING_SIZE; i++) {
         string[i] = serverPacketData[serverPacketReaderIndex++];
@@ -80,7 +91,9 @@ char* ServerPacket_ReadString(void) {
 }
 
 unsigned char* ServerPacket_ReadArray(int size) {
+    if (size < 0 || serverPacketReaderIndex > serverPacketDataLength - size) return NULL;
     unsigned char *arr = MemAlloc(size);
+    if (arr == NULL) return NULL;
     memcpy(arr, &serverPacketData[serverPacketReaderIndex], size);
     serverPacketReaderIndex += size;
     return arr;
@@ -279,6 +292,14 @@ unsigned char* ServerPacket_CreateMessage(const char* message) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[5]);
     ServerPacket_WriteByte(packet, 5);
+    ServerPacket_WriteString(packet, message);
+    return packet;
+}
+
+unsigned char* ServerPacket_CreateMessageContinuation(const char* message) {
+    serverPacketWriterIndex = 0;
+    unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[10]);
+    ServerPacket_WriteByte(packet, 10);
     ServerPacket_WriteString(packet, message);
     return packet;
 }

@@ -20,6 +20,7 @@ extern unsigned char *serverPacketData;
 extern Player *serverPacketPlayer;
 extern int serverPacketLastDynamicLength;
 extern int serverPacketReaderIndex;
+extern int serverPacketDataLength;
 
 int ServerPacket_GetLength(unsigned char opcode);
 
@@ -50,6 +51,7 @@ unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity);
 unsigned char* ServerPacket_CreateDespawnEntity(Entity *entity);
 unsigned char* ServerPacket_CreateTeleportEntity(Entity *entity, Vector3 position, Vector3 rotation);
 unsigned char* ServerPacket_CreateMessage(const char* message);
+unsigned char* ServerPacket_CreateMessageContinuation(const char* message);
 unsigned char* ServerPacket_CreateWorldTime(float timeSeconds);
 
 #endif

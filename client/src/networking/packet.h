@@ -37,6 +37,7 @@ void Packet_HandleSpawnEntity(void);
 void Packet_HandleTeleportEntity(void);
 void Packet_HandleDespawnEntity(void);
 void Packet_HandleMessage(void);
+void Packet_HandleMessageContinuation(void);
 void Packet_HandleBlockBatch(void);
 void Packet_HandleWorldTime(void);
 

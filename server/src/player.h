@@ -17,6 +17,7 @@ typedef struct Player {
     int drawDistance;
     bool isWeb;
     bool disconnected;
+    int pendingPackets;
 } Player;
 
 Player *ServerPlayer_Create(void *peer, bool isWeb);

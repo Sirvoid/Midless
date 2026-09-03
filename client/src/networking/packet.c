@@ -194,6 +194,11 @@ void Packet_HandleMessage(void) {
     Chat_AddOwnedLine(message);
 }
 
+void Packet_HandleMessageContinuation(void) {
+    char *message = Packet_ReadString();
+    Chat_AppendOwnedLine(message);
+}
+
 void Packet_HandleBlockBatch(void) {
     int count = Packet_ReadUShort();
     for (int i = 0; i < count; i++) {

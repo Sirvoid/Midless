@@ -57,14 +57,14 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
     //Draw Lines
     int lineAdded = 0;
 
-    int index = currentLine;
+    int index = currentLine == 0 ? 63 : currentLine - 1;
     while (lineAdded < 13) {
         if (chatLines[index]) {
             int textLength = TextLength(chatLines[index]);
             int startPos = 0;
-            char drawLines[3][65] = {0};
+            char drawLines[8][132] = {0};
             int drawLinesCnt = 0;
-            for (int i = 0; i < textLength && drawLinesCnt < 3; i++) {
+            for (int i = 0; i < textLength && drawLinesCnt < 8; i++) {
                 const char* sub = TextSubtext(chatLines[index], startPos, i - startPos + 1);
                 int textWidth = MeasureText(sub, fontSize);
                 if (textWidth >= chatWidth - fontSize - 4 || i == textLength - 1) {
@@ -114,4 +114,25 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
         chatEditMode = false;
     }
 
+}
+
+void Chat_AppendOwnedLine(char *text) {
+    int index = currentLine == 0 ? 63 : currentLine - 1;
+    if (chatLines[index] == NULL) {
+        Chat_AddOwnedLine(text);
+        return;
+    }
+
+    int lineLength = TextLength(chatLines[index]);
+    int textLength = TextLength(text);
+    char *combined = MemAlloc(lineLength + textLength + 1);
+    if (combined == NULL) {
+        MemFree(text);
+        return;
+    }
+    memcpy(combined, chatLines[index], lineLength);
+    memcpy(combined + lineLength, text, textLength + 1);
+    MemFree(chatLines[index]);
+    MemFree(text);
+    chatLines[index] = combined;
 }

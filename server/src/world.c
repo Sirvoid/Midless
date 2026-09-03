@@ -189,7 +189,7 @@ void ServerWorld_Update(void) {
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         Player *player = serverWorld.players[i];
         if (player != NULL) {
-            if(player->disconnected) {
+            if(ServerNetwork_PlayerReadyForRemoval(player)) {
                 ServerWorld_RemovePlayer(player);
                 continue;
             }
@@ -333,11 +333,14 @@ void ServerWorld_RemoveEntity(int id) {
 }
 
 void ServerWorld_SendMessage(const char* message) {
-    int parts = TextLength(message) / 64;
-    
-    for(int i = 0; i <= parts; i++) {
+    int messageLength = TextLength(message);
+    int parts = messageLength > 0 ? (messageLength + 63) / 64 : 1;
+
+    for(int i = 0; i < parts; i++) {
         const char *messageChunk = TextSubtext(message, i * 64, 64);
-        ServerWorld_Broadcast(ServerPacket_CreateMessage(messageChunk));
+        ServerWorld_Broadcast(i == 0
+            ? ServerPacket_CreateMessage(messageChunk)
+            : ServerPacket_CreateMessageContinuation(messageChunk));
     }
     
 }
