@@ -123,7 +123,9 @@ void Particle_Draw(Camera camera, Texture2D texture) {
         const BlockParticle *particle = &particles[i];
         if (!particle->active) continue;
         unsigned char alpha = (unsigned char)(255.0f * Clamp(particle->lifetime / 0.25f, 0.0f, 1.0f));
+        unsigned char brightness = (unsigned char)(World_GetBrightness(particle->position) * 255.0f);
         DrawBillboardRec(camera, texture, particle->textureRegion, particle->position,
-            (Vector2){particle->size, particle->size}, (Color){255, 255, 255, alpha});
+            (Vector2){particle->size, particle->size},
+            (Color){brightness, brightness, brightness, alpha});
     }
 }

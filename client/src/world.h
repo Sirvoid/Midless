@@ -69,6 +69,7 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate);
 int World_GetBlock(Vector3 blockPos);
 //Get strength of sunlight based on time.
 float World_GetSunlightStrength(void);
+float World_GetBrightness(Vector3 position);
 //Get a Chunk at a given position.
 Chunk* World_GetChunkAt(Vector3 pos);
 //Teleport an Entity in the world

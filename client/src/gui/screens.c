@@ -83,7 +83,7 @@ void Screen_DrawGame(void) {
             debugText = TextFormat("%2i FPS", GetFPS());
         }
     
-        const char* versionText = "Midless Pre-Alpha 1.3 dev";
+        const char* versionText = "Midless Pre-Alpha 1.4 dev";
         DrawText(versionText, 9, 9, 20, BLACK);
         DrawText(versionText, 8, 8, 20, WHITE);
 

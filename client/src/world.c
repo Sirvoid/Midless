@@ -21,6 +21,7 @@
 #include "world.h"
 #include "player.h"
 #include "chunkmeshgeneration.h"
+#include "chunklightning.h"
 #include "screens.h"
 #include "networkhandler.h"
 #include "packet.h"
@@ -464,6 +465,26 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
 
 float World_GetSunlightStrength(void) {
     return fmax(abs((int)(world.time - WORLD_DAY_LENGTH_SECONDS / 2.0f)) / (WORLD_DAY_LENGTH_SECONDS / 2.0f), 2/16.0f);
+}
+
+float World_GetBrightness(Vector3 position) {
+    Vector3 chunkPosition = {
+        floorf(position.x / CHUNK_SIZE_X),
+        floorf(position.y / CHUNK_SIZE_Y),
+        floorf(position.z / CHUNK_SIZE_Z)
+    };
+    Chunk *chunk = World_GetChunkAt(chunkPosition);
+    if (!chunk || !chunk->isLightGenerated) return 1.0f;
+
+    Vector3 localPosition = {
+        floorf(position.x) - chunk->blockPosition.x,
+        floorf(position.y) - chunk->blockPosition.y,
+        floorf(position.z) - chunk->blockPosition.z
+    };
+    float blockLight = Chunk_GetLight(chunk, localPosition, false) / 15.0f;
+    float sunlight = Chunk_GetLight(chunk, localPosition, true) / 15.0f;
+    sunlight *= World_GetSunlightStrength();
+    return Clamp(fmaxf(blockLight, sunlight), 0.1f, 1.0f);
 }
 
 /*-------------------------------------------------------------------------------------------------------*

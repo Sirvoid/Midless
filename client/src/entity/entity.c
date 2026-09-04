@@ -8,6 +8,19 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "entity.h"
+#include "world.h"
+
+static float Entity_GetBrightness(Vector3 position) {
+    Vector3 samplePosition = {position.x, position.y + 0.75f, position.z};
+    return World_GetBrightness(samplePosition);
+}
+
+static void Entity_ApplyBrightness(Entity *entity) {
+    float brightness = Entity_GetBrightness(entity->position);
+    unsigned char value = (unsigned char)(brightness * 255.0f);
+    entity->model.material.maps[MATERIAL_MAP_DIFFUSE].color =
+        (Color){value, value, value, 255};
+}
 
 EntityArmSwing Entity_EvaluateArmSwing(float progress) {
     progress = Clamp(progress, 0.0f, 1.0f);
@@ -103,6 +116,7 @@ static void Entity_ApplyThirdPersonAnimation(Entity *entity) {
 
 static void Entity_DrawFiltered(Entity *entity, bool firstPersonOnly) {
     EntityModel *model = &entity->model;
+    Entity_ApplyBrightness(entity);
     for (int i = 0; i < model->partCount; i++) {
         EntityModelPart *part = &model->parts[i];
         if (firstPersonOnly && !part->visibleInFirstPerson) continue;
@@ -144,6 +158,7 @@ void Entity_DrawFirstPerson(Entity *entity, Camera camera, float swingProgress) 
     };
 
     EntityModel *model = &entity->model;
+    Entity_ApplyBrightness(entity);
     for (int i = 0; i < model->partCount; i++) {
         EntityModelPart *part = &model->parts[i];
         if (!part->visibleInFirstPerson) continue;
