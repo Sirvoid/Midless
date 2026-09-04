@@ -47,6 +47,7 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleBlockBatch}; //8
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleWorldTime}; //9
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMessageContinuation}; //10
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleEntityAnimation}; //11
 }
 
 void Network_Connect(void) {

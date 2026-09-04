@@ -36,7 +36,8 @@ int serverPacketLengths[256] = {
     13, //unload chunk
     0, //block batch
     5, //world time
-    65 //message continuation
+    65, //message continuation
+    4 //player click
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -196,6 +197,18 @@ void ServerPacket_HandleSetDrawDistance(void) {
     serverPacketPlayer->drawDistance = distance;
 }
 
+void ServerPacket_HandlePlayerClick(void) {
+    unsigned char button = ServerPacket_ReadByte();
+    if (button > 1) return;
+    EntityAnimationType animation = button == 0
+        ? ENTITY_ANIMATION_SWING_RIGHT_ARM
+        : ENTITY_ANIMATION_SWING_LEFT_ARM;
+    ServerWorld_BroadcastExcluding(
+        ServerPacket_CreateEntityAnimation(serverPacketPlayer->id, animation),
+        serverPacketPlayer->id
+    );
+}
+
 /* Packets sent */
 
 unsigned char* ServerPacket_CreateMapInit(void) {
@@ -312,5 +325,14 @@ unsigned char* ServerPacket_CreateWorldTime(float timeSeconds) {
     unsigned char *packet = MemAlloc(serverPacketLengths[9]);
     ServerPacket_WriteByte(packet, 9);
     ServerPacket_WriteInt(packet, (int)(timeSeconds * 1000.0f));
+    return packet;
+}
+
+unsigned char* ServerPacket_CreateEntityAnimation(unsigned short entityId, EntityAnimationType animation) {
+    serverPacketWriterIndex = 0;
+    unsigned char *packet = MemAlloc(serverPacketLengths[11]);
+    ServerPacket_WriteByte(packet, 11);
+    ServerPacket_WriteUShort(packet, entityId);
+    ServerPacket_WriteByte(packet, (unsigned char)animation);
     return packet;
 }

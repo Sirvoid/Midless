@@ -51,6 +51,7 @@ void Player_Init(void) {
     player.hasEntityModel = false;
     player.cameraMode = PLAYER_CAMERA_FIRST_PERSON;
     player.entityModel = (EntityModel){0};
+    EntityAnimation_Init(&player.animation, player.position);
 
     playerLastPositionPacketTime = 0;
 
@@ -77,6 +78,7 @@ void Player_ClearEntityModel(void) {
 
 void Player_Teleport(Vector3 position) {
     player.position = position;
+    player.animation.lastPosition = position;
     player.velocity = (Vector3){0};
     player.canJump = false;
 
@@ -90,6 +92,7 @@ void Player_Draw(void) {
     if (!player.hasEntityModel) return;
 
     float pitch = playerCameraAngle.y - PI / 2.0f;
+
     for (int i = 0; i < player.entityModel.partCount; i++) {
         EntityModelPart *part = &player.entityModel.parts[i];
         if (part->type == PART_TYPE_HEAD) part->rotation.x = pitch;
@@ -101,8 +104,11 @@ void Player_Draw(void) {
     localEntity.position = (Vector3){player.position.x + 0.5f, player.position.y, player.position.z + 0.5f};
     localEntity.rotation = (Vector3){0, -playerCameraAngle.x + PI / 2.0f, 0};
     localEntity.model = player.entityModel;
+    localEntity.animation = player.animation;
     if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) {
-        Entity_DrawFirstPerson(&localEntity, player.camera);
+        float swingProgress = EntityAnimation_GetSwingProgress(
+            &player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
+        Entity_DrawFirstPerson(&localEntity, player.camera, swingProgress);
     } else {
         Entity_Draw(&localEntity);
     }
@@ -216,12 +222,16 @@ void Player_CheckInputs() {
         player.rayResult = Raycast_Cast(eyePosition, forward, true);
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Break Block
+            EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
+            Network_Send(Packet_CreatePlayerClick(0));
             if (player.rayResult.hitblockId != -1) {
                 Particle_SpawnBlockBreak(player.rayResult.hitPos, player.rayResult.hitblockId);
                 World_SetBlock(player.rayResult.hitPos, 0, true);
                 Network_Send(Packet_CreateSetBlock(0, player.rayResult.hitPos));
             }
         } else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
+            EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_LEFT_ARM);
+            Network_Send(Packet_CreatePlayerClick(1));
             Vector3 placePos = Vector3Add(player.rayResult.hitPos, player.rayResult.normal);
             
             if (player.rayResult.hitblockId != -1) {
@@ -353,7 +363,8 @@ void Player_Update(void) {
     player.velocity.x -= player.velocity.x / 6.0f;
     player.velocity.z -=  player.velocity.z / 6.0f;
     
-    Player_CheckInputs(); 
+    Player_CheckInputs();
+    EntityAnimation_Update(&player.animation, player.position, GetFrameTime());
 }
 
 bool Player_TestCollision(Vector3 offset) {

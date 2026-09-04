@@ -58,7 +58,7 @@ void EntityModel_DefineHumanoid(void) {
     partI++;
 
     //rightarm
-    model.types[partI] = PART_TYPE_NONE;
+    model.types[partI] = PART_TYPE_RIGHT_ARM;
     model.firstPersonVisible[partI] = true;
     model.positions[partI] = (Vector3){-3.5f,17.5f,0.0f};
     model.boxes[partI].min = (Vector3) {-2.8f,-9.0f,-2.0f};
@@ -72,7 +72,7 @@ void EntityModel_DefineHumanoid(void) {
     partI++;
 
     //leftarm
-    model.types[partI] = PART_TYPE_NONE;
+    model.types[partI] = PART_TYPE_LEFT_ARM;
     model.positions[partI] = (Vector3){3.5f,17.5f,0.0f};
     model.boxes[partI].min = (Vector3) {-0.3f,-9.0f,-2.0f};
     model.boxes[partI].max = (Vector3) {2.8f,1.0f,1.0f};
@@ -85,7 +85,7 @@ void EntityModel_DefineHumanoid(void) {
     partI++;
 
     //rightleg
-    model.types[partI] = PART_TYPE_NONE;
+    model.types[partI] = PART_TYPE_RIGHT_LEG;
     model.positions[partI] = (Vector3){-1.4f,8.6f,0.0f};
     model.boxes[partI].min = (Vector3) {-1.6f,-8.6f,-2.0f};
     model.boxes[partI].max = (Vector3) {1.4f,1.4f,1.0f};
@@ -98,7 +98,7 @@ void EntityModel_DefineHumanoid(void) {
     partI++;
 
     //leftleg
-    model.types[partI] = PART_TYPE_NONE;
+    model.types[partI] = PART_TYPE_LEFT_LEG;
     model.positions[partI] = (Vector3){1.6f,8.6f,0.0f};
     model.boxes[partI].min = (Vector3) {-1.6f,-8.6f,-2.0f};
     model.boxes[partI].max = (Vector3) {1.4f,1.4f,1.0f};

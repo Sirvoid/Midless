@@ -26,6 +26,7 @@ int Packet_Lengths[256] = {
     15, //2
     65, //3
     2, //4
+    2, //5
 };
 int pingCalculationPreviousTime = 0;
 
@@ -236,6 +237,12 @@ void Packet_HandleWorldTime(void) {
     world.time = timeMilliseconds / 1000.0f;
 }
 
+void Packet_HandleEntityAnimation(void) {
+    int id = Packet_ReadUShort();
+    EntityAnimationType animation = (EntityAnimationType)Packet_ReadByte();
+    World_PlayEntityAnimation(id, animation);
+}
+
 /*-------------------------------------------------------------------------------------------------------*
 *--------------------------------------------Packets Sent------------------------------------------------*
 *--------------------------------------------------------------------------------------------------------*/
@@ -284,5 +291,13 @@ unsigned char *Packet_CreateSetDrawDistance(unsigned char distance) {
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
     Packet_WriteByte(packet, 4);
     Packet_WriteByte(packet, distance);
+    return packet;
+}
+
+unsigned char *Packet_CreatePlayerClick(unsigned char button) {
+    packetWriterIndex = 0;
+    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[5]);
+    Packet_WriteByte(packet, 5);
+    Packet_WriteByte(packet, button);
     return packet;
 }

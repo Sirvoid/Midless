@@ -11,6 +11,7 @@
 #include "raylib.h"
 #include "raycast.h"
 #include "entitymodel.h"
+#include "entity.h"
 
 typedef enum PlayerCameraMode {
     PLAYER_CAMERA_FIRST_PERSON,
@@ -33,6 +34,7 @@ typedef struct Player{
     bool hasEntityModel;
     PlayerCameraMode cameraMode;
     EntityModel entityModel;
+    EntityAnimation animation;
 } Player;
 extern Player player;
 

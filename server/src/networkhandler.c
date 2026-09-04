@@ -33,6 +33,7 @@ static const int serverIncomingPacketLengths[] = {
     14, 
     15, 
     65, 
+    2,
     2
 };
 
@@ -44,6 +45,7 @@ void ServerNetwork_Init(void) {
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandlePlayerPosition};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleMessage};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleSetDrawDistance};
+    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandlePlayerClick};
 }
 
 void ServerNetwork_Shutdown(void) {

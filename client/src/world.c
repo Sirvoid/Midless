@@ -78,6 +78,10 @@ void World_Update(void) {
 
     World_UpdateChunksWithBudget(4.0);
     Particle_Update(deltaTime);
+    for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {
+        if (world.entities[i].type == 0) continue;
+        EntityAnimation_Update(&world.entities[i].animation, world.entities[i].position, deltaTime);
+    }
     
 }
 
@@ -467,10 +471,17 @@ void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 ro
     world.entities[id].modelId = (unsigned char)modelId;
     world.entities[id].position = position;
     world.entities[id].rotation = rotation;
+    EntityAnimation_Init(&world.entities[id].animation, position);
     
     EntityModel_Create(&world.entities[id].model, entityModels[modelId]);
 }
 
 void World_RemoveEntity(int id) {
     Entity_Destroy(&world.entities[id]);
+}
+
+void World_PlayEntityAnimation(int id, EntityAnimationType animation) {
+    if (id < 0 || id >= WORLD_MAX_ENTITIES) return;
+    if (world.entities[id].type == 0) return;
+    EntityAnimation_Start(&world.entities[id].animation, animation);
 }

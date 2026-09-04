@@ -10,6 +10,7 @@
 
 #include "player.h"
 #include "entity.h"
+#include "entityanimation.h"
 
 typedef struct ServerBlockUpdate {
     Vector3 position;
@@ -41,6 +42,7 @@ void ServerPacket_HandleSetBlock(void);
 void ServerPacket_HandlePlayerPosition(void);
 void ServerPacket_HandleMessage(void);
 void ServerPacket_HandleSetDrawDistance(void);
+void ServerPacket_HandlePlayerClick(void);
 
 unsigned char* ServerPacket_CreateMapInit(void);
 unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length,
@@ -54,5 +56,6 @@ unsigned char* ServerPacket_CreateTeleportEntity(Entity *entity, Vector3 positio
 unsigned char* ServerPacket_CreateMessage(const char* message);
 unsigned char* ServerPacket_CreateMessageContinuation(const char* message);
 unsigned char* ServerPacket_CreateWorldTime(float timeSeconds);
+unsigned char* ServerPacket_CreateEntityAnimation(unsigned short entityId, EntityAnimationType animation);
 
 #endif

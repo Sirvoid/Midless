@@ -13,7 +13,11 @@
 
 typedef enum PartType{
     PART_TYPE_NONE,
-	PART_TYPE_HEAD
+	PART_TYPE_HEAD,
+    PART_TYPE_RIGHT_ARM,
+    PART_TYPE_LEFT_ARM,
+    PART_TYPE_RIGHT_LEG,
+    PART_TYPE_LEFT_LEG
 } PartType;
 
 typedef struct EntityModelDefinition {

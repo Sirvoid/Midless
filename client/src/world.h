@@ -77,5 +77,6 @@ void World_TeleportEntity(int id, Vector3 position, Vector3 rotation);
 void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 rotation);
 //Remove an Entity from the world
 void World_RemoveEntity(int id);
+void World_PlayEntityAnimation(int id, EntityAnimationType animation);
 
 #endif
