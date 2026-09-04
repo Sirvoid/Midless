@@ -7,11 +7,6 @@
 #include "block.h"
 #include "blockmeshgeneration.h"
 
-typedef struct BlockMeshTemplate {
-    unsigned char vertices[6][12];
-    unsigned short texcoords[6][8];
-} BlockMeshTemplate;
-
 static BlockMeshTemplate templates[256];
 static int verticesIndex[2], textureIndex[2], colorsIndex[2], indicesIndex[2];
 
@@ -64,6 +59,11 @@ void BlockMesh_BuildTemplates(void) {
             memcpy(out->texcoords[face], uv, sizeof(uv));
         }
     }
+}
+
+const BlockMeshTemplate *BlockMesh_GetTemplate(int blockId) {
+    if (blockId < 0 || blockId >= 256) return NULL;
+    return &templates[blockId];
 }
 
 Vector3 BlockMesh_GetDirection(BlockFace face) {

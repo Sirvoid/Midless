@@ -13,9 +13,16 @@
 #include "chunk.h"
 #include "chunkmesh.h"
 
+typedef struct BlockMeshTemplate {
+    unsigned char vertices[6][12];
+    unsigned short texcoords[6][8];
+} BlockMeshTemplate;
+
 //Reset memory counters.
 void BlockMesh_ResetIndexes(void);
 void BlockMesh_BuildTemplates(void);
+
+const BlockMeshTemplate *BlockMesh_GetTemplate(int blockId);
 
 //Add a block face to a given mesh.
 void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors, BlockFace face, int x, int y, int z, const Block *block, int translucent, int light, int sunlight);

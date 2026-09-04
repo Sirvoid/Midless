@@ -93,6 +93,7 @@ int main(void) {
         networkThreadState = -1;
 
         LocalServer_Stop();
+        Screen_Shutdown();
         UnloadShader(shader);
         UnloadTexture(texture);
         World_Shutdown();

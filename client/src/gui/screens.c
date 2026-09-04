@@ -20,6 +20,7 @@
 #include "packet.h"
 #include "client.h"
 #include "clientws.h"
+#include "blockitemrenderer.h"
 
 Screen currentScreen = SCREEN_LOGIN;
 bool screenCursorEnabled = false;
@@ -31,11 +32,9 @@ Color uiColBg;
 int maxFPSChoice = 0;
 const char* maxFPS = "60";
 
-Texture2D mapTerrain;
-
 void Screen_Init(Texture2D terrain, bool *exit) {
-    mapTerrain = terrain;
     exitGame = exit;
+    BlockItemRenderer_Init(terrain);
 
     //Set UI colors
     GuiSetStyle(BUTTON, BORDER_COLOR_NORMAL,    0xfffcfcff); 
@@ -70,6 +69,10 @@ void Screen_Init(Texture2D terrain, bool *exit) {
     GuiSetStyle(TEXTBOX, TEXT_COLOR_PRESSED,    0x338bafff); 
 }
 
+void Screen_Shutdown(void) {
+    BlockItemRenderer_Shutdown();
+}
+
 void Screen_DrawGame(void) {
 
     //Draw debug infos
@@ -98,27 +101,8 @@ void Screen_DrawGame(void) {
     DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 + 2,  4, 6, uiColBg);
     DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 - 8,  4, 6, uiColBg);
 
-    //Draw Block Selected
-    const Block *blockDef = Block_GetDefinition(player.blockSelected);
-    int texI = blockDef->textures[4];
-    int texX = texI % 16 * 16;
-    int texY = texI / 16 * 16;
-
-    Rectangle texRec = (Rectangle) {
-        texX + 16 - blockDef->maxBB.x, 
-        texY + 16 - blockDef->maxBB.y, 
-        (blockDef->maxBB.x - blockDef->minBB.x), 
-        (blockDef->maxBB.y - blockDef->minBB.y)
-    };
-
-    Rectangle destRec = (Rectangle) { 
-        screenWidth - 80 + (blockDef->minBB.x * 4), 
-        16 + ((16 - blockDef->maxBB.y) * 4), 
-        (blockDef->maxBB.x - blockDef->minBB.x) * 4, 
-        (blockDef->maxBB.y - blockDef->minBB.y) * 4
-    };
-
-    DrawTexturePro(mapTerrain, texRec, destRec, (Vector2) {0, 0}, 0, WHITE);
+    // Draw the selected block.
+    BlockItemRenderer_Draw(player.blockSelected, (Rectangle){screenWidth - 88, 8, 80, 80});
 
     //Draw Chat
     Chat_Draw((Vector2){16, screenHeight - 52}, uiColBg);
