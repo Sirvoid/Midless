@@ -28,6 +28,7 @@
 #include "entitymodel.h"
 #include "localserver.h"
 #include "particle.h"
+#include "cloud.h"
 
 #if defined(PLATFORM_WEB)
     #include <emscripten/emscripten.h>
@@ -46,6 +47,7 @@ void World_Init(void) {
 
     ChunkMeshGeneration_Init();
     Particle_Clear();
+    Cloud_Init();
 }
 
 void World_LoadMultiplayer(void) {
@@ -78,6 +80,7 @@ void World_Update(void) {
 
     World_UpdateChunksWithBudget(4.0);
     Particle_Update(deltaTime);
+    Cloud_Update(deltaTime);
     float interpolationAmount = 1.0f - expf(-20.0f * deltaTime);
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {
         Entity *entity = &world.entities[i];
@@ -265,6 +268,7 @@ void World_Clear(void) {
 }
 
 void World_Shutdown(void) {
+    Cloud_Shutdown();
     World_Clear();
     UnloadMaterial(world.material);
     MemFree(world.entities);
@@ -387,6 +391,8 @@ void World_Draw(Vector3 camPosition) {
     }
 
     ChunkMesh_FinishDrawing();
+
+    Cloud_Draw(camPosition, World_GetSunlightStrength());
 
     Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
 

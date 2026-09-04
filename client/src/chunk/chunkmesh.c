@@ -11,6 +11,7 @@
 #include "rlgl.h"
 #include "chunkmesh.h"
 #include "world.h"
+#include "player.h"
 
 static unsigned int cachedShaderId = 0;
 static int matModelViewLocation = -1;
@@ -98,11 +99,27 @@ void ChunkMesh_PrepareDrawing(Material material) {
         matModelViewLocation = rlGetLocationUniform(material.shader.id, "matModelView");
     }
 
-    float drawDistance = (world.drawDistance + 2) * 16.0f;
-    rlSetUniform(rlGetLocationUniform(material.shader.id, "drawDistance"), &drawDistance, RL_SHADER_UNIFORM_FLOAT, 1);
-
     float sunlightStrength = World_GetSunlightStrength();
     rlSetUniform(rlGetLocationUniform(material.shader.id, "sunlightStrength"), &sunlightStrength, RL_SHADER_UNIFORM_FLOAT, 1);
+
+    float fogEnd = world.drawDistance * 16.0f + 8.0f;
+    float fogStart = world.drawDistance * 16.0f * 0.7f + 8.0f;
+    float fogColor[3] = {
+        (140.0f / 255.0f) * sunlightStrength,
+        (210.0f / 255.0f) * sunlightStrength,
+        (240.0f / 255.0f) * sunlightStrength
+    };
+    Color liquidTint;
+    if (Player_GetCameraLiquidTint(&liquidTint)) {
+        fogStart = 10.0f;
+        fogEnd = 32.0f;
+        fogColor[0] = liquidTint.r / 255.0f;
+        fogColor[1] = liquidTint.g / 255.0f;
+        fogColor[2] = liquidTint.b / 255.0f;
+    }
+    rlSetUniform(rlGetLocationUniform(material.shader.id, "fogColor"), fogColor, RL_SHADER_UNIFORM_VEC3, 1);
+    rlSetUniform(rlGetLocationUniform(material.shader.id, "fogStart"), &fogStart, RL_SHADER_UNIFORM_FLOAT, 1);
+    rlSetUniform(rlGetLocationUniform(material.shader.id, "fogEnd"), &fogEnd, RL_SHADER_UNIFORM_FLOAT, 1);
 }
 
 void ChunkMesh_FinishDrawing(void) {
