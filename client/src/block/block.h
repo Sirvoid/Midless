@@ -53,6 +53,7 @@ typedef struct Block {
     Vector3 maxBB; //0-16
     bool fullCube;
     bool fastOpaqueCube;
+    unsigned char lightPassFaces;
 } Block;
 
 extern Block blockDefinitions[256];

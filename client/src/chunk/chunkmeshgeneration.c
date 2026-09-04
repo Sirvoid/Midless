@@ -84,10 +84,22 @@ static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
     bool sprite = block->modelType == BLOCK_MODEL_SPRITE;
     if (!sprite && !FaceVisible(block, next)) return;
 
-    int lightIndex = (sprite || block->renderType == BLOCK_RENDER_TRANSPARENT) ? blockIndex : nextIndex;
-    Chunk *lightChunk = (sprite || block->renderType == BLOCK_RENDER_TRANSPARENT) ? chunk : nextChunk;
-    int light = lightChunk->lightData[lightIndex];
-    int sunlight = lightChunk->sunlightData[lightIndex];
+    int light;
+    int sunlight;
+    if (sprite || block->renderType == BLOCK_RENDER_TRANSPARENT) {
+        light = chunk->lightData[blockIndex];
+        sunlight = chunk->sunlightData[blockIndex];
+    } else if (!block->fullCube) {
+        int ownLight = chunk->lightData[blockIndex];
+        int ownSunlight = chunk->sunlightData[blockIndex];
+        int neighborLight = nextChunk->lightData[nextIndex];
+        int neighborSunlight = nextChunk->sunlightData[nextIndex];
+        light = ownLight > neighborLight ? ownLight : neighborLight;
+        sunlight = ownSunlight > neighborSunlight ? ownSunlight : neighborSunlight;
+    } else {
+        light = nextChunk->lightData[nextIndex];
+        sunlight = nextChunk->sunlightData[nextIndex];
+    }
 
     if (block->renderType == BLOCK_RENDER_TRANSLUCENT) {
         chunkTransparentTriangleCount += 2;

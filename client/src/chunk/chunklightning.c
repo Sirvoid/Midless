@@ -165,8 +165,12 @@ void Chunk_SpreadLight(LightQueue *queue, bool sunlight) {
 
         int lightLevel = Chunk_GetLightLevel(chunk, index, sunlight);
         Vector3 pos = Chunk_IndexToPos(index);
+        const Block *currentBlock = Block_GetDefinition(chunk->data[index]);
 
         for (int d = 0; d < 6; d++) {
+            if (currentBlock->lightType != BLOCK_LIGHT_EMIT &&
+                (currentBlock->lightPassFaces & (1u << d)) == 0) continue;
+
             Vector3 nextPos = Vector3Add(pos, lightDirections[d]);
             Chunk *nextChunk = chunk;
 

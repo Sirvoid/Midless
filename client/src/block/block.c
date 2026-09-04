@@ -11,6 +11,21 @@
 
 Block blockDefinitions[256];
 
+static unsigned char Block_GetLightPassFaces(const Block *block) {
+    if (block->renderType != BLOCK_RENDER_OPAQUE) return 0x3F;
+
+    bool fullX = block->minBB.x <= 0 && block->maxBB.x >= 16;
+    bool fullY = block->minBB.y <= 0 && block->maxBB.y >= 16;
+    bool fullZ = block->minBB.z <= 0 && block->maxBB.z >= 16;
+    unsigned char faces = 0;
+
+    // Light can cross an axis when the block does not fill the complete cross-section perpendicular to that axis.
+    if (!(fullY && fullZ)) faces |= (1u << BLOCK_FACE_LEFT) | (1u << BLOCK_FACE_RIGHT);
+    if (!(fullX && fullZ)) faces |= (1u << BLOCK_FACE_TOP) | (1u << BLOCK_FACE_BOTTOM);
+    if (!(fullX && fullY)) faces |= (1u << BLOCK_FACE_FRONT) | (1u << BLOCK_FACE_BACK);
+    return faces;
+}
+
 void Block_BuildDefinition(void) {
 
     for (int i = 0; i < 256; i++) {
@@ -79,6 +94,7 @@ void Block_BuildDefinition(void) {
         block->fastOpaqueCube = block->fullCube &&
                                 block->modelType == BLOCK_MODEL_SOLID &&
                                 block->renderType == BLOCK_RENDER_OPAQUE;
+        block->lightPassFaces = Block_GetLightPassFaces(block);
     }
     BlockMesh_BuildTemplates();
 }
