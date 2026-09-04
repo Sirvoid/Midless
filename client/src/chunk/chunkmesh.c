@@ -12,6 +12,9 @@
 #include "chunkmesh.h"
 #include "world.h"
 
+static unsigned int cachedShaderId = 0;
+static int matModelViewLocation = -1;
+
 void ChunkMesh_Upload(ChunkMesh *mesh, unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors) {
     mesh->drawVertexCount = mesh->vertexCount;
     mesh->drawTriangleCount = mesh->triangleCount;
@@ -90,6 +93,11 @@ void ChunkMesh_PrepareDrawing(Material material) {
     rlEnableShader(material.shader.id);
     rlEnableTexture(material.maps[0].texture.id);
 
+    if (cachedShaderId != material.shader.id) {
+        cachedShaderId = material.shader.id;
+        matModelViewLocation = rlGetLocationUniform(material.shader.id, "matModelView");
+    }
+
     float drawDistance = (world.drawDistance + 2) * 16.0f;
     rlSetUniform(rlGetLocationUniform(material.shader.id, "drawDistance"), &drawDistance, RL_SHADER_UNIFORM_FLOAT, 1);
 
@@ -132,7 +140,7 @@ void ChunkMesh_Draw(ChunkMesh *mesh, Material material, Matrix transform) {
     matMVP = MatrixMultiply(matModelView, matProjection);
 
     rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_MVP], matMVP);
-    rlSetUniformMatrix(rlGetLocationUniform(material.shader.id, "matModelView"), matModelView);
+    rlSetUniformMatrix(matModelViewLocation, matModelView);
     
     rlDrawVertexArrayElements(0, mesh->drawTriangleCount * 3, 0);
 
