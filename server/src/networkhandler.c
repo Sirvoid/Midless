@@ -16,7 +16,7 @@
 #include "packet.h"
 #include "server.h"
 #include "serverwss.h"
-#include "world.h"
+#include "world/world.h"
 #include "logger.h"
 
 PacketHandlerEntry serverPacketHandlers[256];

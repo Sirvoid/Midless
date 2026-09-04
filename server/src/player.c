@@ -11,8 +11,8 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "player.h"
-#include "world.h"
-#include "chunk/chunk.h"
+#include "world/world.h"
+#include "world/chunk/chunk.h"
 #include "networkhandler.h"
 #include "packet.h"
 
@@ -96,4 +96,3 @@ void ServerPlayer_LoadChunks(Player* player) {
         if (GetTime() >= loadDeadline) return;
     }
 }
-

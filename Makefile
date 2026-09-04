@@ -45,7 +45,8 @@ ifeq ($(BUILD_SERVER), TRUE)
 
 	DIR_SRC += ./server
 	DIR_SRC += ./server/src
-	DIR_SRC += ./server/src/chunk
+	DIR_SRC += ./server/src/world
+	DIR_SRC += ./server/src/world/chunk
 	DIR_SRC += ./server/src/scripting
 
 	ifeq ($(SERVER_HEADLESS), TRUE)
@@ -117,7 +118,7 @@ ifeq ($(PLATFORM),PLATFORM_WEB)
 	CFLAGS += -pthread
 endif
 
-INCLUDE_PATHS = $(DIR_INC) -I./server/src -I./server/src/chunk -I./server/src/scripting -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external -I$(RAYLIB_PATH)/src/extras -I./libs
+INCLUDE_PATHS = $(DIR_INC) -I./server/src -I./server/src/world -I./server/src/world/chunk -I./server/src/scripting -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external -I$(RAYLIB_PATH)/src/extras -I./libs
 LDFLAGS = -L. -L$(RAYLIB_PATH)/src -L./libs
 
 ifeq ($(SERVER_WEB_SUPPORT), TRUE)
@@ -169,7 +170,7 @@ $(OBJ_DIR)/%.o: %.c
 endif
 
 ifneq ($(BUILD_SERVER),TRUE)
-$(OBJ_DIR)/server/src/world.o: CDIRECTIVES += -DMIDLESS_STB_DS_EXTERNAL
+$(OBJ_DIR)/server/src/world/world.o: CDIRECTIVES += -DMIDLESS_STB_DS_EXTERNAL
 endif
 
 clean:

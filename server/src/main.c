@@ -14,7 +14,7 @@
 #include "raylib.h"
 #include "server.h"
 #include "serverwss.h"
-#include "world.h"
+#include "world/world.h"
 #include "stb_ds.h"
 #include "networkhandler.h"
 #include "luaengine.h"

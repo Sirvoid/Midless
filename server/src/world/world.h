@@ -12,8 +12,8 @@
 #define WORLD_MAX_PLAYERS 256
 
 #include "raylib.h"
-#include "player.h"
-#include "entity.h"
+#include "../player.h"
+#include "../entity.h"
 #include "chunk/chunk.h"
 #include "worldtime.h"
 

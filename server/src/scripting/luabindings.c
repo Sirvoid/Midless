@@ -11,7 +11,7 @@
 #include "luaengine.h"
 #include "../networkhandler.h"
 #include "../packet.h"
-#include "../world.h"
+#include "../world/world.h"
 #include "../utils.h"
 #include "stb_ds.h"
 

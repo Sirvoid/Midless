@@ -7,7 +7,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include "localserver.h"
-#include "../../server/src/world.h"
+#include "../../server/src/world/world.h"
 #include "../../server/src/player.h"
 #include "../../server/src/networkhandler.h"
 #include "../../server/src/scripting/luaengine.h"

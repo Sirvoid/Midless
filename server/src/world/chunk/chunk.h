@@ -9,7 +9,7 @@
 #define MIDLESS_SERVER_CHUNK_H
 
 #include "raylib.h"
-#include "../player.h"
+#include "../../player.h"
 #include "chunkdata.h"
 
 #define CHUNK_SIZE_VEC3 CLITERAL(Vector3){ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }
