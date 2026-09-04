@@ -228,6 +228,7 @@ void World_Reload(void) {
 void World_Clear(void) {
     world.loadChunks = false;
     Particle_Clear();
+    Player_ClearEntityModel();
 
     arrfree(world.generateChunksQueue);
     world.generateChunksQueue = NULL;
@@ -457,12 +458,17 @@ void World_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
     }
 }
 
-void World_AddEntity(int id, int type, Vector3 position, Vector3 rotation) {
+void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 rotation) {
+    if (id < 0 || id >= WORLD_MAX_ENTITIES) return;
+    if (modelId < 0 || modelId >= 256 || entityModels[modelId].boxCount == 0) return;
+
+    if (world.entities[id].type != 0) Entity_Destroy(&world.entities[id]);
     world.entities[id].type = type;
+    world.entities[id].modelId = (unsigned char)modelId;
     world.entities[id].position = position;
     world.entities[id].rotation = rotation;
     
-    EntityModel_Create(&world.entities[id].model, entityModels[0]);
+    EntityModel_Create(&world.entities[id].model, entityModels[modelId]);
 }
 
 void World_RemoveEntity(int id) {

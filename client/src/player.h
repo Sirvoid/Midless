@@ -10,6 +10,13 @@
 
 #include "raylib.h"
 #include "raycast.h"
+#include "entitymodel.h"
+
+typedef enum PlayerCameraMode {
+    PLAYER_CAMERA_FIRST_PERSON,
+    PLAYER_CAMERA_THIRD_PERSON_BEHIND,
+    PLAYER_CAMERA_THIRD_PERSON_FRONT
+} PlayerCameraMode;
 
 typedef struct Player{
     Camera camera;
@@ -21,6 +28,11 @@ typedef struct Player{
     RaycastResult rayResult;
     int blockSelected;
     bool canJump;
+    unsigned char entityType;
+    unsigned char modelId;
+    bool hasEntityModel;
+    PlayerCameraMode cameraMode;
+    EntityModel entityModel;
 } Player;
 extern Player player;
 
@@ -32,6 +44,10 @@ void Player_CheckInputs(void);
 
 //Update a player.
 void Player_Update(void);
+void Player_Draw(void);
+void Player_SetEntityModel(int type, int modelId);
+void Player_ClearEntityModel(void);
+void Player_Teleport(Vector3 position);
 
 bool Player_TryPlaceBlock(Vector3 pos, int blockId);
 

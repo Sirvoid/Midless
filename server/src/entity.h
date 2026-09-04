@@ -13,6 +13,7 @@
 typedef struct Entity{
     int id;
     char type;
+    unsigned char model;
     Vector3 position;
     Vector3 rotation;
 } Entity;

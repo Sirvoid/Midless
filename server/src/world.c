@@ -15,6 +15,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <math.h>
+#include <limits.h>
 #include "raylib.h"
 #include "raymath.h"
 #include "stb_ds.h"
@@ -287,7 +288,11 @@ void ServerWorld_AddPlayer(void *player) {
         if(serverWorld.players[i]) continue;
         serverWorld.players[i] = p;
         serverWorld.players[i]->id = i;
-        ServerWorld_AddEntity(i, 1, (Vector3) {0, 80, 0});
+        ServerWorld_AddEntity(i, 1, 0, (Vector3) {0, 80, 0});
+
+        Entity localEntity = serverWorld.entities[i];
+        localEntity.id = USHRT_MAX;
+        ServerNetwork_Send(player, ServerPacket_CreateSpawnEntity(&localEntity));
         break;
     }
     
@@ -320,9 +325,10 @@ void ServerWorld_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
     ServerWorld_BroadcastExcluding(ServerPacket_CreateTeleportEntity(&serverWorld.entities[id], position, rotation), id);
 }
 
-void ServerWorld_AddEntity(int id, int type, Vector3 position) {
+void ServerWorld_AddEntity(int id, int type, int model, Vector3 position) {
     serverWorld.entities[id].id = id;
     serverWorld.entities[id].type = type;
+    serverWorld.entities[id].model = (unsigned char)model;
     serverWorld.entities[id].position = position;
     ServerWorld_BroadcastExcluding(ServerPacket_CreateSpawnEntity(&serverWorld.entities[id]), id);
 }

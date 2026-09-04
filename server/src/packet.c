@@ -29,7 +29,7 @@ int serverPacketLengths[256] = {
     1,  //map init
     0, //load chunk
     14,  //setblock
-    16, //spawnEntity
+    17, //spawnEntity
     17, //teleportEntity
     65, //Message
     3, //despawnEntity
@@ -263,6 +263,7 @@ unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity) {
     ServerPacket_WriteByte(packet, 3);
     ServerPacket_WriteUShort(packet, entity->id);
     ServerPacket_WriteByte(packet, entity->type);
+    ServerPacket_WriteByte(packet, entity->model);
     ServerPacket_WriteInt(packet, (int)(entity->position.x * 64));
     ServerPacket_WriteInt(packet, (int)(entity->position.y * 64));
     ServerPacket_WriteInt(packet, (int)(entity->position.z * 64));

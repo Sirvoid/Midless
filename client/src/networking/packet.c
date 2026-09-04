@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <limits.h>
 #include "raylib.h"
 #include "packet.h"
 #include "networkhandler.h"
@@ -174,10 +175,17 @@ void Packet_HandleSetBlock(void) {
 void Packet_HandleSpawnEntity(void) {
     int id = Packet_ReadUShort();
     int type = Packet_ReadByte();
+    int modelId = Packet_ReadByte();
     int x = Packet_ReadInt();
     int y = Packet_ReadInt();
     int z = Packet_ReadInt();
-    World_AddEntity(id, type, (Vector3) { x / 64.0f, y / 64.0f, z / 64.0f }, (Vector3) {0, 0, 0});
+    Vector3 position = (Vector3) { x / 64.0f, y / 64.0f, z / 64.0f };
+    if (id == USHRT_MAX) {
+        Player_SetEntityModel(type, modelId);
+        Player_Teleport(position);
+        return;
+    }
+    World_AddEntity(id, type, modelId, position, (Vector3) {0, 0, 0});
 }
 
 void Packet_HandleDespawnEntity(void) {
@@ -192,7 +200,12 @@ void Packet_HandleTeleportEntity(void) {
     int z = Packet_ReadInt();
     int yaw = Packet_ReadSByte();
     int pitch = Packet_ReadSByte();
-    World_TeleportEntity(id, (Vector3) { x / 64.0f, y / 64.0f, z / 64.0f }, (Vector3) {pitch / 128.0f * PI, yaw / 128.0f * PI, 0});
+    Vector3 position = (Vector3) { x / 64.0f, y / 64.0f, z / 64.0f };
+    if (id == USHRT_MAX) {
+        Player_Teleport(position);
+        return;
+    }
+    World_TeleportEntity(id, position, (Vector3) {pitch / 128.0f * PI, yaw / 128.0f * PI, 0});
 }
 
 void Packet_HandleMessage(void) {

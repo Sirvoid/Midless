@@ -19,8 +19,10 @@
 #include "networkhandler.h"
 #include "packet.h"
 #include "particle.h"
+#include "entity.h"
 
 #define MOUSE_SENSITIVITY 0.003f
+#define THIRD_PERSON_DISTANCE 4.0f
 
 Vector2 playerOldMousePosition = {0.0f, 0.0f};
 Vector2 playerCameraAngle = {0.0f, 0.0f};
@@ -44,6 +46,11 @@ void Player_Init(void) {
     player.collisionBox.max = (Vector3) { 0.8f, 1.5f, 0.8f };
 
     player.blockSelected = 15;
+    player.entityType = 0;
+    player.modelId = 0;
+    player.hasEntityModel = false;
+    player.cameraMode = PLAYER_CAMERA_FIRST_PERSON;
+    player.entityModel = (EntityModel){0};
 
     playerLastPositionPacketTime = 0;
 
@@ -51,7 +58,57 @@ void Player_Init(void) {
     DisableCursor();
 }
 
+void Player_SetEntityModel(int type, int modelId) {
+    if (modelId < 0 || modelId >= 256 || entityModels[modelId].boxCount == 0) return;
+    Player_ClearEntityModel();
+    player.entityType = (unsigned char)type;
+    player.modelId = (unsigned char)modelId;
+    EntityModel_Create(&player.entityModel, entityModels[modelId]);
+    player.hasEntityModel = true;
+}
+
+void Player_ClearEntityModel(void) {
+    if (!player.hasEntityModel) return;
+    EntityModel_Unload(&player.entityModel);
+    EntityModel_Destroy(&player.entityModel);
+    player.hasEntityModel = false;
+    player.entityType = 0;
+}
+
+void Player_Teleport(Vector3 position) {
+    player.position = position;
+    player.velocity = (Vector3){0};
+    player.canJump = false;
+
+    player.camera.position = position;
+    player.camera.position.x += 0.5f;
+    player.camera.position.y += 1.5f;
+    player.camera.position.z += 0.5f;
+}
+
+void Player_Draw(void) {
+    if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON || !player.hasEntityModel) return;
+
+    float pitch = playerCameraAngle.y - PI / 2.0f;
+    for (int i = 0; i < player.entityModel.partCount; i++) {
+        if (player.entityModel.parts[i].type == PART_TYPE_HEAD) {
+            player.entityModel.parts[i].rotation.x = pitch;
+        }
+    }
+
+    Entity localEntity = {0};
+    localEntity.type = (char)player.entityType;
+    localEntity.modelId = player.modelId;
+    localEntity.position = (Vector3){player.position.x + 0.5f, player.position.y, player.position.z + 0.5f};
+    localEntity.rotation = (Vector3){0, -playerCameraAngle.x + PI / 2.0f, 0};
+    localEntity.model = player.entityModel;
+    Entity_Draw(&localEntity);
+}
+
 void Player_CheckInputs() {
+    if (IsKeyPressed(KEY_F5)) {
+        player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
+    }
     
     if (IsKeyPressed(KEY_ESCAPE)) {
         if (screenCursorEnabled) {
@@ -112,6 +169,8 @@ void Player_CheckInputs() {
     float forwardX = cx * sy;
     float forwardY = cy;
     float forwardZ = sx * sy;
+    Vector3 forward = {forwardX, forwardY, forwardZ};
+    Vector3 eyePosition = {player.position.x + 0.5f, player.position.y + 1.5f, player.position.z + 0.5f};
     
     if (!screenCursorEnabled) {
         //Handle keys & mouse
@@ -151,7 +210,7 @@ void Player_CheckInputs() {
         if (player.blockSelected > 18) player.blockSelected = 1;
         if (player.blockSelected < 1) player.blockSelected = 18;
         
-        player.rayResult = Raycast_Cast(player.camera.position, (Vector3) { forwardX, forwardY, forwardZ}, true);
+        player.rayResult = Raycast_Cast(eyePosition, forward, true);
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Break Block
             if (player.rayResult.hitblockId != -1) {
@@ -199,10 +258,21 @@ void Player_CheckInputs() {
             player.blockSelected = pickedId;
         }
     }
-    //Place camera's target to the direction looking at.
-    player.camera.target.x = player.camera.position.x + forwardX;
-    player.camera.target.y = player.camera.position.y + forwardY;
-    player.camera.target.z = player.camera.position.z + forwardZ;
+    player.camera.position = eyePosition;
+    if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) {
+        Vector3 cameraDirection = player.cameraMode == PLAYER_CAMERA_THIRD_PERSON_BEHIND
+            ? Vector3Negate(forward)
+            : forward;
+        Vector3 desiredPosition = Vector3Add(eyePosition, Vector3Scale(cameraDirection, THIRD_PERSON_DISTANCE));
+        RaycastResult cameraHit = Raycast_Cast(eyePosition, cameraDirection, true);
+        float hitDistance = Vector3Distance(eyePosition, cameraHit.prevPos);
+        if (cameraHit.hitblockId != -1 && hitDistance < THIRD_PERSON_DISTANCE) {
+            player.camera.position = Vector3Subtract(cameraHit.prevPos, Vector3Scale(cameraDirection, 0.1f));
+        } else {
+            player.camera.position = desiredPosition;
+        }
+    }
+    player.camera.target = Vector3Add(eyePosition, forward);
 }
 
 bool Player_TryPlaceBlock(Vector3 pos, int blockId)
@@ -276,12 +346,6 @@ void Player_Update(void) {
     }
 
     World_LoadChunks();
-
-    //Place Camera
-    player.camera.position = player.position;
-    player.camera.position.y += 1.5f;
-    player.camera.position.x += 0.5f;
-    player.camera.position.z += 0.5f;
 
     player.velocity.x -= player.velocity.x / 6.0f;
     player.velocity.z -=  player.velocity.z / 6.0f;
