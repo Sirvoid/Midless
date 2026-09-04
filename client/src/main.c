@@ -132,7 +132,7 @@ void Game_RunLoop(void) {
             }
                 
         EndMode3D();
-        
+
         Screen_Draw();
 
     EndDrawing();

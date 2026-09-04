@@ -9,11 +9,11 @@
 #include "raymath.h"
 #include "entity.h"
 
-void Entity_Draw(Entity *entity) {
+static void Entity_DrawFiltered(Entity *entity, bool firstPersonOnly) {
     EntityModel *model = &entity->model;
     for (int i = 0; i < model->partCount; i++) {
-        
         EntityModelPart *part = &model->parts[i];
+        if (firstPersonOnly && !part->visibleInFirstPerson) continue;
 
         Matrix drawMatrix = (Matrix) {1,0,0,0,
                                       0,1,0,0,
@@ -32,6 +32,27 @@ void Entity_Draw(Entity *entity) {
         drawMatrix.m13 += entity->position.y;
         drawMatrix.m14 += entity->position.z;
 
+        DrawMesh(part->mesh, model->material, drawMatrix);
+    }
+}
+
+void Entity_Draw(Entity *entity) {
+    Entity_DrawFiltered(entity, false);
+}
+
+void Entity_DrawFirstPerson(Entity *entity, Camera camera) {
+    Matrix cameraTransform = MatrixInvert(GetCameraMatrix(camera));
+
+    EntityModel *model = &entity->model;
+    for (int i = 0; i < model->partCount; i++) {
+        EntityModelPart *part = &model->parts[i];
+        if (!part->visibleInFirstPerson) continue;
+
+        Matrix drawMatrix = MatrixRotateXYZ(Vector3Scale((Vector3) {-60.0f, 0.0f, -190.0f}, DEG2RAD));
+        drawMatrix.m12 = 0.35f;
+        drawMatrix.m13 = -0.42f;
+        drawMatrix.m14 = -0.25f;
+        drawMatrix = MatrixMultiply(drawMatrix, cameraTransform);
         DrawMesh(part->mesh, model->material, drawMatrix);
     }
 }

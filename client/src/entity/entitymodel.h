@@ -22,6 +22,7 @@ typedef struct EntityModelDefinition {
     Rectangle (*uvs)[6];
     Vector3 *positions;
     PartType *types;
+    bool *firstPersonVisible;
     Texture2D defaultTexture;
 } EntityModelDefinition;
 

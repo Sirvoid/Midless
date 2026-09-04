@@ -87,13 +87,12 @@ void Player_Teleport(Vector3 position) {
 }
 
 void Player_Draw(void) {
-    if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON || !player.hasEntityModel) return;
+    if (!player.hasEntityModel) return;
 
     float pitch = playerCameraAngle.y - PI / 2.0f;
     for (int i = 0; i < player.entityModel.partCount; i++) {
-        if (player.entityModel.parts[i].type == PART_TYPE_HEAD) {
-            player.entityModel.parts[i].rotation.x = pitch;
-        }
+        EntityModelPart *part = &player.entityModel.parts[i];
+        if (part->type == PART_TYPE_HEAD) part->rotation.x = pitch;
     }
 
     Entity localEntity = {0};
@@ -102,7 +101,11 @@ void Player_Draw(void) {
     localEntity.position = (Vector3){player.position.x + 0.5f, player.position.y, player.position.z + 0.5f};
     localEntity.rotation = (Vector3){0, -playerCameraAngle.x + PI / 2.0f, 0};
     localEntity.model = player.entityModel;
-    Entity_Draw(&localEntity);
+    if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) {
+        Entity_DrawFirstPerson(&localEntity, player.camera);
+    } else {
+        Entity_Draw(&localEntity);
+    }
 }
 
 void Player_CheckInputs() {

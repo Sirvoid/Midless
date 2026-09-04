@@ -27,6 +27,8 @@ void EntityModel_DefineHumanoid(void) {
     model.positions = MemAlloc(sizeof(Vector3[boxCount]));
     model.uvs = MemAlloc(sizeof(Rectangle[boxCount][6]));
     model.types = MemAlloc(sizeof(PartType[boxCount]));
+    model.firstPersonVisible = MemAlloc(sizeof(bool[boxCount]));
+    for (int i = 0; i < boxCount; i++) model.firstPersonVisible[i] = false;
     int partI = 0;
 
     //head
@@ -42,19 +44,6 @@ void EntityModel_DefineHumanoid(void) {
     model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){46,0,-16,14};
     partI++;
 
-    //rightleg
-    model.types[partI] = PART_TYPE_NONE;
-    model.positions[partI] = (Vector3){1.6f,8.6f,0.0f};
-    model.boxes[partI].min = (Vector3) {-1.6f,-8.6f,-2.0f};
-    model.boxes[partI].max = (Vector3) {1.4f,1.4f,1.0f};
-    model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){66,6,6,20};
-    model.uvs[partI][MODEL_FACE_EAST] = (Rectangle){72,6,6,20};
-    model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){78,6,6,20};
-    model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){60,6,6,20};
-    model.uvs[partI][MODEL_FACE_UP] = (Rectangle){72,6,-6,-6};
-    model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){78,0,-6,6};
-    partI++;
-
     //torso
     model.types[partI] = PART_TYPE_NONE;
     model.positions[partI] = (Vector3){0.4f,18.3f,-0.4f};
@@ -68,8 +57,9 @@ void EntityModel_DefineHumanoid(void) {
     model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){34,30,-14,6};
     partI++;
 
-    //leftarm
+    //rightarm
     model.types[partI] = PART_TYPE_NONE;
+    model.firstPersonVisible[partI] = true;
     model.positions[partI] = (Vector3){-3.5f,17.5f,0.0f};
     model.boxes[partI].min = (Vector3) {-2.8f,-9.0f,-2.0f};
     model.boxes[partI].max = (Vector3) {0.3f,1.0f,1.0f};
@@ -81,7 +71,7 @@ void EntityModel_DefineHumanoid(void) {
     model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){52,30,6,6};
     partI++;
 
-    //rightarm
+    //leftarm
     model.types[partI] = PART_TYPE_NONE;
     model.positions[partI] = (Vector3){3.5f,17.5f,0.0f};
     model.boxes[partI].min = (Vector3) {-0.3f,-9.0f,-2.0f};
@@ -94,7 +84,7 @@ void EntityModel_DefineHumanoid(void) {
     model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){76,30,6,6};
     partI++;
 
-    //leftleg
+    //rightleg
     model.types[partI] = PART_TYPE_NONE;
     model.positions[partI] = (Vector3){-1.4f,8.6f,0.0f};
     model.boxes[partI].min = (Vector3) {-1.6f,-8.6f,-2.0f};
@@ -105,6 +95,19 @@ void EntityModel_DefineHumanoid(void) {
     model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){84,6,6,20};
     model.uvs[partI][MODEL_FACE_UP] = (Rectangle){96,6,-6,-6};
     model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){102,0,-6,6};
+    partI++;
+
+    //leftleg
+    model.types[partI] = PART_TYPE_NONE;
+    model.positions[partI] = (Vector3){1.6f,8.6f,0.0f};
+    model.boxes[partI].min = (Vector3) {-1.6f,-8.6f,-2.0f};
+    model.boxes[partI].max = (Vector3) {1.4f,1.4f,1.0f};
+    model.uvs[partI][MODEL_FACE_NORTH] = (Rectangle){66,6,6,20};
+    model.uvs[partI][MODEL_FACE_EAST] = (Rectangle){72,6,6,20};
+    model.uvs[partI][MODEL_FACE_SOUTH] = (Rectangle){78,6,6,20};
+    model.uvs[partI][MODEL_FACE_WEST] = (Rectangle){60,6,6,20};
+    model.uvs[partI][MODEL_FACE_UP] = (Rectangle){72,6,-6,-6};
+    model.uvs[partI][MODEL_FACE_DOWN] = (Rectangle){78,0,-6,6};
     partI++;
 
     model.defaultTexture = Resource_LoadTexture("humanoid.png");
@@ -126,6 +129,7 @@ void EntityModelDefinitions_Shutdown(void) {
         MemFree(model->positions);
         MemFree(model->uvs);
         MemFree(model->types);
+        MemFree(model->firstPersonVisible);
         UnloadTexture(model->defaultTexture);
         *model = (EntityModelDefinition){0};
     }
@@ -140,6 +144,7 @@ void EntityModel_Create(EntityModel *model, EntityModelDefinition modelDef) {
     
     for (int i = 0; i < modelDef.boxCount; i++) {
         model->parts[i].type = modelDef.types[i];
+        model->parts[i].visibleInFirstPerson = modelDef.firstPersonVisible[i];
         EntityModelPart_Build(&model->parts[i], modelDef.boxes[i], modelDef.uvs[i], (Vector2) {modelDef.defaultTexture.width, modelDef.defaultTexture.height}, modelDef.positions[i]);
     }
 }

@@ -20,6 +20,7 @@ typedef struct Entity{
 } Entity;
 
 void Entity_Draw(Entity *entity);
+void Entity_DrawFirstPerson(Entity *entity, Camera camera);
 void Entity_Destroy(Entity *entity);
 
 #endif
