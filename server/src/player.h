@@ -18,6 +18,8 @@ typedef struct Player {
     bool isWeb;
     bool disconnected;
     int pendingPackets;
+    bool chunkRequestPending;
+    Vector3 pendingChunkPosition;
 } Player;
 
 Player *ServerPlayer_Create(void *peer, bool isWeb);

@@ -39,6 +39,7 @@ Chunk* ServerWorld_AddChunk(Vector3 position);
 void ServerWorld_RemoveChunk(Chunk *currentChunk);
 Chunk* ServerWorld_GetChunkAt(Vector3 position);
 Chunk* ServerWorld_RequestChunk(Vector3 position);
+bool ServerWorld_QueueChunk(Vector3 position);
 
 void ServerWorld_AddPlayer(void *player);
 void ServerWorld_RemovePlayer(void *player);

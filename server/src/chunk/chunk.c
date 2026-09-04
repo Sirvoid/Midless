@@ -46,7 +46,8 @@ void ServerChunk_Destroy(Chunk *chunk) {
 }
 
 void ServerChunk_SaveFile(Chunk *chunk) {
-    const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
+    char fileName[128];
+    snprintf(fileName, sizeof(fileName), "world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     int compressedLength;
     unsigned short* compressed = ServerChunk_CreateCompressedData(chunk, &compressedLength);
     SaveFileData(fileName, compressed, compressedLength * 2);
@@ -54,7 +55,8 @@ void ServerChunk_SaveFile(Chunk *chunk) {
 }
 
 bool ServerChunk_LoadFile(Chunk *chunk) {
-    const char* fileName = TextFormat("world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
+    char fileName[128];
+    snprintf(fileName, sizeof(fileName), "world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
     if (FileExists(fileName)) {
         unsigned int length = 0;
         unsigned char *saveFile = LoadFileData(fileName, &length);

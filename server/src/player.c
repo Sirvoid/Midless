@@ -42,6 +42,8 @@ void ServerPlayer_LoadChunks(Player* player) {
     Entity entity = serverWorld.entities[player->id];
     double loadDeadline = GetTime() + 0.008;
 
+    if (player->chunkRequestPending) return;
+
     Vector3 playerChunkPos = (Vector3) {(int)floor(entity.position.x / CHUNK_SIZE_X), (int)floor(entity.position.y / CHUNK_SIZE_Y), (int)floor(entity.position.z / CHUNK_SIZE_Z)};
 
     int loadingHeight = fmin(player->drawDistance, 4);
@@ -75,8 +77,14 @@ void ServerPlayer_LoadChunks(Player* player) {
 
         if (!foundChunk) return;
 
-        Chunk *chunk = ServerWorld_RequestChunk(closestPosition);
-        if (chunk == NULL) return;
+        Chunk *chunk = ServerWorld_GetChunkAt(closestPosition);
+        if (chunk == NULL) {
+            if (ServerWorld_QueueChunk(closestPosition)) {
+                player->chunkRequestPending = true;
+                player->pendingChunkPosition = closestPosition;
+            }
+            return;
+        }
         ServerChunk_AddPlayer(chunk, player);
 
         int compressedLength = 0;

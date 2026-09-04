@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <math.h>
 #include <limits.h>
+#include <pthread.h>
 #include "raylib.h"
 #include "raymath.h"
 #include "stb_ds.h"
@@ -41,6 +42,100 @@ typedef struct GeneratedBlockUpdate {
 World serverWorld;
 static long long serverWorldLastUpdateMilliseconds;
 static long long serverWorldLastTimeSyncMilliseconds;
+
+typedef struct ChunkLoadResult {
+    Vector3 position;
+    Chunk *chunk;
+    unsigned short *compressedData;
+    int compressedLength;
+} ChunkLoadResult;
+
+static Vector3 *serverChunkLoadRequests;
+static ChunkLoadResult *serverChunkLoadResults;
+static pthread_mutex_t serverChunkLoaderMutex;
+static pthread_cond_t serverChunkLoaderCondition;
+static pthread_t serverChunkLoaderThread;
+static bool serverChunkLoaderRunning;
+static bool serverChunkLoaderStarted;
+static bool serverChunkLoaderBusy;
+static Vector3 serverChunkLoaderPosition;
+
+static bool ServerWorld_PositionInLoadRadius(Player *player, Vector3 chunkPosition) {
+    Entity entity = serverWorld.entities[player->id];
+    Vector3 playerChunkPosition = {
+        floorf(entity.position.x / CHUNK_SIZE_X),
+        floorf(entity.position.y / CHUNK_SIZE_Y),
+        floorf(entity.position.z / CHUNK_SIZE_Z)
+    };
+    Vector3 offset = Vector3Subtract(chunkPosition, playerChunkPosition);
+    int loadingHeight = fmin(player->drawDistance, 4);
+    float loadingRadius = player->drawDistance + 3;
+    return fabsf(offset.y) <= loadingHeight &&
+        Vector3LengthSqr(offset) < loadingRadius * loadingRadius;
+}
+
+static void *ServerWorld_ChunkLoaderRun(void *unused) {
+    (void)unused;
+    while (true) {
+        pthread_mutex_lock(&serverChunkLoaderMutex);
+        while (serverChunkLoaderRunning && arrlen(serverChunkLoadRequests) == 0) {
+            pthread_cond_wait(&serverChunkLoaderCondition, &serverChunkLoaderMutex);
+        }
+        if (!serverChunkLoaderRunning) {
+            pthread_mutex_unlock(&serverChunkLoaderMutex);
+            return NULL;
+        }
+        Vector3 position = serverChunkLoadRequests[0];
+        arrdel(serverChunkLoadRequests, 0);
+        serverChunkLoaderBusy = true;
+        serverChunkLoaderPosition = position;
+        pthread_mutex_unlock(&serverChunkLoaderMutex);
+
+        Chunk *chunk = ServerChunk_Create(position);
+        if (chunk != NULL) ServerChunk_Generate(chunk);
+
+        ChunkLoadResult result = {.position = position, .chunk = chunk};
+        if (chunk != NULL) {
+            result.compressedData = ServerChunk_CreateCompressedData(
+                chunk, &result.compressedLength);
+        }
+
+        pthread_mutex_lock(&serverChunkLoaderMutex);
+        arrput(serverChunkLoadResults, result);
+        serverChunkLoaderBusy = false;
+        pthread_mutex_unlock(&serverChunkLoaderMutex);
+    }
+}
+
+static void ServerWorld_StartChunkLoader(void) {
+    pthread_mutex_init(&serverChunkLoaderMutex, NULL);
+    pthread_cond_init(&serverChunkLoaderCondition, NULL);
+    serverChunkLoaderRunning = true;
+    serverChunkLoaderStarted = pthread_create(
+        &serverChunkLoaderThread, NULL, ServerWorld_ChunkLoaderRun, NULL) == 0;
+    if (!serverChunkLoaderStarted) serverChunkLoaderRunning = false;
+}
+
+static void ServerWorld_StopChunkLoader(void) {
+    pthread_mutex_lock(&serverChunkLoaderMutex);
+    serverChunkLoaderRunning = false;
+    pthread_cond_signal(&serverChunkLoaderCondition);
+    pthread_mutex_unlock(&serverChunkLoaderMutex);
+    if (serverChunkLoaderStarted) pthread_join(serverChunkLoaderThread, NULL);
+
+    for (int i = 0; i < arrlen(serverChunkLoadResults); i++) {
+        ServerChunk_Destroy(serverChunkLoadResults[i].chunk);
+        MemFree(serverChunkLoadResults[i].compressedData);
+    }
+    arrfree(serverChunkLoadResults);
+    arrfree(serverChunkLoadRequests);
+    serverChunkLoadResults = NULL;
+    serverChunkLoadRequests = NULL;
+    serverChunkLoaderStarted = false;
+    serverChunkLoaderBusy = false;
+    pthread_cond_destroy(&serverChunkLoaderCondition);
+    pthread_mutex_destroy(&serverChunkLoaderMutex);
+}
 
 static void ServerWorld_WriteGeneratedBlock(Chunk *chunk, Vector3 blockPos, int blockId) {
     Vector3 localPos = {
@@ -84,7 +179,8 @@ static void ServerWorld_FlushGeneratedBlockUpdates(void) {
     }
 }
 
-static void ServerWorld_ApplyPendingBlocks(Chunk *chunk) {
+static bool ServerWorld_ApplyPendingBlocks(Chunk *chunk) {
+    bool applied = false;
     for (int i = 0; i < arrlen(serverWorld.pendingBlocks);) {
         PendingWorldBlock pending = serverWorld.pendingBlocks[i];
         Vector3 pendingChunkPos = {
@@ -99,7 +195,57 @@ static void ServerWorld_ApplyPendingBlocks(Chunk *chunk) {
 
         ServerWorld_WriteGeneratedBlock(chunk, pending.position, pending.blockId);
         arrdel(serverWorld.pendingBlocks, i);
+        applied = true;
     }
+    return applied;
+}
+
+static void ServerWorld_ProcessLoadedChunks(void) {
+    pthread_mutex_lock(&serverChunkLoaderMutex);
+    ChunkLoadResult *results = serverChunkLoadResults;
+    serverChunkLoadResults = NULL;
+    pthread_mutex_unlock(&serverChunkLoaderMutex);
+
+    for (int i = 0; i < arrlen(results); i++) {
+        ChunkLoadResult *result = &results[i];
+        Chunk *chunk = result->chunk;
+        if (chunk != NULL && ServerWorld_GetChunkAt(result->position) == NULL) {
+            hmput(serverWorld.chunks, ServerChunk_GetPackedPos(result->position), chunk);
+            if (ServerWorld_ApplyPendingBlocks(chunk)) {
+                MemFree(result->compressedData);
+                result->compressedData = ServerChunk_CreateCompressedData(
+                    chunk, &result->compressedLength);
+            }
+        } else {
+            ServerChunk_Destroy(chunk);
+            chunk = ServerWorld_GetChunkAt(result->position);
+        }
+
+        for (int playerIndex = 0; playerIndex < WORLD_MAX_PLAYERS; playerIndex++) {
+            Player *player = serverWorld.players[playerIndex];
+            if (player == NULL) continue;
+            if (player->chunkRequestPending &&
+                Vector3Equals(player->pendingChunkPosition, result->position)) {
+                player->chunkRequestPending = false;
+            }
+            if (chunk == NULL || !ServerWorld_PositionInLoadRadius(player, result->position) ||
+                ServerChunk_PlayerInChunk(chunk, player)) continue;
+
+            ServerChunk_AddPlayer(chunk, player);
+            unsigned short *compressedData = result->compressedData;
+            int compressedLength = result->compressedLength;
+            bool temporaryCompression = false;
+            if (compressedData == NULL) {
+                compressedData = ServerChunk_CreateCompressedData(chunk, &compressedLength);
+                temporaryCompression = true;
+            }
+            ServerNetwork_Send(player, ServerPacket_CreateLoadChunk(
+                compressedData, compressedLength, result->position, chunk->skyMask));
+            if (temporaryCompression) MemFree(compressedData);
+        }
+        MemFree(result->compressedData);
+    }
+    arrfree(results);
 }
 
 void ServerWorld_Init(void) {
@@ -140,10 +286,12 @@ void ServerWorld_Init(void) {
     }
 
     ServerWorldGenerator_Init(seed);
+    ServerWorld_StartChunkLoader();
 }
 
 void ServerWorld_Shutdown(void)
 {
+    ServerWorld_StopChunkLoader();
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if (serverWorld.players[i] != NULL) {
             ServerWorld_RemovePlayer(serverWorld.players[i]);
@@ -171,6 +319,7 @@ void ServerWorld_Shutdown(void)
 }
 
 void ServerWorld_Update(void) {
+    ServerWorld_ProcessLoadedChunks();
     long long nowMilliseconds = GetTimeMilliseconds();
     long long elapsedMilliseconds = nowMilliseconds - serverWorldLastUpdateMilliseconds;
     serverWorldLastUpdateMilliseconds = nowMilliseconds;
@@ -278,6 +427,33 @@ Chunk* ServerWorld_GetChunkAt(Vector3 position) {
 
 Chunk* ServerWorld_RequestChunk(Vector3 position) {
     return ServerWorld_AddChunk(position);
+}
+
+bool ServerWorld_QueueChunk(Vector3 position) {
+    if (!serverChunkLoaderStarted) return false;
+    if (ServerWorld_GetChunkAt(position) != NULL) return true;
+
+    pthread_mutex_lock(&serverChunkLoaderMutex);
+    if (serverChunkLoaderBusy && Vector3Equals(serverChunkLoaderPosition, position)) {
+        pthread_mutex_unlock(&serverChunkLoaderMutex);
+        return true;
+    }
+    for (int i = 0; i < arrlen(serverChunkLoadRequests); i++) {
+        if (Vector3Equals(serverChunkLoadRequests[i], position)) {
+            pthread_mutex_unlock(&serverChunkLoaderMutex);
+            return true;
+        }
+    }
+    for (int i = 0; i < arrlen(serverChunkLoadResults); i++) {
+        if (Vector3Equals(serverChunkLoadResults[i].position, position)) {
+            pthread_mutex_unlock(&serverChunkLoaderMutex);
+            return true;
+        }
+    }
+    arrput(serverChunkLoadRequests, position);
+    pthread_cond_signal(&serverChunkLoaderCondition);
+    pthread_mutex_unlock(&serverChunkLoaderMutex);
+    return true;
 }
 
 void ServerWorld_AddPlayer(void *player) {
