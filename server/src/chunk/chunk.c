@@ -67,8 +67,8 @@ bool ServerChunk_LoadFile(Chunk *chunk) {
 
 void ServerChunk_Generate(Chunk *chunk) {
     if (!chunk->fromFile) {
-        float *heightMap = ServerWorldGenerator_Generate(chunk);
-        ServerWorldGenerator_GenerateStructures(chunk, heightMap);
+        ServerWorldGenerator_Generate(chunk);
+        ServerWorldGenerator_GenerateStructures(chunk);
     }
     ServerWorldGenerator_GenerateSkyMask(chunk);
 }

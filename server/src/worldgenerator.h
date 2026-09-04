@@ -13,7 +13,7 @@
 
 void ServerWorldGenerator_Init(int worldSeed);
 float *ServerWorldGenerator_Generate(Chunk *chunk);
-bool ServerWorldGenerator_GenerateStructures(Chunk *chunk, const float *heightMap);
+bool ServerWorldGenerator_GenerateStructures(Chunk *chunk);
 void ServerWorldGenerator_GenerateSkyMask(Chunk *chunk);
 
 #endif

@@ -1,11 +1,13 @@
 #if !defined(MIDLESS_FNL_EXTERNAL)
 #define FNL_IMPL
 #endif
+#define __clang__ true
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 #include "raylib.h"
 #include "raymath.h"
+#include "stb_ds.h"
 #include "FastNoiseLite.h"
 #include "worldgenerator.h"
 #include "world.h"
@@ -13,13 +15,30 @@
 static fnl_state heightNoise, terrainNoise, caveNoise, offsetNoise;
 static int generatorSeed;
 
+typedef struct TreeOriginCacheEntry {
+    long int key;
+    Vector3 *value;
+} TreeOriginCacheEntry;
+
+static TreeOriginCacheEntry *treeOriginCache;
+
 static int RandomFromPosition(Vector3 p, int salt) {
     srand(((int)(p.x * 1135 + p.y * 1307 + p.z * 1479) % 2048)
           + salt * 1024 + generatorSeed * 1024);
     return rand();
 }
 
-static Vector3 GenerateBranch(Vector3 p, float thickness, float upwardness, float length, int salt) {
+static void PlaceStructureBlock(Chunk *target, Vector3 worldPos, int blockId) {
+    Vector3 localPos = {
+        floorf(worldPos.x) - target->blockPosition.x,
+        floorf(worldPos.y) - target->blockPosition.y,
+        floorf(worldPos.z) - target->blockPosition.z
+    };
+    if (!ServerChunk_IsValidPos(localPos)) return;
+    target->data[ServerChunk_PosToIndex(localPos)] = (unsigned short)blockId;
+}
+
+static Vector3 GenerateBranch(Chunk *target, Vector3 p, float thickness, float upwardness, float length, int salt) {
     float angle = (RandomFromPosition(p, 10 + salt) % 360) * DEG2RAD;
     float dx = cosf(angle) / upwardness, dz = sinf(angle) / upwardness;
     int steps = (int)(length * 4);
@@ -29,28 +48,28 @@ static Vector3 GenerateBranch(Vector3 p, float thickness, float upwardness, floa
                 for (int z = (int)-thickness; z < thickness; z++) {
                     float radius = thickness / (2 + i / (steps / 1.5f));
                     if (x * x + y * y + z * z < radius * radius)
-                        ServerWorld_SetBlockFast((Vector3){p.x + x, p.y + y, p.z + z}, 10);
+                        PlaceStructureBlock(target, (Vector3){p.x + x, p.y + y, p.z + z}, 10);
                 }
         p.x += dx; p.z += dz; p.y += 0.25f;
     }
     return p;
 }
 
-static void GenerateLeaves(Vector3 p, float thickness) {
+static void GenerateLeaves(Chunk *target, Vector3 p, float thickness) {
     float radiusSquared = thickness * thickness / 4;
     for (int x = (int)-thickness; x < thickness; x++)
         for (int y = (int)-thickness; y < thickness; y++)
             for (int z = (int)-thickness; z < thickness; z++)
                 if (x * x + y * y + z * z < radiusSquared)
-                    ServerWorld_SetBlockFast((Vector3){p.x + x, p.y + y, p.z + z}, 11);
+                    PlaceStructureBlock(target, (Vector3){p.x + x, p.y + y, p.z + z}, 11);
 }
 
-static void GenerateTree(Vector3 p) {
-    Vector3 top = GenerateBranch(p, 5, 16, 8 + RandomFromPosition(p, 1) % 3, 10);
+static void GenerateTree(Chunk *target, Vector3 p) {
+    Vector3 top = GenerateBranch(target, p, 5, 16, 8 + RandomFromPosition(p, 1) % 3, 10);
     int count = 4 + RandomFromPosition(p, 2) % 2;
     for (int i = 0; i < count; i++) {
-        Vector3 branch = GenerateBranch(top, 3, 4, 5 + RandomFromPosition(p, 3*i) % 2, i);
-        GenerateLeaves(branch, 9 + RandomFromPosition(p, 4*i) % 3);
+        Vector3 branch = GenerateBranch(target, top, 3, 4, 5 + RandomFromPosition(p, 3*i) % 2, i);
+        GenerateLeaves(target, branch, 9 + RandomFromPosition(p, 4*i) % 3);
     }
 }
 
@@ -105,6 +124,10 @@ static bool HasSurfaceAbove(int i, const float *map) {
 }
 
 void ServerWorldGenerator_Init(int seed) {
+    for (int i = 0; i < hmlen(treeOriginCache); i++) arrfree(treeOriginCache[i].value);
+    hmfree(treeOriginCache);
+    treeOriginCache = NULL;
+
     generatorSeed = seed;
     heightNoise = fnlCreateState(); heightNoise.seed = seed; heightNoise.noise_type = FNL_NOISE_OPENSIMPLEX2S;
     heightNoise.fractal_type = FNL_FRACTAL_FBM; heightNoise.octaves = 1; heightNoise.lacunarity = 1; heightNoise.gain = .75f;
@@ -143,14 +166,59 @@ float *ServerWorldGenerator_Generate(Chunk *chunk) {
     return map;
 }
 
-bool ServerWorldGenerator_GenerateStructures(Chunk *chunk, const float *map) {
+static Vector3 *GetTreeOrigins(Vector3 originChunkPos) {
+    long int key = ServerChunk_GetPackedPos(originChunkPos);
+    int cacheIndex = hmgeti(treeOriginCache, key);
+    if (cacheIndex >= 0) return treeOriginCache[cacheIndex].value;
+
+    Vector3 *origins = NULL;
+    if (originChunkPos.y < 3 || originChunkPos.x == 0 || originChunkPos.z == 0) {
+        hmput(treeOriginCache, key, origins);
+        return origins;
+    }
+
+    Vector3 origin = Vector3Multiply(originChunkPos, CHUNK_SIZE_VEC3);
+    for (int z = CHUNK_SIZE_Z - 1; z >= 0; z--) {
+        for (int x = CHUNK_SIZE_X - 1; x >= 0; x--) {
+            float worldX = origin.x + x;
+            float worldZ = origin.z + z;
+            float elevation = GetBiomeElevation(worldX, worldZ);
+
+            // Match the original descending index order exactly.
+            for (int y = CHUNK_SIZE_Y - 1; y >= 0; y--) {
+                Vector3 p = {worldX, origin.y + y, worldZ};
+                if (GetTerrainPoint(p, elevation) != 1 ||
+                    GetTerrainPoint((Vector3){p.x, p.y + 1, p.z}, elevation) != 0) continue;
+
+                if (RandomFromPosition(p, 5) % 512 == 0) arrput(origins, p);
+            }
+        }
+    }
+
+    hmput(treeOriginCache, key, origins);
+    return origins;
+}
+
+static bool GenerateStructuresFromOriginChunk(Chunk *target, Vector3 originChunkPos) {
+    Vector3 *origins = GetTreeOrigins(originChunkPos);
+    bool generated = arrlen(origins) > 0;
+    for (int i = 0; i < arrlen(origins); i++) GenerateTree(target, origins[i]);
+    return generated;
+}
+
+bool ServerWorldGenerator_GenerateStructures(Chunk *chunk) {
     bool generated = false;
-    if (chunk->position.y < 3 || chunk->position.x == 0 || chunk->position.z == 0) return false;
-    for (int i = CHUNK_SIZE - 1; i >= 0; i--) if (HasSurfaceAbove(i, map)) {
-        Vector3 p = Vector3Add(ServerChunk_IndexToPos(i), chunk->blockPosition);
-        if (RandomFromPosition(p,5)%512 == 0) { 
-            GenerateTree(p); 
-            generated = true; 
+
+    for (int oy = -2; oy <= 1; oy++) {
+        for (int ox = -1; ox <= 1; ox++) {
+            for (int oz = -1; oz <= 1; oz++) {
+                Vector3 originChunkPos = {
+                    chunk->position.x + ox,
+                    chunk->position.y + oy,
+                    chunk->position.z + oz
+                };
+                if (GenerateStructuresFromOriginChunk(chunk, originChunkPos)) generated = true;
+            }
         }
     }
     return generated;
