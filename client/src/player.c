@@ -23,6 +23,11 @@
 
 #define MOUSE_SENSITIVITY 0.003f
 #define THIRD_PERSON_DISTANCE 4.0f
+#define WATER_MOVE_SCALE 0.5f
+#define WATER_GRAVITY 0.003f
+#define WATER_MAX_FALL_SPEED 0.2f
+#define WATER_SWIM_ACCELERATION 0.025f
+#define WATER_DRAG 0.8f
 
 Vector2 playerOldMousePosition = {0.0f, 0.0f};
 Vector2 playerCameraAngle = {0.0f, 0.0f};
@@ -183,9 +188,14 @@ void Player_CheckInputs() {
     
     if (!screenCursorEnabled) {
         //Handle keys & mouse
-        if (IsKeyDown(KEY_SPACE) && player.canJump) {
-            player.velocity.y += 0.2f;
-            player.canJump = false;
+        if (IsKeyDown(KEY_SPACE)) {
+            if (player.liquidSubmersion > 0.0f) {
+                player.velocity.y += WATER_SWIM_ACCELERATION * (GetFrameTime() * 60.0f);
+                if (player.velocity.y > 0.2f) player.velocity.y = 0.2f;
+            } else if (player.canJump) {
+                player.velocity.y += 0.2f;
+                player.canJump = false;
+            }
         }
         Vector3 moveDir = { 0 };
         
@@ -211,6 +221,9 @@ void Player_CheckInputs() {
 
         moveDir = Vector3ClampValue(moveDir, 0.0f, 1.0f); // normalize
         Vector3 moveVel = Vector3Scale(moveDir, player.speed);
+        if (player.liquidSubmersion > 0.0f) {
+            moveVel = Vector3Scale(moveVel, WATER_MOVE_SCALE);
+        }
         player.velocity = Vector3Add(player.velocity, moveVel);
         
         float wheel = GetMouseWheelMove();
@@ -311,12 +324,21 @@ void Player_Update(void) {
         playerLastPositionPacketTime = GetTime();
     }
 
-    //Gravity
-    player.velocity.y -= 0.012f * (GetFrameTime() * 60);
-    if (player.velocity.y <= -1) player.velocity.y = -1;
+    float frameScale = GetFrameTime() * 60.0f;
+    player.liquidSubmersion = Player_GetLiquidSubmersion();
+
+    if (player.liquidSubmersion > 0.0f) {
+        player.velocity.y -= WATER_GRAVITY * frameScale;
+        if (player.velocity.y < -WATER_MAX_FALL_SPEED) {
+            player.velocity.y = -WATER_MAX_FALL_SPEED;
+        }
+    } else {
+        player.velocity.y -= 0.012f * frameScale;
+        if (player.velocity.y <= -1) player.velocity.y = -1;
+    }
     
     //Calculate velocity with delta time
-    Vector3 velXdt = Vector3Scale(player.velocity, GetFrameTime() * 60);
+    Vector3 velXdt = Vector3Scale(player.velocity, frameScale);
     
     int steps = 8;
     
@@ -360,8 +382,13 @@ void Player_Update(void) {
 
     World_LoadChunks();
 
-    player.velocity.x -= player.velocity.x / 6.0f;
-    player.velocity.z -=  player.velocity.z / 6.0f;
+    if (player.liquidSubmersion > 0.0f) {
+        float drag = powf(WATER_DRAG, frameScale);
+        player.velocity = Vector3Scale(player.velocity, drag);
+    } else {
+        player.velocity.x -= player.velocity.x / 6.0f;
+        player.velocity.z -= player.velocity.z / 6.0f;
+    }
     
     Player_CheckInputs();
     EntityAnimation_Update(&player.animation, player.position, GetFrameTime());
@@ -396,6 +423,69 @@ bool Player_TestCollision(Vector3 offset) {
     }
     
     return false;
+}
+
+float Player_GetLiquidSubmersion(void) {
+    BoundingBox playerBox = player.collisionBox;
+    playerBox.min = Vector3Add(playerBox.min, player.position);
+    playerBox.max = Vector3Add(playerBox.max, player.position);
+
+    float highestLiquidSurface = -INFINITY;
+    for (int x = (int)floorf(playerBox.min.x); x <= (int)floorf(playerBox.max.x - 0.001f); x++) {
+        for (int z = (int)floorf(playerBox.min.z); z <= (int)floorf(playerBox.max.z - 0.001f); z++) {
+            for (int y = (int)floorf(playerBox.min.y); y <= (int)floorf(playerBox.max.y - 0.001f); y++) {
+                Vector3 blockPosition = {(float)x, (float)y, (float)z};
+                Vector3 chunkPosition = {
+                    floorf(blockPosition.x / CHUNK_SIZE_X),
+                    floorf(blockPosition.y / CHUNK_SIZE_Y),
+                    floorf(blockPosition.z / CHUNK_SIZE_Z)
+                };
+                Chunk *chunk = World_GetChunkAt(chunkPosition);
+                if (chunk == NULL || !chunk->isBlockDataReady) continue;
+
+                const Block *block = Block_GetDefinition(World_GetBlock(blockPosition));
+                if (block->colliderType != BLOCK_COLLIDER_LIQUID) continue;
+
+                BoundingBox liquidBox = {
+                    .min = {x + block->minBB.x / 16.0f, y + block->minBB.y / 16.0f,
+                            z + block->minBB.z / 16.0f},
+                    .max = {x + block->maxBB.x / 16.0f, y + block->maxBB.y / 16.0f,
+                            z + block->maxBB.z / 16.0f}
+                };
+                if (CheckCollisionBoxes(playerBox, liquidBox) && liquidBox.max.y > highestLiquidSurface) {
+                    highestLiquidSurface = liquidBox.max.y;
+                }
+            }
+        }
+    }
+
+    if (highestLiquidSurface == -INFINITY) return 0.0f;
+    float playerHeight = playerBox.max.y - playerBox.min.y;
+    return Clamp((highestLiquidSurface - playerBox.min.y) / playerHeight, 0.0f, 1.0f);
+}
+
+bool Player_GetCameraLiquidTint(Color *tint) {
+    Vector3 blockPosition = {
+        floorf(player.camera.position.x),
+        floorf(player.camera.position.y),
+        floorf(player.camera.position.z)
+    };
+    Vector3 chunkPosition = {
+        floorf(blockPosition.x / CHUNK_SIZE_X),
+        floorf(blockPosition.y / CHUNK_SIZE_Y),
+        floorf(blockPosition.z / CHUNK_SIZE_Z)
+    };
+    Chunk *chunk = World_GetChunkAt(chunkPosition);
+    if (chunk == NULL || !chunk->isBlockDataReady) return false;
+
+    int blockId = World_GetBlock(blockPosition);
+    const Block *block = Block_GetDefinition(blockId);
+    if (block->colliderType != BLOCK_COLLIDER_LIQUID) return false;
+
+    float liquidSurface = blockPosition.y + block->maxBB.y / 16.0f;
+    if (player.camera.position.y >= liquidSurface) return false;
+    if (tint != NULL) *tint = block->liquidTint;
+    return true;
 }
 
 

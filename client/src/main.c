@@ -133,6 +133,11 @@ void Game_RunLoop(void) {
                 
         EndMode3D();
 
+        Color liquidTint;
+        if (Player_GetCameraLiquidTint(&liquidTint)) {
+            DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), liquidTint);
+        }
+
         Screen_Draw();
 
     EndDrawing();

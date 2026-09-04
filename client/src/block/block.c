@@ -8,6 +8,7 @@
 #include "raylib.h"
 #include "block.h"
 #include "blockmeshgeneration.h"
+#include "resource.h"
 
 Block blockDefinitions[256];
 
@@ -24,6 +25,26 @@ static unsigned char Block_GetLightPassFaces(const Block *block) {
     if (!(fullX && fullZ)) faces |= (1u << BLOCK_FACE_TOP) | (1u << BLOCK_FACE_BOTTOM);
     if (!(fullX && fullY)) faces |= (1u << BLOCK_FACE_FRONT) | (1u << BLOCK_FACE_BACK);
     return faces;
+}
+
+static void Block_LoadLiquidTints(void) {
+    Image atlas = Resource_LoadImage("terrain.png");
+    if (!atlas.data) return;
+
+    for (int i = 0; i < 256; i++) {
+        Block *block = &blockDefinitions[i];
+        if (block->colliderType != BLOCK_COLLIDER_LIQUID) continue;
+
+        int textureIndex = block->textures[BLOCK_FACE_TOP];
+        int pixelX = (textureIndex % 16) * 16;
+        int pixelY = (textureIndex / 16) * 16;
+        if (pixelX >= atlas.width || pixelY >= atlas.height) continue;
+
+        block->liquidTint = GetImageColor(atlas, pixelX, pixelY);
+        block->liquidTint.a = 105;
+    }
+
+    UnloadImage(atlas);
 }
 
 void Block_BuildDefinition(void) {
@@ -80,6 +101,7 @@ void Block_BuildDefinition(void) {
 
     Block_Define(16, "lava", 15, 15, 15);
     blockDefinitions[16].colliderType = BLOCK_COLLIDER_LIQUID;
+    blockDefinitions[16].renderType = BLOCK_RENDER_TRANSLUCENT;
     blockDefinitions[16].lightType = BLOCK_LIGHT_EMIT;
 
     Block_Define(17, "stone_slab", 1, 1, 1);
@@ -96,6 +118,7 @@ void Block_BuildDefinition(void) {
                                 block->renderType == BLOCK_RENDER_OPAQUE;
         block->lightPassFaces = Block_GetLightPassFaces(block);
     }
+    Block_LoadLiquidTints();
     BlockMesh_BuildTemplates();
 }
 
@@ -114,6 +137,7 @@ Block* Block_Define(int id, char name[], int topTexture, int bottomTexture, int 
     block->renderType = BLOCK_RENDER_OPAQUE;
     block->colliderType = BLOCK_COLLIDER_SOLID;
     block->lightType = BLOCK_LIGHT_NONE;
+    block->liquidTint = BLANK;
     block->minBB = (Vector3) {0, 0, 0};
     block->maxBB = (Vector3) {16, 16, 16};
 

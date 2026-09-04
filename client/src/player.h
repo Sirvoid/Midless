@@ -29,6 +29,7 @@ typedef struct Player{
     RaycastResult rayResult;
     int blockSelected;
     bool canJump;
+    float liquidSubmersion;
     unsigned char entityType;
     unsigned char modelId;
     bool hasEntityModel;
@@ -54,6 +55,8 @@ void Player_Teleport(Vector3 position);
 bool Player_TryPlaceBlock(Vector3 pos, int blockId);
 
 bool Player_TestCollision(Vector3 offset);
+float Player_GetLiquidSubmersion(void);
+bool Player_GetCameraLiquidTint(Color *tint);
 Vector3 Player_GetForwardVector(void);
 
 //Get player position in chunk units.

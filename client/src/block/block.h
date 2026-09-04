@@ -54,6 +54,7 @@ typedef struct Block {
     bool fullCube;
     bool fastOpaqueCube;
     unsigned char lightPassFaces;
+    Color liquidTint;
 } Block;
 
 extern Block blockDefinitions[256];
