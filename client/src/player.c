@@ -120,6 +120,10 @@ void Player_Draw(void) {
 }
 
 void Player_CheckInputs() {
+    if (IsKeyPressed(KEY_F3)) {
+        screenShowDebug = !screenShowDebug;
+    }
+
     if (IsKeyPressed(KEY_F5)) {
         player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
     }

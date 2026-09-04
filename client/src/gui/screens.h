@@ -18,6 +18,7 @@ typedef enum Screen {
 } Screen;
 
 extern bool screenCursorEnabled;
+extern bool screenShowDebug;
 
 void Screen_Init(Texture2D terrain, bool *exit);
 void Screen_Switch(Screen screen);
