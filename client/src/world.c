@@ -256,13 +256,50 @@ void World_ApplyShader(Shader shader) {
     world.material.shader = shader;
 }
 
+static Vector4 World_TransformVector4(Vector4 vector, Matrix matrix) {
+    return (Vector4) {
+        matrix.m0 * vector.x + matrix.m4 * vector.y + matrix.m8  * vector.z + matrix.m12 * vector.w,
+        matrix.m1 * vector.x + matrix.m5 * vector.y + matrix.m9  * vector.z + matrix.m13 * vector.w,
+        matrix.m2 * vector.x + matrix.m6 * vector.y + matrix.m10 * vector.z + matrix.m14 * vector.w,
+        matrix.m3 * vector.x + matrix.m7 * vector.y + matrix.m11 * vector.z + matrix.m15 * vector.w
+    };
+}
+
+static bool World_IsChunkInFrustum(const Chunk *chunk, Matrix view, Matrix projection) {
+    Vector3 min = chunk->blockPosition;
+    Vector3 max = Vector3Add(min, CHUNK_SIZE_VEC3);
+    unsigned char outsideAllCorners = 0x3F;
+
+    for (int i = 0; i < 8; i++) {
+        Vector4 corner = {
+            (i & 1) ? max.x : min.x,
+            (i & 2) ? max.y : min.y,
+            (i & 4) ? max.z : min.z,
+            1.0f
+        };
+        Vector4 clip = World_TransformVector4(World_TransformVector4(corner, view), projection);
+        unsigned char outside = 0;
+
+        if (clip.x < -clip.w) outside |= 1u << 0;
+        if (clip.x >  clip.w) outside |= 1u << 1;
+        if (clip.y < -clip.w) outside |= 1u << 2;
+        if (clip.y >  clip.w) outside |= 1u << 3;
+        if (clip.z < -clip.w) outside |= 1u << 4;
+        if (clip.z >  clip.w) outside |= 1u << 5;
+
+        outsideAllCorners &= outside;
+    }
+
+    return outsideAllCorners == 0;
+}
+
 void World_Draw(Vector3 camPosition) {
 
     ChunkMesh_PrepareDrawing(world.material);
 
     int amountChunks = hmlen(world.chunks);
-    float frustumAngle = DEG2RAD * player.camera.fovy + 0.3f;
-    Vector3 dirVec = Player_GetForwardVector();
+    Matrix view = rlGetMatrixModelview();
+    Matrix projection = rlGetMatrixProjection();
     
     Vector3 chunkLocalCenter = (Vector3){CHUNK_SIZE_X / 2, CHUNK_SIZE_Y / 2, CHUNK_SIZE_Z / 2};
 
@@ -274,17 +311,11 @@ void World_Draw(Vector3 camPosition) {
         Chunk *chunk = world.chunks[i].value;
 
         if (chunk->onlyAir) continue;
+        if (!World_IsChunkInFrustum(chunk, view, projection)) continue;
 
         if (chunk->hasTransparency) {
             Vector3 centerChunk = Vector3Add(chunk->blockPosition, chunkLocalCenter);
             float distFromCam = Vector3Distance(centerChunk, camPosition);
-
-            //Don't draw chunks behind the player
-            Vector3 toChunkVec = Vector3Normalize(Vector3Subtract(centerChunk, camPosition));
-        
-            if (distFromCam > CHUNK_SIZE_X && Vector3Distance(toChunkVec, dirVec) > frustumAngle) {
-                continue;
-            }
 
             sortedChunks[sortedLength].dist = distFromCam;
             sortedChunks[sortedLength].chunk = chunk;
