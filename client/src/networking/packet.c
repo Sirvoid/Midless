@@ -14,6 +14,7 @@
 #include "networkhandler.h"
 #include "world.h"
 #include "chat.h"
+#include "particle.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -165,6 +166,8 @@ void Packet_HandleUnloadChunk(void) {
 void Packet_HandleSetBlock(void) {
     int blockId = Packet_ReadByte();
     Vector3 position = (Vector3) { Packet_ReadInt(), Packet_ReadInt(), Packet_ReadInt() };
+    int oldBlockId = World_GetBlock(position);
+    if (blockId == 0 && oldBlockId != 0) Particle_SpawnBlockBreak(position, oldBlockId);
     World_SetBlock(position, blockId, false);
 }
 
@@ -209,6 +212,8 @@ void Packet_HandleBlockBatch(void) {
         Vector3 position = {
             Packet_ReadInt(), Packet_ReadInt(), Packet_ReadInt()
         };
+        int oldBlockId = World_GetBlock(position);
+        if (blockId == 0 && oldBlockId != 0) Particle_SpawnBlockBreak(position, oldBlockId);
         World_SetBlock(position, blockId, false);
     }
 }

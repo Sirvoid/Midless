@@ -27,6 +27,7 @@
 #include "entity.h"
 #include "entitymodel.h"
 #include "localserver.h"
+#include "particle.h"
 
 #if defined(PLATFORM_WEB)
     #include <emscripten/emscripten.h>
@@ -44,6 +45,7 @@ void World_Init(void) {
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
 
     ChunkMeshGeneration_Init();
+    Particle_Clear();
 }
 
 void World_LoadMultiplayer(void) {
@@ -68,12 +70,14 @@ void World_UpdateChunksWithBudget(double budgetMs) {
 }
 
 void World_Update(void) { 
-    world.time += GetFrameTime();
+    float deltaTime = GetFrameTime();
+    world.time += deltaTime;
     while (world.time >= WORLD_DAY_LENGTH_SECONDS) {
         world.time -= WORLD_DAY_LENGTH_SECONDS;
     }
 
     World_UpdateChunksWithBudget(4.0);
+    Particle_Update(deltaTime);
     
 }
 
@@ -223,6 +227,7 @@ void World_Reload(void) {
 
 void World_Clear(void) {
     world.loadChunks = false;
+    Particle_Clear();
 
     arrfree(world.generateChunksQueue);
     world.generateChunksQueue = NULL;
@@ -363,6 +368,8 @@ void World_Draw(Vector3 camPosition) {
     }
 
     ChunkMesh_FinishDrawing();
+
+    Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
 
     //Draw entities
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {

@@ -18,6 +18,7 @@
 #include "block.h"
 #include "networkhandler.h"
 #include "packet.h"
+#include "particle.h"
 
 #define MOUSE_SENSITIVITY 0.003f
 
@@ -154,6 +155,7 @@ void Player_CheckInputs() {
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Break Block
             if (player.rayResult.hitblockId != -1) {
+                Particle_SpawnBlockBreak(player.rayResult.hitPos, player.rayResult.hitblockId);
                 World_SetBlock(player.rayResult.hitPos, 0, true);
                 Network_Send(Packet_CreateSetBlock(0, player.rayResult.hitPos));
             }
