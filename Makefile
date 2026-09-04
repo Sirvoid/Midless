@@ -41,7 +41,7 @@ endif
 
 ifeq ($(BUILD_SERVER), TRUE)
 	PROJECT := server$(EXT)
-	BUILD_DIR = server/bin/$(PROJECT)
+	BUILD_DIR ?= build/server/$(PROJECT)
 
 	DIR_SRC += ./server
 	DIR_SRC += ./server/src
@@ -66,7 +66,7 @@ else
 	endif
 
 	PROJECT := game$(EXT)
-	BUILD_DIR = client/bin/$(PROJECT)
+	BUILD_DIR ?= build/client/$(PROJECT)
 
 	DIR_SRC += ./client
 	DIR_SRC += ./client/src
@@ -157,6 +157,11 @@ endif
 all: $(BUILD_DIR)
 
 $(BUILD_DIR): $(OBJS) $(BUILD_DEPENDENCIES)
+ifeq ($(PLATFORM_OS),WINDOWS)
+		@if not exist "$(@D)" mkdir "$(@D)"
+else
+		@mkdir -p "$(@D)"
+endif
 	$(CC) $(OBJS) -o $(BUILD_DIR) $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LDLIBS) $(CDIRECTIVES)
 
 ifeq ($(PLATFORM_OS),WINDOWS)
