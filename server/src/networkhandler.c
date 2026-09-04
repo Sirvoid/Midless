@@ -22,7 +22,6 @@
 PacketHandlerEntry serverPacketHandlers[256];
 int serverPacketHandlerCount = 0;
 pthread_mutex_t serverNetworkMutex;
-pthread_mutex_t serverSendMutex;
 IncomingPacket *serverIncomingPackets = NULL;
 
 #define SERVER_MAX_QUEUED_PACKETS 256 * 64

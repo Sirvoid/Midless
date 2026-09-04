@@ -7,8 +7,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
 #define ENET_IMPLEMENTATION
 #include "enet.h"
+#include "stb_ds.h"
 #include "server.h"
 #include "networkhandler.h"
 
@@ -16,6 +19,43 @@ struct Player;
 struct Player *ServerPlayer_Create(void *peer, bool isWeb);
 
 #define MAX_CLIENTS 64
+
+typedef struct ServerOutgoingPacket {
+    ENetPeer *peer;
+    unsigned char *data;
+    int length;
+} ServerOutgoingPacket;
+
+static ServerOutgoingPacket *serverOutgoingPackets;
+static pthread_mutex_t serverOutgoingMutex = PTHREAD_MUTEX_INITIALIZER;
+
+static void Server_FlushOutgoing(ENetHost *server) {
+    pthread_mutex_lock(&serverOutgoingMutex);
+    ServerOutgoingPacket *packets = serverOutgoingPackets;
+    serverOutgoingPackets = NULL;
+    pthread_mutex_unlock(&serverOutgoingMutex);
+
+    for (int i = 0; i < arrlen(packets); i++) {
+        ENetPacket *packet = enet_packet_create(
+            packets[i].data, packets[i].length, ENET_PACKET_FLAG_RELIABLE);
+        if (packet != NULL && enet_peer_send(packets[i].peer, 0, packet) < 0) {
+            enet_packet_destroy(packet);
+        }
+        free(packets[i].data);
+    }
+    if (arrlen(packets) > 0) enet_host_flush(server);
+    arrfree(packets);
+}
+
+static void Server_ClearOutgoing(void) {
+    pthread_mutex_lock(&serverOutgoingMutex);
+    for (int i = 0; i < arrlen(serverOutgoingPackets); i++) {
+        free(serverOutgoingPackets[i].data);
+    }
+    arrfree(serverOutgoingPackets);
+    serverOutgoingPackets = NULL;
+    pthread_mutex_unlock(&serverOutgoingMutex);
+}
 
 void *Server_Init(void *state) {
     
@@ -39,7 +79,8 @@ void Server_Do(int *state) {
     ENetEvent event;
     
     while (*state != -1) {
-        while (enet_host_service(server, &event, 33) > 0) {
+        Server_FlushOutgoing(server);
+        while (enet_host_service(server, &event, 5) > 0) {
             switch (event.type) {
                 case ENET_EVENT_TYPE_CONNECT:
                     event.peer->data = ServerPlayer_Create(event.peer, false);
@@ -59,16 +100,28 @@ void Server_Do(int *state) {
                 case ENET_EVENT_TYPE_NONE:
                     break;
             }
-            enet_host_flush(server);
+            Server_FlushOutgoing(server);
         }
+        Server_FlushOutgoing(server);
     }
     
 
+    Server_ClearOutgoing();
     enet_host_destroy(server);
     enet_deinitialize();
 }
 
 void Server_Send(void *peer, unsigned char* packet, int length) {
-    ENetPacket * epacket = enet_packet_create (packet, length, ENET_PACKET_FLAG_RELIABLE);
-    enet_peer_send(peer, 0, epacket);
+    if (peer == NULL || packet == NULL || length <= 0) return;
+
+    ServerOutgoingPacket outgoing;
+    outgoing.peer = peer;
+    outgoing.data = malloc(length);
+    if (outgoing.data == NULL) return;
+    memcpy(outgoing.data, packet, length);
+    outgoing.length = length;
+
+    pthread_mutex_lock(&serverOutgoingMutex);
+    arrput(serverOutgoingPackets, outgoing);
+    pthread_mutex_unlock(&serverOutgoingMutex);
 }
