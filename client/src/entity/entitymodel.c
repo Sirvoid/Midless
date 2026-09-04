@@ -5,8 +5,10 @@
  * https://opensource.org/licenses/MIT
  */
 
+#include <stddef.h>
 #include "entitymodel.h"
 #include "resource.h"
+#include "rlgl.h"
 
 EntityModelDefinition entityModels[256];
 
@@ -153,6 +155,12 @@ void EntityModel_Unload(EntityModel *model) {
     for (int i = 0; i < model->partCount; i++) { 
         UnloadMesh(model->parts[i].mesh);
     }
+
+    // Prevent UnloadMaterial() from deleting that shared GPU texture.
+    if (model->material.maps != NULL) {
+        model->material.maps[MATERIAL_MAP_DIFFUSE].texture.id = rlGetTextureIdDefault();
+    }
+    
     UnloadMaterial(model->material);
 }
 

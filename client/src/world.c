@@ -78,9 +78,23 @@ void World_Update(void) {
 
     World_UpdateChunksWithBudget(4.0);
     Particle_Update(deltaTime);
+    float interpolationAmount = 1.0f - expf(-20.0f * deltaTime);
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {
-        if (world.entities[i].type == 0) continue;
-        EntityAnimation_Update(&world.entities[i].animation, world.entities[i].position, deltaTime);
+        Entity *entity = &world.entities[i];
+        if (entity->type == 0) continue;
+
+        entity->position = Vector3Lerp(entity->position, entity->targetPosition, interpolationAmount);
+        float yawDifference = atan2f(sinf(entity->targetRotation.y - entity->rotation.y),
+                                     cosf(entity->targetRotation.y - entity->rotation.y));
+        entity->rotation.y += yawDifference * interpolationAmount;
+        for (int partIndex = 0; partIndex < entity->model.partCount; partIndex++) {
+            EntityModelPart *part = &entity->model.parts[partIndex];
+            if (part->type == PART_TYPE_HEAD) {
+                part->rotation.x = Lerp(part->rotation.x, entity->targetHeadPitch, interpolationAmount);
+            }
+        }
+
+        EntityAnimation_Update(&entity->animation, entity->position, deltaTime);
     }
     
 }
@@ -451,15 +465,27 @@ float World_GetSunlightStrength(void) {
 *--------------------------------------------------------------------------------------------------------*/
 
 void World_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
+    if (id < 0 || id >= WORLD_MAX_ENTITIES) return;
     Entity *entity = &world.entities[id];
-    entity->position = position;
-    entity->rotation = (Vector3) { 0, rotation.y, 0 };
-    
-    for (int i = 0; i < entity->model.partCount; i++) {
-        if (entity->model.parts[i].type == PART_TYPE_HEAD) {
-            entity->model.parts[i].rotation.x = rotation.x;
+    if (entity->type == 0) return;
+    if (Vector3DistanceSqr(entity->position, position) > 64.0f) {
+        entity->position = position;
+        entity->rotation = (Vector3) {0, rotation.y, 0};
+        entity->targetPosition = position;
+        entity->targetRotation = entity->rotation;
+        entity->targetHeadPitch = rotation.x;
+        entity->animation.lastPosition = position;
+        for (int i = 0; i < entity->model.partCount; i++) {
+            if (entity->model.parts[i].type == PART_TYPE_HEAD) {
+                entity->model.parts[i].rotation.x = rotation.x;
+            }
         }
+        return;
     }
+
+    entity->targetPosition = position;
+    entity->targetRotation = (Vector3) {0, rotation.y, 0};
+    entity->targetHeadPitch = rotation.x;
 }
 
 void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 rotation) {
@@ -471,6 +497,9 @@ void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 ro
     world.entities[id].modelId = (unsigned char)modelId;
     world.entities[id].position = position;
     world.entities[id].rotation = rotation;
+    world.entities[id].targetPosition = position;
+    world.entities[id].targetRotation = rotation;
+    world.entities[id].targetHeadPitch = rotation.x;
     EntityAnimation_Init(&world.entities[id].animation, position);
     
     EntityModel_Create(&world.entities[id].model, entityModels[modelId]);

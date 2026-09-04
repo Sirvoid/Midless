@@ -101,6 +101,7 @@ void EntityModelPart_AddFace(Mesh *mesh, int face, BoundingBox box, Rectangle uv
 }
 
 void EntityModelPart_Build(EntityModelPart *part, BoundingBox box, Rectangle *uvs, Vector2 textureSize, Vector3 position) {
+    part->mesh = (Mesh) {0};
     Mesh *mesh = &part->mesh;
 
     int triangles = 12;

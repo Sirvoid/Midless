@@ -29,6 +29,9 @@ typedef struct Entity{
     unsigned char modelId;
     Vector3 position;
     Vector3 rotation;
+    Vector3 targetPosition;
+    Vector3 targetRotation;
+    float targetHeadPitch;
     EntityModel model;
     EntityAnimation animation;
 } Entity;
