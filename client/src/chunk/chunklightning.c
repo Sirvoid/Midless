@@ -34,6 +34,25 @@ static bool Block_BlocksLight(const Block *block) {
     return block->renderType == BLOCK_RENDER_OPAQUE && block->fullCube;
 }
 
+static void Chunk_MarkLightFaceIncomplete(Chunk *chunk, int face, bool sunlight) {
+    unsigned char bit = (unsigned char)(1u << face);
+    if (sunlight) chunk->incompleteSunlightFaces |= bit;
+    else chunk->incompleteLightFaces |= bit;
+}
+
+static bool Chunk_IndexIsOnFace(int index, int face) {
+    Vector3 pos = Chunk_IndexToPos(index);
+    switch (face) {
+        case BLOCK_FACE_LEFT: return pos.x == 0;
+        case BLOCK_FACE_RIGHT: return pos.x == CHUNK_SIZE_X - 1;
+        case BLOCK_FACE_TOP: return pos.y == CHUNK_SIZE_Y - 1;
+        case BLOCK_FACE_BOTTOM: return pos.y == 0;
+        case BLOCK_FACE_FRONT: return pos.z == CHUNK_SIZE_Z - 1;
+        case BLOCK_FACE_BACK: return pos.z == 0;
+        default: return false;
+    }
+}
+
 int Chunk_GetLight(Chunk* chunk, Vector3 pos, bool sunlight) {
     if (!Chunk_IsValidPos(pos)) return 15;
     int index = Chunk_PosToIndex(pos);
@@ -68,10 +87,13 @@ static bool Chunk_LightRemovalQueuePop(LightRemovalQueue *queue, LightRemovalNod
 
 void Chunk_SetLightLevel(Chunk *chunk, int index, int level, bool sunlight) {
     if (sunlight) {
+        if (chunk->sunlightData[index] == level) return;
         chunk->sunlightData[index] = level;
     } else {
+        if (chunk->lightData[index] == level) return;
         chunk->lightData[index] = level;
     }
+    chunk->isLightDirty = true;
 }
 
 int Chunk_GetLightLevel(Chunk *chunk, int index, bool sunlight) {
@@ -152,8 +174,10 @@ void Chunk_SpreadLight(LightQueue *queue, bool sunlight) {
             if (!Chunk_IsValidPos(nextPos)) {
                 nextChunk = chunk->neighbours[d];
                 nextPos = Vector3Subtract(nextPos, lightDirectionsXChunk[d]); 
-                if (nextChunk == NULL) continue;
-                if (!nextChunk->isMapGenerated) continue;
+                if (nextChunk == NULL || !nextChunk->isMapGenerated) {
+                    Chunk_MarkLightFaceIncomplete(chunk, d, sunlight);
+                    continue;
+                }
             }
 
             int nextIndex = Chunk_PosToIndex(nextPos);
@@ -175,6 +199,40 @@ void Chunk_SpreadLight(LightQueue *queue, bool sunlight) {
 
 }
 
+static void Chunk_ReconcileLightBank(Chunk *chunk, Chunk *neighbor, int face, bool sunlight) {
+    int oppositeFace = face ^ 1;
+    unsigned char bit = (unsigned char)(1u << face);
+    unsigned char oppositeBit = (unsigned char)(1u << oppositeFace);
+    unsigned char *chunkFlags = sunlight ? &chunk->incompleteSunlightFaces : &chunk->incompleteLightFaces;
+    unsigned char *neighborFlags = sunlight ? &neighbor->incompleteSunlightFaces : &neighbor->incompleteLightFaces;
+
+    if (((*chunkFlags & bit) == 0) && ((*neighborFlags & oppositeBit) == 0)) return;
+
+    LightQueue queue = {0};
+    for (int i = 0; i < CHUNK_SIZE; i++) {
+        if (Chunk_IndexIsOnFace(i, face) && Chunk_GetLightLevel(chunk, i, sunlight) != 0)
+            Chunk_LightQueueAdd(&queue, i, chunk);
+        if (Chunk_IndexIsOnFace(i, oppositeFace) && Chunk_GetLightLevel(neighbor, i, sunlight) != 0)
+            Chunk_LightQueueAdd(&queue, i, neighbor);
+    }
+
+    *chunkFlags &= (unsigned char)~bit;
+    *neighborFlags &= (unsigned char)~oppositeBit;
+    Chunk_SpreadLight(&queue, sunlight);
+    arrfree(queue.nodes);
+}
+
+void Chunk_ReconcileLighting(Chunk *chunk) {
+    if (chunk == NULL || !chunk->isMapGenerated) return;
+
+    for (int face = 0; face < 6; face++) {
+        Chunk *neighbor = chunk->neighbours[face];
+        if (neighbor == NULL || !neighbor->isMapGenerated) continue;
+        Chunk_ReconcileLightBank(chunk, neighbor, face, false);
+        Chunk_ReconcileLightBank(chunk, neighbor, face, true);
+    }
+}
+
 void Chunk_UpdateLight(LightRemovalQueue *delQueue, LightQueue *spreadQueue, bool sunlight) {
     LightRemovalNode node;
     while (Chunk_LightRemovalQueuePop(delQueue, &node)) {
@@ -194,7 +252,10 @@ void Chunk_UpdateLight(LightRemovalQueue *delQueue, LightQueue *spreadQueue, boo
                 nextChunk = chunk->neighbours[d];
                 nextPos = Vector3Subtract(nextPos, lightDirectionsXChunk[d]); 
             }
-            if (nextChunk == NULL) continue;
+            if (nextChunk == NULL || !nextChunk->isMapGenerated) {
+                Chunk_MarkLightFaceIncomplete(chunk, d, sunlight);
+                continue;
+            }
 
             int nextIndex = Chunk_PosToIndex(nextPos);
             int neighborLevel = Chunk_GetLightLevel(nextChunk, nextIndex, sunlight);

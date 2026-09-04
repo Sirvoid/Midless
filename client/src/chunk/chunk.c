@@ -32,6 +32,9 @@ static void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->hasTransparency = false;
     chunk->onlyAir = true;
     chunk->modified = false;
+    chunk->incompleteLightFaces = 0;
+    chunk->incompleteSunlightFaces = 0;
+    chunk->isLightDirty = false;
 
     for (int i = 0; i < CHUNK_SIZE; i++) {
         chunk->lightData[i] = 0;
@@ -118,6 +121,7 @@ void Chunk_Generate(Chunk *chunk) {
     Chunk_DoSunlight(chunk);
     Chunk_DoLightSources(chunk);
     chunk->isLightGenerated = true;
+    Chunk_ReconcileLighting(chunk);
 }
 
 
@@ -236,6 +240,10 @@ void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood) {
                 }
 
                 neighbour->neighbours[j] = NULL;
+                if (i < 6) {
+                    neighbour->incompleteLightFaces |= (unsigned char)(1u << j);
+                    neighbour->incompleteSunlightFaces |= (unsigned char)(1u << j);
+                }
             }
         }
     } else {

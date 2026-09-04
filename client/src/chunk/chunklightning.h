@@ -24,6 +24,7 @@ int Chunk_GetLight(Chunk* chunk, Vector3 pos, bool sunlight);
 
 void Chunk_DoSunlight(Chunk *chunk);
 void Chunk_DoLightSources(Chunk *sourceChunk);
+void Chunk_ReconcileLighting(Chunk *chunk);
 
 void Chunk_UpdateLight(LightRemovalQueue *delQueue, LightQueue *spreadQueue, bool sunlight);
 void Chunk_SpreadLight(LightQueue *queue, bool sunlight);

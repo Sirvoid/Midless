@@ -99,6 +99,12 @@ void World_ReadChunksQueues(void) {
                 arrdel(world.generateChunksQueue, index);
 
                 chunk->isGenerating = false;
+
+                for (int i = 0; i < hmlen(world.chunks); i++) {
+                    Chunk *lightDirtyChunk = world.chunks[i].value;
+                    if (lightDirtyChunk->isBuilt && lightDirtyChunk->isLightDirty)
+                        World_QueueChunk(lightDirtyChunk, false);
+                }
             }
             
         }  

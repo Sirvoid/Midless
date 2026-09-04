@@ -34,6 +34,12 @@ typedef struct Chunk{
     bool fromFile;
     bool modified;
 
+    // One bit per cardinal face. Set when propagation reaches a neighbor that
+    // is unavailable and must be resumed when that neighbor loads.
+    unsigned char incompleteLightFaces;
+    unsigned char incompleteSunlightFaces;
+    bool isLightDirty;
+
     //mesh flags
     bool hasTransparency;
     bool onlyAir;

@@ -130,6 +130,7 @@ void ChunkMeshGeneration_Build(Chunk *chunk) {
     if (chunk->meshTransparent.triangleCount > 0) ChunkMesh_Upload(&chunk->meshTransparent, verticesT, indicesT, texcoordsT, colorsT);
     else ChunkMesh_Clear(&chunk->meshTransparent);
     chunk->isBuilt = true;
+    chunk->isLightDirty = false;
 }
 
 bool ChunkMeshGeneration_IsOpaqueFaceVisible(const Block *block, const Block *next) {
