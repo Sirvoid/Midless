@@ -29,7 +29,7 @@ typedef struct Chunk{
     //Loading/Generation flags
     bool isBuilt;
     bool isGenerating;
-    bool isMapGenerated;
+    bool isBlockDataReady;
     bool isLightGenerated;
     bool fromFile;
     bool modified;
@@ -74,16 +74,10 @@ bool Chunk_LoadFile(Chunk *chunk);
 void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int compressedLength);
 //Create compressed chunk data.
 unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int *compressedLength);
-//Get a neighbour from a direction
-Chunk* Chunk_GetNeighbour(Chunk* chunk, Vector3 dir);
 //Update a chunk's neighbour list.
 void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood);
-//Refresh the mesh of the chunk's neighbours.
-void Chunk_RefreshBorderingChunks(Chunk *chunk, bool sidesOnly);
 //Check if the chunk's neighbours are generated.
 bool Chunk_AreNeighbourGenerated(Chunk* chunk);
-//Check if the chunk's neighbours mesh is building.
-bool Chunk_AreNeighbourBuilding(Chunk* chunk);
 //Set a block in a chunk and refresh mesh.
 void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId);
 //Get a block id in a chunk.

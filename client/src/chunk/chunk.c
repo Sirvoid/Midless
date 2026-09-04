@@ -26,7 +26,7 @@ static void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
     chunk->fromFile = false;
     chunk->isBuilt = false;
-    chunk->isMapGenerated = false;
+    chunk->isBlockDataReady = false;
     chunk->isLightGenerated = false;
     chunk->isGenerating = false;
     chunk->hasTransparency = false;
@@ -36,10 +36,8 @@ static void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->incompleteSunlightFaces = 0;
     chunk->isLightDirty = false;
 
-    for (int i = 0; i < CHUNK_SIZE; i++) {
-        chunk->lightData[i] = 0;
-        chunk->sunlightData[i] = 0;
-    }
+    memset(chunk->lightData, 0, sizeof(chunk->lightData));
+    memset(chunk->sunlightData, 0, sizeof(chunk->sunlightData));
     memset(chunk->skyMask, 0, sizeof(chunk->skyMask));
  
     if (Chunk_LoadFile(chunk)) {
@@ -106,10 +104,9 @@ void Chunk_Destroy(Chunk *chunk) {
 void Chunk_Generate(Chunk *chunk) {
     if (chunk == NULL || chunk->isLightGenerated) return;
 
-    // Mark the map available before lighting the chunk above.
-    chunk->isMapGenerated = true;
+    chunk->isBlockDataReady = true;
 
-    // Initial sunlight must be calculated from the top down.
+    // Initial sunlight calculated from the top down.
     Chunk *topChunk = chunk->neighbours[BLOCK_FACE_TOP];
     if (topChunk != NULL && !topChunk->isLightGenerated) {
         Chunk_Generate(topChunk);
@@ -126,14 +123,13 @@ void Chunk_Generate(Chunk *chunk) {
 void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
     if (Chunk_IsValidPos(pos)) {
         int index = Chunk_PosToIndex(pos);
+        if (chunk->data[index] == blockId) return;
 
         chunk->data[index] = blockId;
         chunk->modified = true;
 
         const Block *blockDef = Block_GetDefinition(blockId);
 
-        // Sunlight and emitted light are independent. Recalculate sunlight for
-        // every block change, including transparent light-emitting blocks.
         Chunk_RemoveSunlight(chunk, pos);
 
         if (blockDef->lightType == BLOCK_LIGHT_EMIT) {
@@ -150,47 +146,6 @@ int Chunk_GetBlock(Chunk *chunk, Vector3 pos) {
         return chunk->data[Chunk_PosToIndex(pos)];
     }
     return 0;
-}
-
-Chunk* Chunk_GetNeighbour(Chunk* chunk, Vector3 dir) {
-    Vector3 directions[26] = {
-        {-1, 0, 0},
-        {1, 0, 0},
-        {0, 1, 0},
-        {0, -1, 0},
-        {0, 0, 1},
-        {0, 0, -1},
-        {-1, -1, -1},
-        {1, 1, 1},
-        {-1, -1, 0},
-        {1, 1, 0},
-        {-1, -1, 1},
-        {1, 1, -1},
-        {-1, 0, -1},
-        {1, 0, 1},
-        {-1, 0, 1},
-        {1, 0, -1},
-        {-1, 1, -1},
-        {1, -1, 1},
-        {-1, 1, 0},
-        {1, -1, 0},
-        {-1, 1, 1},
-        {1, -1, -1},
-        {0, -1, -1},
-        {0, 1, 1},
-        {0, -1, 1},
-        {0, 1, -1}
-    };
-
-    int index = 0;
-    for (int i = 0; i < 26; i++) {
-        if (directions[i].x == dir.x && directions[i].y == dir.y && directions[i].z == dir.z) {
-            index = i;
-            break;
-        }
-    }
-
-    return chunk->neighbours[index];
 }
 
 void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood) {
@@ -267,18 +222,6 @@ void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood) {
 
 }
 
-void Chunk_RefreshBorderingChunks(Chunk *chunk, bool sidesOnly) {
-
-     int nb = 6;
-     if (!sidesOnly) nb = 26;
-
-     for (int i = 0; i < nb; i++) {
-        if (chunk->neighbours[i] == NULL) continue;
-        if (!chunk->neighbours[i]->isBuilt) continue;
-        ChunkMeshGeneration_Build(chunk->neighbours[i]);
-     }
-}
-
 bool Chunk_AreNeighbourGenerated(Chunk* chunk) {
     int i = 0;
     for (i = 0; i < 6; i++) {
@@ -287,23 +230,6 @@ bool Chunk_AreNeighbourGenerated(Chunk* chunk) {
         }
     }
     return true;
-}
-
-bool Chunk_AreNeighbourBuilding(Chunk* chunk) {
-    for (int i = 0; i < 26; i++) {
-        if (chunk->neighbours[i] != NULL) {
-            if (i == 2) {
-                Chunk *top = chunk->neighbours[2];
-                while (top != NULL) {
-                    if (!top->isBuilt) return true;
-                    top = top->neighbours[2];
-                }
-            } else {
-                if (!chunk->neighbours[i]->isBuilt) return true;
-            }
-        }
-    }
-    return false;
 }
 
 bool Chunk_IsValidPos(Vector3 pos) {

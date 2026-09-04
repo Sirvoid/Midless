@@ -300,7 +300,7 @@ bool Player_TestCollision(Vector3 offset) {
 
                 Vector3 chunkPos = (Vector3) { floor(blockPos.x / CHUNK_SIZE_X), floor(blockPos.y / CHUNK_SIZE_Y), floor(blockPos.z / CHUNK_SIZE_Z) };
                 Chunk* chunk = World_GetChunkAt(chunkPos);
-                if (chunk == NULL || chunk->isMapGenerated == false) return true;
+                if (chunk == NULL || chunk->isBlockDataReady == false) return true;
 
                 int blockId = World_GetBlock(blockPos);
                 const Block *blockDef = Block_GetDefinition(blockId);
