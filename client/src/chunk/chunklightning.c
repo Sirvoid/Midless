@@ -12,23 +12,9 @@
 #include "chunklightning.h"
 #include "block.h"
 
-Vector3 lightDirections[6] = {
-    {-1, 0, 0},
-    {1, 0, 0},
-    {0, 1, 0},
-    {0, -1, 0},
-    {0, 0, 1},
-    {0, 0, -1}
-};
-
-Vector3 lightDirectionsXChunk[6] = {
-    {-CHUNK_SIZE_X, 0, 0},
-    {CHUNK_SIZE_X, 0, 0},
-    {0, CHUNK_SIZE_Y, 0},
-    {0, -CHUNK_SIZE_Y, 0},
-    {0, 0, CHUNK_SIZE_Z},
-    {0, 0, -CHUNK_SIZE_Z }
-};
+static const int lightDirectionX[6] = {-1, 1, 0, 0, 0, 0};
+static const int lightDirectionY[6] = {0, 0, 1, -1, 0, 0};
+static const int lightDirectionZ[6] = {0, 0, 0, 0, 1, -1};
 
 static bool Block_BlocksLight(const Block *block) {
     return block->renderType == BLOCK_RENDER_OPAQUE && block->fullCube;
@@ -164,27 +150,35 @@ void Chunk_SpreadLight(LightQueue *queue, bool sunlight) {
         if (chunk == NULL) continue;
 
         int lightLevel = Chunk_GetLightLevel(chunk, index, sunlight);
-        Vector3 pos = Chunk_IndexToPos(index);
+        int x = index % CHUNK_SIZE_X;
+        int y = index / CHUNK_SIZE_XZ;
+        int z = (index / CHUNK_SIZE_X) % CHUNK_SIZE_Z;
         const Block *currentBlock = Block_GetDefinition(chunk->data[index]);
 
         for (int d = 0; d < 6; d++) {
             if (currentBlock->lightType != BLOCK_LIGHT_EMIT &&
                 (currentBlock->lightPassFaces & (1u << d)) == 0) continue;
 
-            Vector3 nextPos = Vector3Add(pos, lightDirections[d]);
+            int nx = x + lightDirectionX[d];
+            int ny = y + lightDirectionY[d];
+            int nz = z + lightDirectionZ[d];
             Chunk *nextChunk = chunk;
 
             //Goto neighbour chunk if out of bounds
-            if (!Chunk_IsValidPos(nextPos)) {
+            if ((unsigned)nx >= CHUNK_SIZE_X ||
+                (unsigned)ny >= CHUNK_SIZE_Y ||
+                (unsigned)nz >= CHUNK_SIZE_Z) {
                 nextChunk = chunk->neighbours[d];
-                nextPos = Vector3Subtract(nextPos, lightDirectionsXChunk[d]); 
                 if (nextChunk == NULL || !nextChunk->isMapGenerated) {
                     Chunk_MarkLightFaceIncomplete(chunk, d, sunlight);
                     continue;
                 }
+                if (nx < 0) nx = CHUNK_SIZE_X - 1; else if (nx == CHUNK_SIZE_X) nx = 0;
+                if (ny < 0) ny = CHUNK_SIZE_Y - 1; else if (ny == CHUNK_SIZE_Y) ny = 0;
+                if (nz < 0) nz = CHUNK_SIZE_Z - 1; else if (nz == CHUNK_SIZE_Z) nz = 0;
             }
 
-            int nextIndex = Chunk_PosToIndex(nextPos);
+            int nextIndex = (ny * CHUNK_SIZE_Z + nz) * CHUNK_SIZE_X + nx;
             int nextLight = Chunk_GetLightLevel(nextChunk, nextIndex, sunlight);
             
             const Block *blockDefinition = Block_GetDefinition(nextChunk->data[nextIndex]);
@@ -245,23 +239,31 @@ void Chunk_UpdateLight(LightRemovalQueue *delQueue, LightQueue *spreadQueue, boo
         int lightLevel = node.val;
         if (chunk == NULL) continue;
 
-        Vector3 pos = Chunk_IndexToPos(index);
+        int x = index % CHUNK_SIZE_X;
+        int y = index / CHUNK_SIZE_XZ;
+        int z = (index / CHUNK_SIZE_X) % CHUNK_SIZE_Z;
         
         for (int d = 0; d < 6; d++) {
-            Vector3 nextPos = Vector3Add(pos, lightDirections[d]);
+            int nx = x + lightDirectionX[d];
+            int ny = y + lightDirectionY[d];
+            int nz = z + lightDirectionZ[d];
             Chunk *nextChunk = chunk;
 
             //Goto neighbour chunk if out of bounds
-            if (!Chunk_IsValidPos(nextPos)) {
+            if ((unsigned)nx >= CHUNK_SIZE_X ||
+                (unsigned)ny >= CHUNK_SIZE_Y ||
+                (unsigned)nz >= CHUNK_SIZE_Z) {
                 nextChunk = chunk->neighbours[d];
-                nextPos = Vector3Subtract(nextPos, lightDirectionsXChunk[d]); 
+                if (nx < 0) nx = CHUNK_SIZE_X - 1; else if (nx == CHUNK_SIZE_X) nx = 0;
+                if (ny < 0) ny = CHUNK_SIZE_Y - 1; else if (ny == CHUNK_SIZE_Y) ny = 0;
+                if (nz < 0) nz = CHUNK_SIZE_Z - 1; else if (nz == CHUNK_SIZE_Z) nz = 0;
             }
             if (nextChunk == NULL || !nextChunk->isMapGenerated) {
                 Chunk_MarkLightFaceIncomplete(chunk, d, sunlight);
                 continue;
             }
 
-            int nextIndex = Chunk_PosToIndex(nextPos);
+            int nextIndex = (ny * CHUNK_SIZE_Z + nz) * CHUNK_SIZE_X + nx;
             int neighborLevel = Chunk_GetLightLevel(nextChunk, nextIndex, sunlight);
 
             if (neighborLevel != 0 &&

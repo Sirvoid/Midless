@@ -45,16 +45,19 @@ void ChunkMesh_Upload(ChunkMesh *mesh, unsigned char *vertices, unsigned short *
     int vertXShort = mesh->vertexCount * sizeof(unsigned short);
 
     mesh->vboId[0] = rlLoadVertexBuffer(vertices, vertXchar * 3, false);
-    rlSetVertexAttribute(0, 3, RL_UNSIGNED_BYTE, 0, 0, 0);
-    rlEnableVertexAttribute(0);
+    int positionLocation = world.material.shader.locs[SHADER_LOC_VERTEX_POSITION];
+    rlSetVertexAttribute(positionLocation, 3, RL_UNSIGNED_BYTE, 0, 0, 0);
+    rlEnableVertexAttribute(positionLocation);
 
     mesh->vboId[1] = rlLoadVertexBuffer(texcoords, vertXShort * 2, false);
-    rlSetVertexAttribute(1, 2, 0x1403, 0, 0, 0);
-    rlEnableVertexAttribute(1);
+    int texcoordLocation = world.material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01];
+    rlSetVertexAttribute(texcoordLocation, 2, 0x1403, 0, 0, 0);
+    rlEnableVertexAttribute(texcoordLocation);
 
     mesh->vboId[2] = rlLoadVertexBuffer(colors, vertXchar, false);
-    rlSetVertexAttribute(3, 1, RL_UNSIGNED_BYTE, 0, 0, 0);
-    rlEnableVertexAttribute(3);
+    int colorLocation = world.material.shader.locs[SHADER_LOC_VERTEX_COLOR];
+    rlSetVertexAttribute(colorLocation, 1, RL_UNSIGNED_BYTE, 0, 0, 0);
+    rlEnableVertexAttribute(colorLocation);
 
     mesh->vboId[3] = rlLoadVertexBufferElement(indices, mesh->drawTriangleCount*3*sizeof(unsigned short), false);
 
@@ -129,6 +132,7 @@ void ChunkMesh_Draw(ChunkMesh *mesh, Material material, Matrix transform) {
     matMVP = MatrixMultiply(matModelView, matProjection);
 
     rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_MVP], matMVP);
+    rlSetUniformMatrix(rlGetLocationUniform(material.shader.id, "matModelView"), matModelView);
     
     rlDrawVertexArrayElements(0, mesh->drawTriangleCount * 3, 0);
 

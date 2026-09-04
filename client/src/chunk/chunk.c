@@ -106,13 +106,10 @@ void Chunk_Destroy(Chunk *chunk) {
 void Chunk_Generate(Chunk *chunk) {
     if (chunk == NULL || chunk->isLightGenerated) return;
 
-    // Mark the map available before lighting the chunk above. Its sunlight
-    // flood can then cross back into this chunk while the column unwinds.
+    // Mark the map available before lighting the chunk above.
     chunk->isMapGenerated = true;
 
-    // Initial sunlight must be calculated from the top down. Previously an
-    // existing but not-yet-lit top chunk was treated as missing, which could
-    // seed full skylight below opaque terrain depending on queue order.
+    // Initial sunlight must be calculated from the top down.
     Chunk *topChunk = chunk->neighbours[BLOCK_FACE_TOP];
     if (topChunk != NULL && !topChunk->isLightGenerated) {
         Chunk_Generate(topChunk);

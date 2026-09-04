@@ -137,11 +137,12 @@ Chunk* World_GetChunkAt(Vector3 position) {
 int World_GetClosestChunkIndex(Chunk* *array, Vector3 pos) {
     int arrLength = arrlen(array);
     if (arrLength > 0) {
-        Chunk* queuedChunk = array[0];
         int index = 0;
-        for (int i = 0; i < arrLength; i++) {
-            if (Vector3Distance(array[i]->position, pos) < Vector3Distance(queuedChunk->position, pos)) {
-                queuedChunk = array[i];
+        float closestDistanceSquared = Vector3DistanceSqr(array[0]->position, pos);
+        for (int i = 1; i < arrLength; i++) {
+            float distanceSquared = Vector3DistanceSqr(array[i]->position, pos);
+            if (distanceSquared < closestDistanceSquared) {
+                closestDistanceSquared = distanceSquared;
                 index = i;
             }
         }
