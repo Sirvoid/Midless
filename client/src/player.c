@@ -65,11 +65,11 @@ void Player_Init(void) {
 }
 
 void Player_SetEntityModel(int type, int modelId) {
-    if (modelId < 0 || modelId >= 256 || entityModels[modelId].boxCount == 0) return;
+    if (modelId < 0 || modelId >= 256) return;
     Player_ClearEntityModel();
     player.entityType = (unsigned char)type;
     player.modelId = (unsigned char)modelId;
-    EntityModel_Create(&player.entityModel, entityModels[modelId]);
+    EntityModel_Create(&player.entityModel, *EntityModel_GetDefinition(modelId));
     player.hasEntityModel = true;
 }
 

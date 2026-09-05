@@ -163,6 +163,81 @@ static int LuaBindings_DefineBlock(void) {
     return 0;
 }
 
+//---------Entity models---------
+
+static void LuaBindings_ModelVector(int table, const char *name, int16_t values[3], bool optional) {
+    if (!Lua_PushField(table, name) && optional) { Lua_Pop(); return; }
+    int vector = Lua_GetTop();
+    if (Lua_TableLength(vector) != 3) Lua_Error("model vectors require exactly three coordinates");
+    for (int i = 0; i < 3; i++) {
+        Lua_GetRawI(vector, i + 1);
+        float value = Lua_GetNumber(-1);
+        if (!isfinite(value) || value < -512.0f || value > 511.984375f)
+            Lua_Error("model coordinates must be finite and between -512 and 511.984375");
+        values[i] = (int16_t)roundf(value * 64.0f);
+        Lua_Pop();
+    }
+    Lua_Pop();
+}
+
+static int LuaBindings_DefineEntityModel(void) {
+    int id = Lua_GetIntRange(1, 1, 255);
+    Lua_CheckTable(2);
+    ModelDefinition d = {0};
+    Lua_PushField(2, "name"); Lua_CopyString(-1, d.name, sizeof(d.name)); Lua_Pop();
+    Lua_PushField(2, "texture");
+    const char *texture = Lua_GetString(-1);
+    if (!strcmp(texture, "humanoid")) d.texture = 0;
+    else if (!strcmp(texture, "terrain")) d.texture = 1;
+    else return Lua_Error("model texture must be 'humanoid' or 'terrain'");
+    Lua_Pop();
+    Lua_PushField(2, "parts");
+    int parts = Lua_GetTop();
+    int count = Lua_TableLength(parts);
+    if (count < 1 || count > ENTITY_MODEL_MAX_PARTS) return Lua_Error("models require 1 to 64 parts");
+    d.partCount = count;
+    static const char *faces[] = {"east", "west", "up", "down", "north", "south"};
+    for (int i = 0; i < count; i++) {
+        Lua_GetRawI(parts, i + 1);
+        int part = Lua_GetTop();
+        Lua_CheckTable(part);
+        ModelPartDefinition *p = &d.parts[i];
+        p->role = LuaBindings_IntField(part, "role", 0, 0, 5);
+        if (Lua_PushField(part, "first_person_visible")) p->firstPersonVisible = Lua_GetBoolean(-1);
+        Lua_Pop();
+        LuaBindings_ModelVector(part, "position", p->position, true);
+        LuaBindings_ModelVector(part, "min", p->min, false);
+        LuaBindings_ModelVector(part, "max", p->max, false);
+        Lua_PushField(part, "uv");
+        int uv = Lua_GetTop(); Lua_CheckTable(uv);
+        for (int f = 0; f < 6; f++) {
+            Lua_PushField(uv, faces[f]);
+            int rectangle = Lua_GetTop();
+            if (Lua_TableLength(rectangle) != 4) return Lua_Error("UV rectangles require x, y, width, height");
+            for (int a = 0; a < 4; a++) {
+                Lua_GetRawI(rectangle, a + 1);
+                p->uv[f][a] = Lua_GetIntRange(-1, -32768, 32767);
+                Lua_Pop();
+            }
+            Lua_Pop();
+        }
+        Lua_Pop(); Lua_Pop();
+    }
+    Lua_Pop();
+    if (!ServerWorld_DefineEntityModel(id, &d)) return Lua_Error("invalid entity model or allocation failed");
+    return 0;
+}
+static int LuaBindings_RemoveEntityModel(void) {
+    ServerWorld_RemoveEntityModel(Lua_GetIntRange(1, 1, 255));
+    return 0;
+}
+static int LuaBindings_SetEntityModel(void) {
+    int entityId = Lua_GetIntRange(1, 0, WORLD_MAX_ENTITIES - 1);
+    int modelId = Lua_GetIntRange(2, 0, 255);
+    if (!ServerWorld_SetEntityModel(entityId, modelId)) return Lua_Error("entity or model is not defined");
+    return 0;
+}
+
 //---------Players---------
 
 #define LUA_PLAYER_TYPE "midless.Player"
@@ -311,8 +386,17 @@ static int LuaBindings_SendPlayerMessage(void) {
     return 0;
 }
 
+static int LuaBindings_SetPlayerModel(void) {
+    Player *player = LuaBindings_CheckPlayer();
+    if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
+    int modelId = Lua_GetIntRange(2, 0, 255);
+    if (!ServerWorld_SetEntityModel(player->id, modelId)) return Lua_Error("model is not defined");
+    return 0;
+}
+
 static const struct LuaMethod playerLib[] = {
     {"get_id", LuaBindings_GetPlayerId},
+    {"set_model", LuaBindings_SetPlayerModel},
     {"get_name", LuaBindings_GetPlayerName},
     {"get_position", LuaBindings_GetPlayerPosition},
     {"teleport", LuaBindings_TeleportPlayer},
@@ -355,6 +439,9 @@ static const struct LuaMethod midlessLib[] = {
     {"get_block", LuaBindings_GetBlock},
     {"set_block", LuaBindings_SetBlock},
     {"define_block", LuaBindings_DefineBlock},
+    {"define_entity_model", LuaBindings_DefineEntityModel},
+    {"remove_entity_model", LuaBindings_RemoveEntityModel},
+    {"set_entity_model", LuaBindings_SetEntityModel},
     {"register_on_ready", LuaBindings_RegisterReady},
     {"register_on_player_message", LuaBindings_RegisterChatMessage},
     {"register_on_player_join", LuaBindings_RegisterPlayerJoin},
@@ -393,9 +480,21 @@ static void LuaBindings_DefineBlockConstants(void) {
     Lua_SetGlobal("block");
 }
 
+static void LuaBindings_DefineModelConstants(void) {
+    static const LuaConstant roles[] = {
+        {"NONE", 0}, {"HEAD", 1}, {"RIGHT_ARM", 2}, {"LEFT_ARM", 3},
+        {"RIGHT_LEG", 4}, {"LEFT_LEG", 5}, {NULL, 0}
+    };
+    Lua_MakeTable(1);
+    LuaBindings_ConstantTable(roles);
+    Lua_SetField(-2, "part");
+    Lua_SetGlobal("model");
+}
+
 void LuaBindings_Init(void) {
     luaReadyInvoked = false;
     LuaBindings_DefineBlockConstants();
+    LuaBindings_DefineModelConstants();
     Lua_DefineObjectType(LUA_PLAYER_TYPE, playerLib);
     Lua_DefineLib("midless", midlessLib);
 }

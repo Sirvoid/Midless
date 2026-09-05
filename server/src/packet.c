@@ -39,7 +39,10 @@ int serverPacketLengths[256] = {
     65, //message continuation
     4, //entity animation
     DEFINE_BLOCK_PACKET_SIZE, //define block
-    2 //remove block definition
+    2, //remove block definition
+    0, //define entity model
+    2, //remove entity model
+    4 //set entity model
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -156,8 +159,9 @@ void ServerPacket_HandleIdentification(void) {
     }
     serverPacketPlayer->name = ServerPacket_ReadString();
     ServerLogger_Log(TextFormat("%s connected. Protocol version: %i\n", serverPacketPlayer->name, protocolVersion));
-    ServerWorld_AddPlayer(serverPacketPlayer);
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMapInit());
+    ServerWorld_SendEntityModels(serverPacketPlayer);
+    ServerWorld_AddPlayer(serverPacketPlayer);
     ServerWorld_SendBlockDefinitions(serverPacketPlayer);
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateWorldTime(serverWorld.time));
     if (serverWorld.players[serverPacketPlayer->id] == serverPacketPlayer)
@@ -378,5 +382,46 @@ unsigned char *ServerPacket_CreateRemoveBlockDefinition(int id) {
     if (!packet) return NULL;
     ServerPacket_WriteByte(packet, PACKET_REMOVE_BLOCK_DEFINITION);
     ServerPacket_WriteByte(packet, (unsigned char)id);
+    return packet;
+}
+
+unsigned char *ServerPacket_CreateDefineEntityModel(int id, const ModelDefinition *d) {
+    if (!ModelDefinition_Validate(id, d)) return NULL;
+    serverPacketWriterIndex = 0;
+    serverPacketLastDynamicLength = ENTITY_MODEL_HEADER_SIZE + d->partCount * ENTITY_MODEL_PART_SIZE;
+    unsigned char *packet = MemAlloc(serverPacketLastDynamicLength);
+    if (!packet) return NULL;
+    ServerPacket_WriteByte(packet, PACKET_DEFINE_ENTITY_MODEL);
+    ServerPacket_WriteByte(packet, id);
+    ServerPacket_WriteString(packet, d->name);
+    ServerPacket_WriteUShort(packet, d->texture);
+    ServerPacket_WriteByte(packet, d->partCount);
+    for (int i = 0; i < d->partCount; i++) {
+        const ModelPartDefinition *p = &d->parts[i];
+        ServerPacket_WriteByte(packet, p->role);
+        ServerPacket_WriteByte(packet, p->firstPersonVisible);
+        for (int a = 0; a < 3; a++) ServerPacket_WriteShort(packet, p->position[a]);
+        for (int a = 0; a < 3; a++) ServerPacket_WriteShort(packet, p->min[a]);
+        for (int a = 0; a < 3; a++) ServerPacket_WriteShort(packet, p->max[a]);
+        for (int f = 0; f < 6; f++) for (int a = 0; a < 4; a++) ServerPacket_WriteShort(packet, p->uv[f][a]);
+    }
+    return packet;
+}
+unsigned char *ServerPacket_CreateRemoveEntityModel(int id) {
+    if (id < 1 || id > 255) return NULL;
+    serverPacketWriterIndex = 0;
+    unsigned char *packet = MemAlloc(2);
+    if (!packet) return NULL;
+    ServerPacket_WriteByte(packet, PACKET_REMOVE_ENTITY_MODEL);
+    ServerPacket_WriteByte(packet, id);
+    return packet;
+}
+unsigned char *ServerPacket_CreateSetEntityModel(unsigned short entityId, unsigned char modelId) {
+    serverPacketWriterIndex = 0;
+    unsigned char *packet = MemAlloc(4);
+    if (!packet) return NULL;
+    ServerPacket_WriteByte(packet, PACKET_SET_ENTITY_MODEL);
+    ServerPacket_WriteUShort(packet, entityId);
+    ServerPacket_WriteByte(packet, modelId);
     return packet;
 }

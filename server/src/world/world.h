@@ -16,8 +16,10 @@
 #include "../entity.h"
 #include "chunk/chunk.h"
 #include "worldtime.h"
+#include "entitymodeldefinition.h"
 
 typedef struct World{
+    ModelDefinition *modelDefinitions[256];
     BlockDefinition blockDefinitions[256];
     bool hasBlockDefinition[256];
     Player** players;
@@ -32,6 +34,10 @@ typedef struct World{
 extern World serverWorld;
 
 void ServerWorld_Init(void);
+bool ServerWorld_DefineEntityModel(int id, const ModelDefinition *definition);
+void ServerWorld_RemoveEntityModel(int id);
+void ServerWorld_SendEntityModels(Player *player);
+bool ServerWorld_SetEntityModel(int entityId, int modelId);
 void ServerWorld_Shutdown(void);
 void ServerWorld_Update(void);
 

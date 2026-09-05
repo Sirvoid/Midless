@@ -11,6 +11,7 @@
 #endif
 
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 #include <sys/stat.h>
 #include "raylib.h"
@@ -75,6 +76,10 @@ void ServerWorld_Shutdown(void) {
     MemFree(serverWorld.entities);
     serverWorld.players = NULL;
     serverWorld.entities = NULL;
+    for (int id = 1; id < 256; id++) {
+        MemFree(serverWorld.modelDefinitions[id]);
+        serverWorld.modelDefinitions[id] = NULL;
+    }
 }
 
 void ServerWorld_Update(void) {
@@ -163,4 +168,40 @@ void ServerWorld_SendBlockDefinitions(Player *player) {
             ServerPlayer_DefineBlock(player, id, &serverWorld.blockDefinitions[id]);
         }
     }
+}
+
+bool ServerWorld_DefineEntityModel(int id, const ModelDefinition *definition) {
+    if (!ModelDefinition_Validate(id, definition)) return false;
+    ModelDefinition *copy = MemAlloc(sizeof(*copy));
+    if (!copy) return false;
+    *copy = *definition;
+    MemFree(serverWorld.modelDefinitions[id]);
+    serverWorld.modelDefinitions[id] = copy;
+    if (serverWorld.players) for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+        Player *p = serverWorld.players[i];
+        if (p && !p->disconnected) ServerNetwork_Send(p, ServerPacket_CreateDefineEntityModel(id, copy));
+    }
+    return true;
+}
+void ServerWorld_RemoveEntityModel(int id) {
+    if (id < 1 || id > 255 || !serverWorld.modelDefinitions[id]) return;
+    MemFree(serverWorld.modelDefinitions[id]);
+    serverWorld.modelDefinitions[id] = NULL;
+    ServerWorld_Broadcast(ServerPacket_CreateRemoveEntityModel(id));
+}
+void ServerWorld_SendEntityModels(Player *player) {
+    for (int id = 1; id < 256; id++) if (serverWorld.modelDefinitions[id])
+        ServerNetwork_Send(player, ServerPacket_CreateDefineEntityModel(id, serverWorld.modelDefinitions[id]));
+}
+bool ServerWorld_SetEntityModel(int entityId, int modelId) {
+    if (!serverWorld.entities || entityId < 0 || entityId >= WORLD_MAX_ENTITIES ||
+        !serverWorld.entities[entityId].type || modelId < 0 || modelId > 255 ||
+        (modelId && !serverWorld.modelDefinitions[modelId])) return false;
+    serverWorld.entities[entityId].model = modelId;
+    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+        Player *p = serverWorld.players[i];
+        if (p && !p->disconnected) ServerNetwork_Send(p,
+            ServerPacket_CreateSetEntityModel(i == entityId ? USHRT_MAX : entityId, modelId));
+    }
+    return true;
 }

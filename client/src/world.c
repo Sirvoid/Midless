@@ -518,7 +518,7 @@ void World_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
 
 void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 rotation) {
     if (id < 0 || id >= WORLD_MAX_ENTITIES) return;
-    if (modelId < 0 || modelId >= 256 || entityModels[modelId].boxCount == 0) return;
+    if (modelId < 0 || modelId >= 256) return;
 
     if (world.entities[id].type != 0) Entity_Destroy(&world.entities[id]);
     world.entities[id].type = type;
@@ -530,7 +530,7 @@ void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 ro
     world.entities[id].targetHeadPitch = rotation.x;
     EntityAnimation_Init(&world.entities[id].animation, position);
     
-    EntityModel_Create(&world.entities[id].model, entityModels[modelId]);
+    EntityModel_Create(&world.entities[id].model, *EntityModel_GetDefinition(modelId));
 }
 
 void World_RemoveEntity(int id) {

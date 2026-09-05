@@ -35,6 +35,8 @@ int Lua_GetRawI(int table, int index);
 void Lua_SetRawI(int table, int index);
 int Lua_GetInt(int arg);
 void Lua_CheckTable(int arg);
+int Lua_TableLength(int arg);
+int Lua_GetBoolean(int arg);
 int Lua_PushField(int table, const char *name);
 void Lua_Pop(void);
 int Lua_GetIntRange(int arg, int min, int max);

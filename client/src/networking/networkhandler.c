@@ -18,6 +18,7 @@
 #include "world.h"
 #include "localserver.h"
 #include "block.h"
+#include "entitymodel.h"
 
 PacketHandlerEntry packets[256];
 int networkConnectedToServer = 0;
@@ -59,6 +60,9 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleEntityAnimation, 4}; //11
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDefineBlock, DEFINE_BLOCK_PACKET_SIZE}; //12
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleRemoveBlockDefinition, 2}; //13
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDefineEntityModel, 0}; //14
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleRemoveEntityModel, 2}; //15
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetEntityModel, 4}; //16
 }
 
 void Network_Connect(void) {
@@ -91,6 +95,7 @@ static void Network_PerformDisconnect(void) {
         World_Clear();
         Network_ClearQueue();
     }
+    EntityModel_ResetDefinitions();
     Block_ResetDefinitions();
     Block_FlushDefinitionChanges();
     networkConnectedToServer = false;
@@ -125,7 +130,7 @@ void Network_ProcessIncomingPackets(void) {
         Network_PerformDisconnect();
         return;
     }
-    if (reset) Block_ResetDefinitions();
+    if (reset) { EntityModel_ResetDefinitions(); Block_ResetDefinitions(); }
     const int maxPacketsPerFrame = 1024;
     const double terrainPacketBudgetSeconds = 0.002;
     IncomingPacket gameplayPackets[maxPacketsPerFrame];

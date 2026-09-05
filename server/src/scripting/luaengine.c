@@ -183,3 +183,6 @@ void *Lua_NewObject(const char *name, size_t size) {
 void *Lua_CheckObject(int arg, const char *name) {
     return luaL_checkudata(L, arg, name);
 }
+
+int Lua_TableLength(int arg) { luaL_checktype(L, arg, LUA_TTABLE); return (int)lua_rawlen(L, arg); }
+int Lua_GetBoolean(int arg) { luaL_checktype(L, arg, LUA_TBOOLEAN); return lua_toboolean(L, arg); }

@@ -17,6 +17,7 @@
 #include "chat.h"
 #include "particle.h"
 #include "block.h"
+#include "entitymodel.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -364,4 +365,33 @@ void Packet_HandleDefineBlock(void) {
 
 void Packet_HandleRemoveBlockDefinition(void) {
     if (packetDataLength == 2) Block_RemoveDefinition(Packet_ReadByte());
+}
+
+void Packet_HandleDefineEntityModel(void) {
+    if (packetDataLength < ENTITY_MODEL_HEADER_SIZE) return;
+    ModelDefinition d = {0};
+    int id = Packet_ReadByte();
+    char *name = Packet_ReadString();
+    if (!name) return;
+    memcpy(d.name, name, sizeof(d.name)); MemFree(name);
+    d.texture = Packet_ReadUShort();
+    d.partCount = Packet_ReadByte();
+    if (!d.partCount || d.partCount > ENTITY_MODEL_MAX_PARTS ||
+        packetDataLength != ENTITY_MODEL_HEADER_SIZE + d.partCount * ENTITY_MODEL_PART_SIZE) return;
+    for (int i = 0; i < d.partCount; i++) {
+        ModelPartDefinition *p = &d.parts[i];
+        p->role = Packet_ReadByte();
+        p->firstPersonVisible = Packet_ReadByte();
+        for (int a = 0; a < 3; a++) p->position[a] = Packet_ReadShort();
+        for (int a = 0; a < 3; a++) p->min[a] = Packet_ReadShort();
+        for (int a = 0; a < 3; a++) p->max[a] = Packet_ReadShort();
+        for (int f = 0; f < 6; f++) for (int a = 0; a < 4; a++) p->uv[f][a] = Packet_ReadShort();
+    }
+    if (!EntityModel_ApplyDefinition(id, &d)) TraceLog(LOG_WARNING, "Rejected invalid entity model");
+}
+void Packet_HandleRemoveEntityModel(void) { EntityModel_RemoveDefinition(Packet_ReadByte()); }
+void Packet_HandleSetEntityModel(void) {
+    int entityId = Packet_ReadUShort();
+    int modelId = Packet_ReadByte();
+    EntityModel_SetEntityModel(entityId, modelId);
 }

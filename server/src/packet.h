@@ -10,6 +10,7 @@
 
 #include "player.h"
 #include "blockdefinition.h"
+#include "entitymodeldefinition.h"
 #include "entity.h"
 #include "entityanimation.h"
 
@@ -46,6 +47,9 @@ void ServerPacket_HandleSetDrawDistance(void);
 void ServerPacket_HandlePlayerClick(void);
 
 unsigned char* ServerPacket_CreateMapInit(void);
+unsigned char *ServerPacket_CreateDefineEntityModel(int id, const ModelDefinition *definition);
+unsigned char *ServerPacket_CreateRemoveEntityModel(int id);
+unsigned char *ServerPacket_CreateSetEntityModel(unsigned short entityId, unsigned char modelId);
 unsigned char *ServerPacket_CreateDefineBlock(int id, const BlockDefinition *definition);
 unsigned char *ServerPacket_CreateRemoveBlockDefinition(int id);
 unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length,

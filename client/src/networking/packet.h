@@ -19,6 +19,10 @@ void Packet_HandleRemoveBlockDefinition(void);
 int Packet_GetLength(unsigned char opcode);
 
 unsigned char Packet_ReadByte(void);
+short Packet_ReadShort(void);
+void Packet_HandleDefineEntityModel(void);
+void Packet_HandleRemoveEntityModel(void);
+void Packet_HandleSetEntityModel(void);
 char Packet_ReadSByte(void);
 unsigned short Packet_ReadUShort(void);
 int Packet_ReadInt(void);

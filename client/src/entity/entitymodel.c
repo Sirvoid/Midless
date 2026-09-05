@@ -6,11 +6,15 @@
  */
 
 #include <stddef.h>
+#include <limits.h>
+#include "world.h"
+#include "player.h"
 #include "entitymodel.h"
 #include "resource.h"
 #include "rlgl.h"
 
 EntityModelDefinition entityModels[256];
+static Texture2D terrainModelTexture;
 
 typedef enum ModelFaceDirection {
     MODEL_FACE_EAST,
@@ -120,9 +124,12 @@ void EntityModel_DefineHumanoid(void) {
 
 void EntityModelDefinitions_Init(void) {
     EntityModel_DefineHumanoid();
+    terrainModelTexture = Resource_LoadTexture("terrain.png");
 }
 
 void EntityModelDefinitions_Shutdown(void) {
+    UnloadTexture(terrainModelTexture);
+    terrainModelTexture = (Texture2D){0};
     for (int i = 0; i < 256; i++) {
         EntityModelDefinition *model = &entityModels[i];
         if (model->boxCount == 0) continue;
@@ -132,7 +139,7 @@ void EntityModelDefinitions_Shutdown(void) {
         MemFree(model->uvs);
         MemFree(model->types);
         MemFree(model->firstPersonVisible);
-        UnloadTexture(model->defaultTexture);
+        if (i == 0) UnloadTexture(model->defaultTexture);
         *model = (EntityModelDefinition){0};
     }
 }
@@ -167,4 +174,76 @@ void EntityModel_Unload(EntityModel *model) {
 void EntityModel_Destroy(EntityModel *model) {
     MemFree(model->parts);
     *model = (EntityModel){0};
+}
+
+const EntityModelDefinition *EntityModel_GetDefinition(int id) {
+    if (id < 0 || id > 255 || !entityModels[id].boxCount) return &entityModels[0];
+    return &entityModels[id];
+}
+static void FreeDefinition(EntityModelDefinition *d) {
+    MemFree(d->boxes); MemFree(d->uvs); MemFree(d->positions);
+    MemFree(d->types); MemFree(d->firstPersonVisible);
+    *d = (EntityModelDefinition){0};
+}
+void EntityModel_SetEntityModel(int entityId, int modelId) {
+    if (modelId < 0 || modelId > 255) return;
+    if (entityId == USHRT_MAX) {
+        if (player.hasEntityModel) Player_SetEntityModel(player.entityType, modelId);
+        return;
+    }
+    if (!world.entities || entityId < 0 || entityId >= WORLD_MAX_ENTITIES) return;
+    Entity *e = &world.entities[entityId];
+    if (!e->type) return;
+    EntityModel_Unload(&e->model);
+    EntityModel_Destroy(&e->model);
+    e->modelId = modelId;
+    EntityModel_Create(&e->model, *EntityModel_GetDefinition(modelId));
+}
+static void RefreshModelUsers(int id) {
+    if (world.entities) for (int i = 0; i < WORLD_MAX_ENTITIES; i++)
+        if (world.entities[i].type && world.entities[i].modelId == id) EntityModel_SetEntityModel(i, id);
+    if (player.hasEntityModel && player.modelId == id) EntityModel_SetEntityModel(USHRT_MAX, id);
+}
+bool EntityModel_ApplyDefinition(int id, const ModelDefinition *d) {
+    if (!ModelDefinition_Validate(id, d)) return false;
+    Texture2D texture = d->texture == 0 ? entityModels[0].defaultTexture : terrainModelTexture;
+    if (!texture.id) return false;
+    for (int i = 0; i < d->partCount; i++) for (int f = 0; f < 6; f++) {
+        const int16_t *uv = d->parts[i].uv[f];
+        if (uv[0] > texture.width || uv[0]+uv[2] > texture.width ||
+            uv[1] > texture.height || uv[1]+uv[3] > texture.height) return false;
+    }
+    EntityModelDefinition result = {0};
+    int count = d->partCount;
+    result.boxCount = count;
+    result.defaultTexture = texture;
+    result.boxes = MemAlloc(count * sizeof(*result.boxes));
+    result.positions = MemAlloc(count * sizeof(*result.positions));
+    result.uvs = MemAlloc(count * sizeof(*result.uvs));
+    result.types = MemAlloc(count * sizeof(*result.types));
+    result.firstPersonVisible = MemAlloc(count * sizeof(*result.firstPersonVisible));
+    if (!result.boxes || !result.positions || !result.uvs || !result.types || !result.firstPersonVisible) {
+        FreeDefinition(&result); return false;
+    }
+    for (int i = 0; i < count; i++) {
+        const ModelPartDefinition *p = &d->parts[i];
+        result.positions[i] = (Vector3){p->position[0]/64.0f,p->position[1]/64.0f,p->position[2]/64.0f};
+        result.boxes[i].min = (Vector3){p->min[0]/64.0f,p->min[1]/64.0f,p->min[2]/64.0f};
+        result.boxes[i].max = (Vector3){p->max[0]/64.0f,p->max[1]/64.0f,p->max[2]/64.0f};
+        result.types[i] = (PartType)p->role;
+        result.firstPersonVisible[i] = p->firstPersonVisible;
+        for (int f = 0; f < 6; f++) result.uvs[i][f] = (Rectangle){p->uv[f][0],p->uv[f][1],p->uv[f][2],p->uv[f][3]};
+    }
+    FreeDefinition(&entityModels[id]);
+    entityModels[id] = result;
+    RefreshModelUsers(id);
+    return true;
+}
+void EntityModel_RemoveDefinition(int id) {
+    if (id < 1 || id > 255 || !entityModels[id].boxCount) return;
+    FreeDefinition(&entityModels[id]);
+    RefreshModelUsers(id);
+}
+void EntityModel_ResetDefinitions(void) {
+    for (int id = 1; id < 256; id++) EntityModel_RemoveDefinition(id);
 }
