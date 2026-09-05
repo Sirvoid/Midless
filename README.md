@@ -51,3 +51,7 @@ PLATFORM=PLATFORM_WEB   - Build for the web (Client only)
 ## License
 
 All code in this repository is licensed under the [MIT License](https://github.com/Sirvoid/Midless/blob/main/LICENSE).
+
+## Lua scripting
+
+See the [complete Lua API reference](docs/LUA_API.md)
