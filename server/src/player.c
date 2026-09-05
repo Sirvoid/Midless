@@ -33,6 +33,20 @@ void ServerPlayer_Destroy(Player *player) {
     MemFree(player);
 }
 
+void ServerPlayer_DefineBlock(Player *player, int id, const BlockDefinition *definition) {
+    if (!player || player->disconnected) return;
+    unsigned char *packet = ServerPacket_CreateDefineBlock(id, definition);
+    if (!packet) return;
+    ServerNetwork_Send(player, packet);
+}
+
+void ServerPlayer_RemoveBlockDefinition(Player *player, int id) {
+    if (!player || player->disconnected) return;
+    unsigned char *packet = ServerPacket_CreateRemoveBlockDefinition(id);
+    if (!packet) return;
+    ServerNetwork_Send(player, packet);
+}
+
 void ServerPlayer_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation) {
     ServerWorld_TeleportEntity(player->id, position, rotation);
 }

@@ -16,10 +16,12 @@
 #include "world.h"
 #include "chat.h"
 #include "particle.h"
+#include "block.h"
 
 #define PACKET_STRING_SIZE 64
 
 unsigned char *packetData;
+int packetDataLength;
 int Packet_Lengths[256] = {
     67, //0
     14, //1
@@ -67,6 +69,7 @@ int Packet_ReadInt(void) {
 
 char *Packet_ReadString(void) {
     char *string = MemAlloc(PACKET_STRING_SIZE + 1);
+    if (!string) return NULL;
     
     for (int i = 0; i < PACKET_STRING_SIZE; i++) {
         string[i] = packetData[packetReaderIndex++];
@@ -132,21 +135,52 @@ void Packet_WriteString(unsigned char *packet, char *string) {
 *--------------------------------------------------------------------------------------------------------*/
 
 void Packet_HandleMapInit(void) {
+    if (packetDataLength != 3 || Packet_ReadUShort() != GAME_PROTOCOL_VERSION) {
+        TraceLog(LOG_WARNING, "Incompatible server protocol; expected version %d", GAME_PROTOCOL_VERSION);
+        Network_Disconnect();
+        return;
+    }
     World_LoadMultiplayer();
 }
 
 
 void Packet_HandleLoadChunk(void) {
+    // Opcode + three coordinates + compressed-array length.
+    const int headerLength = 1 + 3 * 4 + 2;
+    if (packetDataLength < headerLength + CHUNK_SKY_MASK_SIZE) return;
     int x = Packet_ReadInt();
     int y = Packet_ReadInt();
     int z = Packet_ReadInt();
     int length = Packet_ReadUShort();
+    // Compressed data consists of (block ID, run length) ushort pairs.
+    if (length == 0 || length > CHUNK_SIZE * 2 || length % 2 != 0) return;
+    int expectedLength = headerLength + length * 2 + CHUNK_SKY_MASK_SIZE;
+    if (packetDataLength != expectedLength) return;
+
     unsigned short* chunkData = (unsigned short*)Packet_ReadArray(length * 2);
     unsigned char* skyMask = Packet_ReadArray(CHUNK_SKY_MASK_SIZE);
 
+    int blockCount = 0;
+    for (int i = 0; i < length; i += 2) {
+        if (chunkData[i + 1] == 0 ||
+            blockCount + chunkData[i + 1] > CHUNK_SIZE) {
+            MemFree(chunkData);
+            MemFree(skyMask);
+            return;
+        }
+        // Unknown block types must not prevent the rest of the chunk loading.
+        if (!Block_IsDefined(chunkData[i])) chunkData[i] = 0;
+        blockCount += chunkData[i + 1];
+    }
+    if (blockCount != CHUNK_SIZE) {
+        MemFree(chunkData);
+        MemFree(skyMask);
+        return;
+    }
     Vector3 position = (Vector3) {x,y,z};
     World_AddChunk(position);
     Chunk* chunk = World_GetChunkAt(position);
+    if (!chunk) { MemFree(chunkData); MemFree(skyMask); return; }
     Chunk_Decompress(chunk, chunkData, length);
     memcpy(chunk->skyMask, skyMask, CHUNK_SKY_MASK_SIZE);
     MemFree(chunkData);
@@ -168,6 +202,7 @@ void Packet_HandleUnloadChunk(void) {
 void Packet_HandleSetBlock(void) {
     int blockId = Packet_ReadByte();
     Vector3 position = (Vector3) { Packet_ReadInt(), Packet_ReadInt(), Packet_ReadInt() };
+    if (!Block_IsDefined(blockId)) return;
     int oldBlockId = World_GetBlock(position);
     if (blockId == 0 && oldBlockId != 0) Particle_SpawnBlockBreak(position, oldBlockId);
     World_SetBlock(position, blockId, false);
@@ -220,12 +255,17 @@ void Packet_HandleMessageContinuation(void) {
 }
 
 void Packet_HandleBlockBatch(void) {
+    const int headerLength = 1 + 2; // Opcode + update count.
+    const int updateLength = 1 + 3 * 4; // Block ID + three coordinates.
+    if (packetDataLength < headerLength) return;
     int count = Packet_ReadUShort();
+    if (packetDataLength != headerLength + count * updateLength) return;
     for (int i = 0; i < count; i++) {
         int blockId = Packet_ReadByte();
         Vector3 position = {
             Packet_ReadInt(), Packet_ReadInt(), Packet_ReadInt()
         };
+        if (!Block_IsDefined(blockId)) continue;
         int oldBlockId = World_GetBlock(position);
         if (blockId == 0 && oldBlockId != 0) Particle_SpawnBlockBreak(position, oldBlockId);
         World_SetBlock(position, blockId, false);
@@ -300,4 +340,28 @@ unsigned char *Packet_CreatePlayerClick(unsigned char button) {
     Packet_WriteByte(packet, 5);
     Packet_WriteByte(packet, button);
     return packet;
+}
+
+void Packet_HandleDefineBlock(void) {
+    if (packetDataLength != DEFINE_BLOCK_PACKET_SIZE) return;
+    BlockDefinition definition = {0};
+    int id = Packet_ReadByte();
+    char *name = Packet_ReadString();
+    if (!name) return;
+    memcpy(definition.name, name, sizeof(definition.name));
+    MemFree(name);
+    for (int i = 0; i < 6; i++) definition.textures[i] = Packet_ReadByte();
+    definition.modelType = Packet_ReadByte();
+    definition.renderType = Packet_ReadByte();
+    definition.colliderType = Packet_ReadByte();
+    definition.lightType = Packet_ReadByte();
+    for (int i = 0; i < 3; i++) definition.min[i] = Packet_ReadByte();
+    for (int i = 0; i < 3; i++) definition.max[i] = Packet_ReadByte();
+    if (!Block_ApplyDefinition(id, &definition)) {
+        TraceLog(LOG_WARNING, "Rejected invalid block definition");
+    }
+}
+
+void Packet_HandleRemoveBlockDefinition(void) {
+    if (packetDataLength == 2) Block_RemoveDefinition(Packet_ReadByte());
 }

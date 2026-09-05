@@ -18,6 +18,8 @@
 #include "worldtime.h"
 
 typedef struct World{
+    BlockDefinition blockDefinitions[256];
+    bool hasBlockDefinition[256];
     Player** players;
     Entity* entities;
     struct { long int key; Chunk* value; } *chunks;
@@ -53,6 +55,10 @@ void ServerWorld_SendMessage(const char* message);
 //Broadcast and take ownership.
 void ServerWorld_Broadcast(unsigned char* packet);
 void ServerWorld_BroadcastExcluding(unsigned char* packet, int excludedPlayerId);
+bool ServerWorld_IsBlockDefined(int id);
+void ServerWorld_DefineBlock(int id, const BlockDefinition *definition);
+void ServerWorld_SendBlockDefinitions(Player *player);
+void ServerWorld_RemoveBlockDefinition(int id);
 
 int ServerWorld_GetBlock(Vector3 blockPos);
 void ServerWorld_SetBlockFast(Vector3 blockPos, int blockId);

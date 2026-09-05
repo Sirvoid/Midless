@@ -11,6 +11,7 @@
 
 void BlockItemRenderer_Init(Texture2D terrain);
 void BlockItemRenderer_Shutdown(void);
+void BlockItemRenderer_Refresh(int blockId);
 void BlockItemRenderer_Draw(int blockId, Rectangle bounds);
 
 #endif

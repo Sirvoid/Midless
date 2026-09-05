@@ -231,10 +231,8 @@ void Player_CheckInputs() {
         player.velocity = Vector3Add(player.velocity, moveVel);
         
         float wheel = GetMouseWheelMove();
-        if (wheel > 0.35f) player.blockSelected++;
-        if (wheel < -0.35f) player.blockSelected--;
-        if (player.blockSelected > 18) player.blockSelected = 1;
-        if (player.blockSelected < 1) player.blockSelected = 18;
+        if (wheel > 0.35f) player.blockSelected = Block_NextSelectable(player.blockSelected, 1);
+        if (wheel < -0.35f) player.blockSelected = Block_NextSelectable(player.blockSelected, -1);
         
         player.rayResult = Raycast_Cast(eyePosition, forward, true);
 
@@ -253,7 +251,9 @@ void Player_CheckInputs() {
             
             if (player.rayResult.hitblockId != -1) {
                 int bottomblockId = World_GetBlock(Vector3Add(placePos, (Vector3){0, -1, 0}));
-                switch (player.blockSelected)
+                if (Block_IsOverridden(player.blockSelected)) {
+                    Player_TryPlaceBlock(placePos, player.blockSelected);
+                } else switch (player.blockSelected)
                 {
                     case -1: // null
                     case 0: // air
@@ -285,7 +285,7 @@ void Player_CheckInputs() {
             }
         } else if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) { //Pick Block
             int pickedId = World_GetBlock(player.rayResult.hitPos);
-            player.blockSelected = pickedId;
+            if (Block_IsSelectable(pickedId)) player.blockSelected = pickedId;
         }
     }
     player.camera.position = eyePosition;
@@ -307,6 +307,7 @@ void Player_CheckInputs() {
 
 bool Player_TryPlaceBlock(Vector3 pos, int blockId)
 {
+    if (!Block_IsSelectable(blockId)) return false;
     int oldBlock = World_GetBlock(pos);
     World_SetBlock(pos, blockId, true);
     if (Player_TestCollision((Vector3){ 0 }))

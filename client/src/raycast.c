@@ -31,6 +31,7 @@ RaycastResult Raycast_Cast(Vector3 position, Vector3 direction, bool ignoreLiqui
         
         if (blockId != 0) {
             const Block *block = Block_GetDefinition(blockId);
+            if (block->modelType == BLOCK_MODEL_GAS) continue;
             if (ignoreLiquid && block->colliderType == BLOCK_COLLIDER_LIQUID) {
                 continue;
             }
@@ -42,7 +43,7 @@ RaycastResult Raycast_Cast(Vector3 position, Vector3 direction, bool ignoreLiqui
                 position.y < blockPos.y + block->maxBB.y / 16 &&
                 position.z < blockPos.z + block->maxBB.z / 16) {
                 Vector3 loc = Vector3Subtract(position, Vector3Add(blockPos, Vector3Scale(block->minBB, 1.0f / 16)));
-                Vector3 bbSize = Vector3Scale(block->maxBB, 1.0f / 16);
+                Vector3 bbSize = Vector3Scale(Vector3Subtract(block->maxBB, block->minBB), 1.0f / 16);
                 float entryX = -loc.x;
                 if (loc.x > bbSize.x - loc.x)
                     entryX = bbSize.x - loc.x;

@@ -42,6 +42,7 @@ bool LocalServer_IsRunning(void) {
 
 static void *LocalServer_Run(void *unused) {
     (void)unused;
+    LuaBindings_InvokeReady();
     while (LocalServer_IsRunning()) {
         ServerNetwork_ProcessIncomingPackets();
         ServerWorld_Update();
@@ -64,9 +65,9 @@ bool LocalServer_Start(void) {
 
     Lua_Init();
     LuaBindings_Init();
-    Lua_Run();
     ServerWorld_Init();
     ServerNetwork_Init();
+    Lua_Run();
     localPlayer = ServerPlayer_Create(NULL, false);
     if (localPlayer == NULL) {
         ServerWorld_Shutdown();

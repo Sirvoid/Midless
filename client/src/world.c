@@ -11,6 +11,7 @@
 #define STB_DS_IMPLEMENTATION
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
@@ -540,4 +541,19 @@ void World_PlayEntityAnimation(int id, EntityAnimationType animation) {
     if (id < 0 || id >= WORLD_MAX_ENTITIES) return;
     if (world.entities[id].type == 0) return;
     EntityAnimation_Start(&world.entities[id].animation, animation);
+}
+
+void World_InvalidateBlockDefinitions(bool relight) {
+    for (int i = 0; i < hmlen(world.chunks); i++) {
+        Chunk *chunk = world.chunks[i].value;
+        if (relight) {
+            memset(chunk->lightData, 0, sizeof(chunk->lightData));
+            memset(chunk->sunlightData, 0, sizeof(chunk->sunlightData));
+            chunk->isLightGenerated = false;
+            chunk->incompleteLightFaces = 0;
+            chunk->incompleteSunlightFaces = 0;
+            chunk->isLightDirty = true;
+        }
+        World_QueueChunk(chunk, false);
+    }
 }

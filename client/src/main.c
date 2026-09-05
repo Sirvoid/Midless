@@ -113,7 +113,7 @@ void Game_RunLoop(void) {
     Player_Update();
     World_Update();
     
-    Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x) + 0.5f, floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z) + 0.5f};
+    Vector3 selectionBoxPos = (Vector3) { floor(player.rayResult.hitPos.x), floor(player.rayResult.hitPos.y), floor(player.rayResult.hitPos.z)};
     
     // Draw
     BeginDrawing();
@@ -128,7 +128,8 @@ void Game_RunLoop(void) {
                 const Block *block = Block_GetDefinition(player.rayResult.hitblockId);
                 Vector3 blockSize = Vector3Subtract(block->maxBB, block->minBB);
                 blockSize = Vector3Scale(blockSize, 1.0f / 16);
-                selectionBoxPos.y += blockSize.y / 2;
+                selectionBoxPos = Vector3Add(selectionBoxPos,
+                    Vector3Scale(Vector3Add(block->minBB, block->maxBB), 1.0f / 32));
                 DrawCube(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 40});
             }
                 

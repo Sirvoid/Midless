@@ -10,6 +10,7 @@
 
 typedef struct PacketHandlerEntry {
     void (*handler)(void);
+    int fixedLength; // Includes opcode; 0 means the handler checks its own length.
 } PacketHandlerEntry;
 
 extern int networkPing;

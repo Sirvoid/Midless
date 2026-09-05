@@ -9,6 +9,7 @@
 #define MIDLESS_CLIENT_BLOCK_H
 
 #include "raylib.h"
+#include "blockdefinition.h"
 
 typedef enum BlockFace{
     BLOCK_FACE_LEFT,
@@ -19,31 +20,8 @@ typedef enum BlockFace{
 	BLOCK_FACE_BACK
 } BlockFace;
 
-typedef enum BlockModelType{
-    BLOCK_MODEL_GAS,
-    BLOCK_MODEL_SOLID,
-    BLOCK_MODEL_SPRITE
-} BlockModelType;
-
-typedef enum BlockLightType {
-    BLOCK_LIGHT_NONE,
-    BLOCK_LIGHT_EMIT
-} BlockLightType;
-
-typedef enum BlockRenderType{
-    BLOCK_RENDER_OPAQUE,
-    BLOCK_RENDER_TRANSPARENT,
-    BLOCK_RENDER_TRANSLUCENT
-} BlockRenderType;
-
-typedef enum BlockColliderType{
-    BLOCK_COLLIDER_NONE,
-    BLOCK_COLLIDER_SOLID,
-    BLOCK_COLLIDER_LIQUID
-} BlockColliderType;
-
 typedef struct Block {
-    char name[16];
+    char name[65];
     int textures[6];
     int modelType;
     int renderType;
@@ -60,6 +38,15 @@ typedef struct Block {
 extern Block blockDefinitions[256];
 
 const Block *Block_GetDefinition(int id);
+
+bool Block_IsDefined(int id);
+bool Block_IsSelectable(int id);
+bool Block_IsOverridden(int id);
+int Block_NextSelectable(int id, int direction);
+bool Block_ApplyDefinition(int id, const BlockDefinition *definition);
+void Block_RemoveDefinition(int id);
+void Block_ResetDefinitions(void);
+void Block_FlushDefinitionChanges(void);
 
 //Define All Blocks
 void Block_BuildDefinition(void);

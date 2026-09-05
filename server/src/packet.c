@@ -26,7 +26,7 @@ int serverPacketLastDynamicLength;
 int serverPacketDataLength;
 
 int serverPacketLengths[256] = {
-    1,  //map init
+    3,  //map init (protocol version)
     0, //load chunk
     14,  //setblock
     17, //spawnEntity
@@ -37,7 +37,9 @@ int serverPacketLengths[256] = {
     0, //block batch
     5, //world time
     65, //message continuation
-    4 //player click
+    4, //entity animation
+    DEFINE_BLOCK_PACKET_SIZE, //define block
+    2 //remove block definition
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -147,16 +149,27 @@ void ServerPacket_WriteArray(unsigned char* packet, unsigned char* array, int si
 void ServerPacket_HandleIdentification(void) {
     if(serverPacketPlayer->name != NULL) return;
     int protocolVersion = ServerPacket_ReadUShort();
+    if (protocolVersion != GAME_PROTOCOL_VERSION) {
+        ServerLogger_Log("Rejected incompatible protocol version.\n");
+        ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMessage("Incompatible protocol; update your client."));
+        return;
+    }
     serverPacketPlayer->name = ServerPacket_ReadString();
     ServerLogger_Log(TextFormat("%s connected. Protocol version: %i\n", serverPacketPlayer->name, protocolVersion));
     ServerWorld_AddPlayer(serverPacketPlayer);
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMapInit());
+    ServerWorld_SendBlockDefinitions(serverPacketPlayer);
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateWorldTime(serverWorld.time));
 }
 
 void ServerPacket_HandleSetBlock(void) {
     int blockId = ServerPacket_ReadByte();
     Vector3 position = (Vector3) { ServerPacket_ReadInt(), ServerPacket_ReadInt(), ServerPacket_ReadInt() };
+    if (!ServerWorld_IsBlockDefined(blockId)) {
+        ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateSetBlock(
+            (unsigned char)ServerWorld_GetBlock(position), position));
+        return;
+    }
     ServerWorld_SetBlock(position, blockId, true);
 }
 
@@ -215,6 +228,7 @@ unsigned char* ServerPacket_CreateMapInit(void) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[0]);
     ServerPacket_WriteByte(packet, 0);
+    ServerPacket_WriteUShort(packet, GAME_PROTOCOL_VERSION);
     
     return packet;
 }
@@ -334,5 +348,33 @@ unsigned char* ServerPacket_CreateEntityAnimation(unsigned short entityId, Entit
     ServerPacket_WriteByte(packet, 11);
     ServerPacket_WriteUShort(packet, entityId);
     ServerPacket_WriteByte(packet, (unsigned char)animation);
+    return packet;
+}
+
+unsigned char *ServerPacket_CreateDefineBlock(int id, const BlockDefinition *definition) {
+    if (!BlockDefinition_Validate(id, definition)) return NULL;
+    serverPacketWriterIndex = 0;
+    unsigned char *packet = MemAlloc(DEFINE_BLOCK_PACKET_SIZE);
+    if (!packet) return NULL;
+    ServerPacket_WriteByte(packet, PACKET_DEFINE_BLOCK);
+    ServerPacket_WriteByte(packet, (unsigned char)id);
+    ServerPacket_WriteString(packet, definition->name);
+    for (int i = 0; i < 6; i++) ServerPacket_WriteByte(packet, definition->textures[i]);
+    ServerPacket_WriteByte(packet, definition->modelType);
+    ServerPacket_WriteByte(packet, definition->renderType);
+    ServerPacket_WriteByte(packet, definition->colliderType);
+    ServerPacket_WriteByte(packet, definition->lightType);
+    for (int i = 0; i < 3; i++) ServerPacket_WriteByte(packet, definition->min[i]);
+    for (int i = 0; i < 3; i++) ServerPacket_WriteByte(packet, definition->max[i]);
+    return packet;
+}
+
+unsigned char *ServerPacket_CreateRemoveBlockDefinition(int id) {
+    if (id < 1 || id > 255) return NULL;
+    serverPacketWriterIndex = 0;
+    unsigned char *packet = MemAlloc(2);
+    if (!packet) return NULL;
+    ServerPacket_WriteByte(packet, PACKET_REMOVE_BLOCK_DEFINITION);
+    ServerPacket_WriteByte(packet, (unsigned char)id);
     return packet;
 }

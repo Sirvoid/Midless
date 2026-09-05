@@ -5,12 +5,27 @@
  * https://opensource.org/licenses/MIT
  */
 
+#include <string.h>
 #include "raylib.h"
+#include "blockitemrenderer.h"
+#include "world.h"
+#include "player.h"
 #include "block.h"
 #include "blockmeshgeneration.h"
 #include "resource.h"
 
 Block blockDefinitions[256];
+static Block defaultDefinitions[256];
+static bool defined[256], overridden[256], dirty[256];
+static bool textureAvailable[256];
+static bool lightingChanged;
+
+static void Block_Finalize(Block *block) {
+    block->fullCube = Block_IsFullSize(block);
+    block->fastOpaqueCube = block->fullCube && block->modelType == BLOCK_MODEL_SOLID &&
+                            block->renderType == BLOCK_RENDER_OPAQUE;
+}
+
 
 static unsigned char Block_GetLightPassFaces(const Block *block) {
     if (block->renderType != BLOCK_RENDER_OPAQUE) return 0x3F;
@@ -32,6 +47,8 @@ static void Block_LoadLiquidTints(void) {
     if (!atlas.data) return;
 
     for (int i = 0; i < 256; i++) {
+        textureAvailable[i] = (i % 16) * 16 + 16 <= atlas.width &&
+                              (i / 16) * 16 + 16 <= atlas.height;
         Block *block = &blockDefinitions[i];
         if (block->colliderType != BLOCK_COLLIDER_LIQUID) continue;
 
@@ -112,14 +129,16 @@ void Block_BuildDefinition(void) {
 
     for (int i = 0; i < 256; i++) {
         Block *block = &blockDefinitions[i];
-        block->fullCube = Block_IsFullSize(block);
-        block->fastOpaqueCube = block->fullCube &&
-                                block->modelType == BLOCK_MODEL_SOLID &&
-                                block->renderType == BLOCK_RENDER_OPAQUE;
+        Block_Finalize(block);
         block->lightPassFaces = Block_GetLightPassFaces(block);
     }
     Block_LoadLiquidTints();
     BlockMesh_BuildTemplates();
+    memcpy(defaultDefinitions, blockDefinitions, sizeof(defaultDefinitions));
+    for (int i = 0; i < 256; i++) defined[i] = i <= BLOCK_DEFAULT_LAST_ID;
+    memset(overridden, 0, sizeof(overridden));
+    memset(dirty, 0, sizeof(dirty));
+    lightingChanged = false;
 }
 
 const Block *Block_GetDefinition(int id) {
@@ -130,8 +149,10 @@ const Block *Block_GetDefinition(int id) {
 }
 
 Block* Block_Define(int id, char name[], int topTexture, int bottomTexture, int sideTexture) {
+    if (id < 0 || id > 255 || !name) return NULL;
     Block *block = &blockDefinitions[id];
-    TextCopy(block->name, name);
+    strncpy(block->name, name, sizeof(block->name) - 1);
+    block->name[sizeof(block->name) - 1] = 0;
     
     block->modelType = BLOCK_MODEL_SOLID;
     block->renderType = BLOCK_RENDER_OPAQUE;
@@ -161,4 +182,79 @@ int Block_GetTexture(Block *block, BlockFace face) {
 
 bool Block_IsFullSize(Block *block) {
     return block->minBB.x == 0 && block->minBB.z == 0 && block->minBB.y == 0 && block->maxBB.x == 16 && block->maxBB.z == 16 && block->maxBB.y == 16;
+}
+
+bool Block_IsDefined(int id) {
+    return id >= 0 && id < 256 && defined[id];
+}
+
+bool Block_IsSelectable(int id) {
+    return id > 0 && Block_IsDefined(id) && blockDefinitions[id].modelType != BLOCK_MODEL_GAS;
+}
+
+bool Block_IsOverridden(int id) {
+    return id > 0 && id < 256 && overridden[id];
+}
+
+int Block_NextSelectable(int id, int direction) {
+    id = (id >= 0 && id < 256) ? id : 0;
+    for (int i = 0; i < 256; i++) {
+        id = (id + (direction < 0 ? 255 : 1)) % 256;
+        if (Block_IsSelectable(id)) return id;
+    }
+    return 0;
+}
+
+static void Block_Replace(int id, Block block) {
+    const Block *old = &blockDefinitions[id];
+    lightingChanged |= old->renderType != block.renderType || old->lightType != block.lightType ||
+                       old->fullCube != block.fullCube || old->lightPassFaces != block.lightPassFaces;
+    blockDefinitions[id] = block;
+    BlockMesh_BuildTemplate(id);
+    dirty[id] = true;
+}
+
+bool Block_ApplyDefinition(int id, const BlockDefinition *d) {
+    if (!BlockDefinition_Validate(id, d)) return false;
+    for (int i = 0; i < 6; i++) if (!textureAvailable[d->textures[i]]) return false;
+    Block block = {0};
+    memcpy(block.name, d->name, sizeof(block.name));
+    for (int i = 0; i < 6; i++) block.textures[i] = d->textures[i];
+    block.modelType = d->modelType;
+    block.renderType = d->renderType;
+    block.colliderType = d->colliderType;
+    block.lightType = d->lightType;
+    block.minBB = (Vector3){d->min[0], d->min[1], d->min[2]};
+    block.maxBB = (Vector3){d->max[0], d->max[1], d->max[2]};
+    Block_Finalize(&block);
+    block.lightPassFaces = Block_GetLightPassFaces(&block);
+    Block_Replace(id, block);
+    defined[id] = overridden[id] = true;
+    return true;
+}
+
+void Block_RemoveDefinition(int id) {
+    if (!Block_IsOverridden(id)) return;
+    Block_Replace(id, defaultDefinitions[id]);
+    defined[id] = id <= BLOCK_DEFAULT_LAST_ID;
+    overridden[id] = false;
+}
+
+void Block_ResetDefinitions(void) {
+    for (int id = 1; id < 256; id++) Block_RemoveDefinition(id);
+}
+
+void Block_FlushDefinitionChanges(void) {
+    bool changed = false;
+    for (int id = 1; id < 256; id++) changed |= dirty[id];
+    if (!changed) return;
+    Block_LoadLiquidTints();
+    for (int id = 1; id < 256; id++) {
+        if (dirty[id]) BlockItemRenderer_Refresh(id);
+        dirty[id] = false;
+    }
+    World_InvalidateBlockDefinitions(lightingChanged);
+    lightingChanged = false;
+    if (!Block_IsSelectable(player.blockSelected))
+        player.blockSelected = Block_NextSelectable(player.blockSelected, 1);
 }

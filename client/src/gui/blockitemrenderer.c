@@ -22,6 +22,7 @@ typedef struct BlockItemIcon {
 } BlockItemIcon;
 
 static BlockItemIcon icons[BLOCK_ITEM_COUNT];
+static Texture2D iconTerrain;
 
 static Color FaceColor(int face, bool sprite) {
     if (sprite) return WHITE;
@@ -99,12 +100,12 @@ static void BuildIcon(int blockId, Material material) {
 }
 
 void BlockItemRenderer_Init(Texture2D terrain) {
+    iconTerrain = terrain;
     Material material = LoadMaterialDefault();
     SetMaterialTexture(&material, MATERIAL_MAP_DIFFUSE, terrain);
 
     for (int blockId = 1; blockId < BLOCK_ITEM_COUNT; blockId++) {
-        const Block *block = Block_GetDefinition(blockId);
-        if (block->modelType != BLOCK_MODEL_GAS && strcmp(block->name, "invalid") != 0) {
+        if (Block_IsSelectable(blockId)) {
             BuildIcon(blockId, material);
         }
     }
@@ -116,10 +117,23 @@ void BlockItemRenderer_Init(Texture2D terrain) {
 }
 
 void BlockItemRenderer_Shutdown(void) {
+    iconTerrain = (Texture2D){0};
     for (int blockId = 0; blockId < BLOCK_ITEM_COUNT; blockId++) {
         if (icons[blockId].loaded) UnloadRenderTexture(icons[blockId].target);
         icons[blockId] = (BlockItemIcon){0};
     }
+}
+
+void BlockItemRenderer_Refresh(int blockId) {
+    if (blockId < 1 || blockId >= BLOCK_ITEM_COUNT) return;
+    if (icons[blockId].loaded) UnloadRenderTexture(icons[blockId].target);
+    icons[blockId] = (BlockItemIcon){0};
+    if (!iconTerrain.id || !Block_IsSelectable(blockId)) return;
+    Material material = LoadMaterialDefault();
+    SetMaterialTexture(&material, MATERIAL_MAP_DIFFUSE, iconTerrain);
+    BuildIcon(blockId, material);
+    material.maps[MATERIAL_MAP_DIFFUSE].texture.id = rlGetTextureIdDefault();
+    UnloadMaterial(material);
 }
 
 void BlockItemRenderer_Draw(int blockId, Rectangle bounds) {

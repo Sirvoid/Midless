@@ -50,6 +50,7 @@ void Lua_GetField(char* name) {
 void Lua_CallFunc(int arguments, int results) {
     if(lua_pcall(L, arguments, results, 0) != 0) {
         printf("error running function `f': %s", lua_tostring(L, -1));
+        lua_pop(L, 1);
     }
 }
 
@@ -123,3 +124,38 @@ void Lua_PushNumber(int number) {
 void Lua_PushString(const char *string) {
     lua_pushstring(L, string);
 }
+
+int Lua_RefFunction(int arg) {
+    luaL_checktype(L, arg, LUA_TFUNCTION);
+    lua_pushvalue(L, arg);
+    return luaL_ref(L, LUA_REGISTRYINDEX);
+}
+
+int Lua_GetIntRange(int arg, int min, int max) {
+    lua_Integer value = luaL_checkinteger(L, arg);
+    if (value < min || value > max) {
+        luaL_argerror(L, arg, "integer out of range");
+    }
+    return (int)value;
+}
+
+void Lua_CopyString(int arg, char *destination, int capacity) {
+    size_t length;
+    const char *value = luaL_checklstring(L, arg, &length);
+    if (length == 0 || length >= (size_t)capacity || memchr(value, 0, length)) {
+        luaL_argerror(L, arg, "expected a nonempty string that fits the destination, without embedded NUL bytes");
+    }
+    memcpy(destination, value, length);
+    destination[length] = 0;
+}
+
+int Lua_Error(const char *message) {
+    return luaL_error(L, "%s", message);
+}
+
+void Lua_CheckTable(int arg) { luaL_checktype(L, arg, LUA_TTABLE); }
+int Lua_PushField(int table, const char *name) {
+    lua_getfield(L, table, name);
+    return !lua_isnil(L, -1);
+}
+void Lua_Pop(void) { lua_pop(L, 1); }

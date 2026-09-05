@@ -17,6 +17,7 @@
 #include "world/world.h"
 #include "stb_ds.h"
 #include "networkhandler.h"
+#include "packet.h"
 #include "luaengine.h"
 #include "luabindings.h"
 #include "logger.h"
@@ -36,10 +37,10 @@ int main(void) {
 
     Lua_Init();
     LuaBindings_Init();
-    Lua_Run();
 
     ServerWorld_Init();
     ServerNetwork_Init();
+    Lua_Run();
 
     int serverThreadState = 0;
     pthread_t serverThreadId;
@@ -48,6 +49,8 @@ int main(void) {
     #if defined(SERVER_WEB_SUPPORT)
     ServerWss_Init();
     #endif
+
+    LuaBindings_InvokeReady();
     
     #if !defined(SERVER_HEADLESS)
     while (!WindowShouldClose()) {

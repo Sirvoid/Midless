@@ -21,6 +21,7 @@ typedef struct BlockMeshTemplate {
 //Reset memory counters.
 void BlockMesh_ResetIndexes(void);
 void BlockMesh_BuildTemplates(void);
+void BlockMesh_BuildTemplate(int id);
 
 const BlockMeshTemplate *BlockMesh_GetTemplate(int blockId);
 

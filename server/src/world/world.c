@@ -120,6 +120,31 @@ void ServerWorld_Broadcast(unsigned char *packet) {
     MemFree(packet);
 }
 
+bool ServerWorld_IsBlockDefined(int id) {
+    return id >= 0 && id < 256 &&
+           (id <= BLOCK_DEFAULT_LAST_ID || serverWorld.hasBlockDefinition[id]);
+}
+
+void ServerWorld_DefineBlock(int id, const BlockDefinition *definition) {
+    if (!BlockDefinition_Validate(id, definition)) return;
+    serverWorld.blockDefinitions[id] = *definition;
+    serverWorld.hasBlockDefinition[id] = true;
+    if (!serverWorld.players) return;
+    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+        ServerPlayer_DefineBlock(serverWorld.players[i], id, definition);
+    }
+}
+
+void ServerWorld_RemoveBlockDefinition(int id) {
+    if (id < 1 || id > 255 || !serverWorld.hasBlockDefinition[id]) return;
+    serverWorld.hasBlockDefinition[id] = false;
+    serverWorld.blockDefinitions[id] = (BlockDefinition){0};
+    if (!serverWorld.players) return;
+    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+        ServerPlayer_RemoveBlockDefinition(serverWorld.players[i], id);
+    }
+}
+
 void ServerWorld_BroadcastExcluding(unsigned char *packet, int excludedPlayerId) {
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         Player *player = serverWorld.players[i];
@@ -130,4 +155,12 @@ void ServerWorld_BroadcastExcluding(unsigned char *packet, int excludedPlayerId)
         ServerNetwork_Send(player, copy);
     }
     MemFree(packet);
+}
+
+void ServerWorld_SendBlockDefinitions(Player *player) {
+    for (int id = 1; id < 256; id++) {
+        if (serverWorld.hasBlockDefinition[id]) {
+            ServerPlayer_DefineBlock(player, id, &serverWorld.blockDefinitions[id]);
+        }
+    }
 }

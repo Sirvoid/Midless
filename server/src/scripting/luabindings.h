@@ -11,6 +11,7 @@
 
 void LuaBindings_Init(void);
 void LuaBindings_Shutdown(void);
+void LuaBindings_InvokeReady(void);
 void LuaBindings_InvokeBlockUpdate(Vector3 position, unsigned short blockId, unsigned short previousBlockId);
 void LuaBindings_InvokeChatMessage(const char *name, const char *message);
 

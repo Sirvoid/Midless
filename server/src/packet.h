@@ -9,6 +9,7 @@
 #define MIDLESS_SERVER_PACKET_H
 
 #include "player.h"
+#include "blockdefinition.h"
 #include "entity.h"
 #include "entityanimation.h"
 
@@ -45,6 +46,8 @@ void ServerPacket_HandleSetDrawDistance(void);
 void ServerPacket_HandlePlayerClick(void);
 
 unsigned char* ServerPacket_CreateMapInit(void);
+unsigned char *ServerPacket_CreateDefineBlock(int id, const BlockDefinition *definition);
+unsigned char *ServerPacket_CreateRemoveBlockDefinition(int id);
 unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length,
                                             Vector3 chunkPosition, const unsigned char *skyMask);
 unsigned char* ServerPacket_CreateUnloadChunk(Vector3 chunkPosition);

@@ -12,6 +12,9 @@
 
 extern unsigned char *packetData;
 extern int packetReaderIndex;
+extern int packetDataLength;
+void Packet_HandleDefineBlock(void);
+void Packet_HandleRemoveBlockDefinition(void);
 
 int Packet_GetLength(unsigned char opcode);
 

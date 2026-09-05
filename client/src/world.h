@@ -29,6 +29,7 @@ extern World world;
 
 //Initialize the world.
 void World_Init(void);
+void World_InvalidateBlockDefinitions(bool relight);
 //Load multiplayer world.
 void World_LoadMultiplayer(void);
 //Load singleplayer world.

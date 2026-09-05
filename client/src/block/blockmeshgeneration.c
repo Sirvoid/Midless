@@ -31,34 +31,37 @@ static void BuildSolidVertices(const Block *block, BlockMeshTemplate *out) {
     memcpy(out->vertices, v, sizeof(v));
 }
 
-void BlockMesh_BuildTemplates(void) {
-    for (int id = 0; id < 256; id++) {
-        const Block *block = &blockDefinitions[id];
-        BlockMeshTemplate *out = &templates[id];
-        if (block->modelType == BLOCK_MODEL_SPRITE) memcpy(out->vertices, spriteVertices, sizeof(spriteVertices));
-        else BuildSolidVertices(block, out);
+void BlockMesh_BuildTemplate(int id) {
+    if (id < 0 || id >= 256) return;
+    const Block *block = &blockDefinitions[id];
+    BlockMeshTemplate *out = &templates[id];
+    if (block->modelType == BLOCK_MODEL_SPRITE) memcpy(out->vertices, spriteVertices, sizeof(spriteVertices));
+    else BuildSolidVertices(block, out);
 
-        int faceCount = block->modelType == BLOCK_MODEL_SPRITE ? 4 : 6;
-        for (int face = 0; face < faceCount; face++) {
-            int textureX = (block->textures[face] % 16) * 16;
-            int textureY = (block->textures[face] / 16) * 16;
-            int minX = textureX, minY = textureY, maxX = textureX + 16, maxY = textureY + 16;
-            if (block->modelType != BLOCK_MODEL_SPRITE) {
-                if (face == BLOCK_FACE_FRONT || face == BLOCK_FACE_BACK) {
-                    maxY -= 16 - (int)block->maxBB.y; minY += (int)block->minBB.y;
-                    maxX -= 16 - (int)block->maxBB.x; minX += (int)block->minBB.x;
-                } else if (face == BLOCK_FACE_LEFT || face == BLOCK_FACE_RIGHT) {
-                    maxX -= 16 - (int)block->maxBB.z; minX += (int)block->minBB.z;
-                    maxY -= 16 - (int)block->maxBB.y; minY += (int)block->minBB.y;
-                } else {
-                    maxX -= 16 - (int)block->maxBB.x; minX += (int)block->minBB.x;
-                    maxY -= 16 - (int)block->maxBB.z; minY += (int)block->minBB.z;
-                }
+    int faceCount = block->modelType == BLOCK_MODEL_SPRITE ? 4 : 6;
+    for (int face = 0; face < faceCount; face++) {
+        int textureX = (block->textures[face] % 16) * 16;
+        int textureY = (block->textures[face] / 16) * 16;
+        int minX = textureX, minY = textureY, maxX = textureX + 16, maxY = textureY + 16;
+        if (block->modelType != BLOCK_MODEL_SPRITE) {
+            if (face == BLOCK_FACE_FRONT || face == BLOCK_FACE_BACK) {
+                maxY -= 16 - (int)block->maxBB.y; minY += (int)block->minBB.y;
+                maxX -= 16 - (int)block->maxBB.x; minX += (int)block->minBB.x;
+            } else if (face == BLOCK_FACE_LEFT || face == BLOCK_FACE_RIGHT) {
+                maxX -= 16 - (int)block->maxBB.z; minX += (int)block->minBB.z;
+                maxY -= 16 - (int)block->maxBB.y; minY += (int)block->minBB.y;
+            } else {
+                maxX -= 16 - (int)block->maxBB.x; minX += (int)block->minBB.x;
+                maxY -= 16 - (int)block->maxBB.z; minY += (int)block->minBB.z;
             }
-            unsigned short uv[8] = {minX,maxY, maxX,minY, minX,minY, maxX,maxY};
-            memcpy(out->texcoords[face], uv, sizeof(uv));
         }
+        unsigned short uv[8] = {minX,maxY, maxX,minY, minX,minY, maxX,maxY};
+        memcpy(out->texcoords[face], uv, sizeof(uv));
     }
+}
+
+void BlockMesh_BuildTemplates(void) {
+    for (int id = 0; id < 256; id++) BlockMesh_BuildTemplate(id);
 }
 
 const BlockMeshTemplate *BlockMesh_GetTemplate(int blockId) {
