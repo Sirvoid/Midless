@@ -42,13 +42,27 @@ bool LocalServer_IsRunning(void) {
 
 static void *LocalServer_Run(void *unused) {
     (void)unused;
+
     LuaBindings_InvokeReady();
+
+    double lastStepTime = GetTime();
+
     while (LocalServer_IsRunning()) {
+        double now = GetTime();
+        float dt = (float)(now - lastStepTime);
+        lastStepTime = now;
+
+        if (dt > 0.25f) {
+            dt = 0.25f;
+        }
+
         ServerNetwork_ProcessIncomingPackets();
-        LuaBindings_InvokeStep(GetFrameTime());
+        LuaBindings_InvokeStep(dt);
         ServerWorld_Update();
+
         usleep(1000);
     }
+
     return NULL;
 }
 
