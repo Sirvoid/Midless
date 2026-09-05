@@ -12,6 +12,7 @@
 #include "raylib.h"
 #include "luaengine.h"
 #include "luaentities.h"
+#include "luavector.h"
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "../world/world.h"
@@ -514,6 +515,7 @@ static void LuaBindings_DefineModelConstants(void) {
 }
 
 void LuaBindings_Init(void) {
+    LuaVector_Init();
     LuaEntities_Init();
     luaReadyInvoked = false;
     LuaBindings_DefineBlockConstants();
