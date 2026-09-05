@@ -56,6 +56,24 @@ void LuaBindings_InvokeReady(void) {
     }
 }
 
+static int *luaStepCallbacks = NULL;
+
+static int LuaBindings_RegisterStep(void) {
+    int callback = Lua_RefFunction(1);
+    arrput(luaStepCallbacks, callback);
+    return 0;
+}
+
+void LuaBindings_InvokeStep(float delta) {
+    if (!luaRunning) return;
+
+    for (int i = 0; i < arrlen(luaStepCallbacks); i++) {
+        Lua_GetRawI(Lua_GetRegistryIndex(), luaStepCallbacks[i]);
+        Lua_PushNumber(delta);
+        Lua_CallFunc(1, 0);
+    }
+}
+
 int *luaBlockUpdateCallbacks = NULL;
 static int LuaBindings_RegisterBlockUpdate(void) {
     int callback = Lua_RefFunction(1);
@@ -443,6 +461,7 @@ static const struct LuaMethod midlessLib[] = {
     {"remove_entity_model", LuaBindings_RemoveEntityModel},
     {"set_entity_model", LuaBindings_SetEntityModel},
     {"register_on_ready", LuaBindings_RegisterReady},
+    {"register_on_step", LuaBindings_RegisterStep},
     {"register_on_player_message", LuaBindings_RegisterChatMessage},
     {"register_on_player_join", LuaBindings_RegisterPlayerJoin},
     {"register_on_player_leave", LuaBindings_RegisterPlayerLeave},
@@ -512,5 +531,7 @@ void LuaBindings_Shutdown(void) {
     luaBlockUpdateCallbacks = NULL;
     arrfree(luaChatMessageCallbacks);
     luaChatMessageCallbacks = NULL;
+    arrfree(luaStepCallbacks);
+    luaStepCallbacks = NULL;
 }
 

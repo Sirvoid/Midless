@@ -45,6 +45,7 @@ static void *LocalServer_Run(void *unused) {
     LuaBindings_InvokeReady();
     while (LocalServer_IsRunning()) {
         ServerNetwork_ProcessIncomingPackets();
+        LuaBindings_InvokeStep(GetFrameTime());
         ServerWorld_Update();
         usleep(1000);
     }

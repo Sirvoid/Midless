@@ -65,6 +65,8 @@ int main(void) {
 
         ServerNetwork_ProcessIncomingPackets();
 
+        LuaBindings_InvokeStep(1.0f / 60.0f);
+
         ServerWorld_Update();
 
         #if !defined(SERVER_HEADLESS)
