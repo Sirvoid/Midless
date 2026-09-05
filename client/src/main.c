@@ -127,7 +127,7 @@ void Game_RunLoop(void) {
 
         BeginMode3D(player.camera);
             World_Draw(player.camera.position);
-            Player_Draw();
+            if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
             if (player.rayResult.hitblockId != -1) {
                 const Block *block = Block_GetDefinition(player.rayResult.hitblockId);
                 Vector3 blockSize = Vector3Subtract(block->maxBB, block->minBB);

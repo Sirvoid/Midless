@@ -328,6 +328,8 @@ static bool World_IsChunkInFrustum(const Chunk *chunk, Matrix view, Matrix proje
 
 void World_Draw(Vector3 camPosition) {
 
+    rlDrawRenderBatchActive();
+    rlEnableDepthMask();
     ChunkMesh_PrepareDrawing(world.material);
 
     int amountChunks = hmlen(world.chunks);
@@ -337,7 +339,7 @@ void World_Draw(Vector3 camPosition) {
     Vector3 chunkLocalCenter = (Vector3){CHUNK_SIZE_X / 2, CHUNK_SIZE_Y / 2, CHUNK_SIZE_Z / 2};
 
     //Create the sorted chunk list
-    struct { Chunk *chunk; float dist; } sortedChunks[amountChunks];
+    struct { Chunk *chunk; float dist; } sortedChunks[amountChunks > 0 ? amountChunks : 1];
 
     int sortedLength = 0;
     for (int i=0; i < hmlen(world.chunks); i++) {
@@ -353,7 +355,8 @@ void World_Draw(Vector3 camPosition) {
             sortedChunks[sortedLength].dist = distFromCam;
             sortedChunks[sortedLength].chunk = chunk;
             sortedLength++;
-        } else {
+        }
+        {
             Matrix matrix = (Matrix) { 1, 0, 0, chunk->blockPosition.x,
                 0, 1, 0, chunk->blockPosition.y,
                 0, 0, 1, chunk->blockPosition.z,
@@ -363,6 +366,17 @@ void World_Draw(Vector3 camPosition) {
         }
     }
     
+    ChunkMesh_FinishDrawing();
+
+    for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {
+        if (world.entities[i].type == 0) continue;
+        Entity_Draw(&world.entities[i]);
+    }
+    if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
+    Cloud_Draw(camPosition, World_GetSunlightStrength());
+    Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
+    rlDrawRenderBatchActive();
+
     //Sort chunks back to front
     for (int i = 1; i < sortedLength; i++) {
         int j = i;
@@ -380,7 +394,9 @@ void World_Draw(Vector3 camPosition) {
     
     ChunkMesh_PrepareDrawing(world.material);
 
-    //Draw sorted chunks
+    rlDisableDepthMask();
+    rlDisableBackfaceCulling();
+
     for (int i = 0; i < sortedLength; i++) {
         Chunk *chunk = sortedChunks[i].chunk;
 
@@ -389,24 +405,12 @@ void World_Draw(Vector3 camPosition) {
                                    0, 0, 1, chunk->blockPosition.z,
                                    0, 0, 0, 1 };
         
-        ChunkMesh_Draw(&chunk->mesh, world.material, matrix);
-        rlDisableBackfaceCulling();
         ChunkMesh_Draw(&chunk->meshTransparent, world.material, matrix);
-        rlEnableBackfaceCulling();
     }
 
     ChunkMesh_FinishDrawing();
-
-    Cloud_Draw(camPosition, World_GetSunlightStrength());
-
-    Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
-
-    //Draw entities
-    for (int i = 0; i < WORLD_MAX_ENTITIES; i++) {
-        if (world.entities[i].type == 0) continue;
-        Entity_Draw(&world.entities[i]);
-    }
-
+    rlEnableBackfaceCulling();
+    rlEnableDepthMask();
 }
 
 int World_GetBlock(Vector3 blockPos) {
