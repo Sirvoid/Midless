@@ -14,4 +14,5 @@ void BlockItemRenderer_Shutdown(void);
 void BlockItemRenderer_Refresh(int blockId);
 void BlockItemRenderer_Draw(int blockId, Rectangle bounds);
 
+void BlockItemRenderer_SetTexture(Texture2D texture);
 #endif

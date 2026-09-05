@@ -50,4 +50,7 @@ void EntityModel_Create(EntityModel *model, EntityModelDefinition modelDef);
 void EntityModel_Unload(EntityModel *model);
 void EntityModel_Destroy(EntityModel *model);
 
+bool EntityModel_TextureFits(int textureId, int width, int height);
+void EntityModel_RefreshTextures(int textureId);
+
 #endif

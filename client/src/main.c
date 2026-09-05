@@ -19,6 +19,7 @@
 #include "player.h"
 #include "world.h"
 #include "resource.h"
+#include "textures.h"
 #include "screens.h"
 #include "block.h"
 #include "networkhandler.h"
@@ -81,6 +82,7 @@ int main(void) {
     
     bool exitProgram = false;
     Screen_Init(texture, &exitProgram);
+    ClientTextures_Init(texture);
 
 
     #if defined(PLATFORM_WEB)
@@ -93,6 +95,8 @@ int main(void) {
         networkThreadState = -1;
 
         LocalServer_Stop();
+        EntityModel_ResetDefinitions();
+        ClientTextures_Reset();
         Screen_Shutdown();
         UnloadShader(shader);
         UnloadTexture(texture);

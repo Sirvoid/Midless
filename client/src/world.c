@@ -272,6 +272,7 @@ void World_Clear(void) {
 void World_Shutdown(void) {
     Cloud_Shutdown();
     World_Clear();
+    world.material.maps[MATERIAL_MAP_DIFFUSE].texture.id = 0; // Texture owner releases it.
     UnloadMaterial(world.material);
     MemFree(world.entities);
     world.entities = NULL;

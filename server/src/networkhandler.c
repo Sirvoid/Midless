@@ -18,6 +18,7 @@
 #include "serverwss.h"
 #include "world/world.h"
 #include "logger.h"
+#include "world/textures.h"
 
 PacketHandlerEntry serverPacketHandlers[256];
 int serverPacketHandlerCount = 0;
@@ -33,7 +34,8 @@ static const int serverIncomingPacketLengths[] = {
     15, 
     65, 
     2,
-    2
+    2,
+    TEXTURE_ACK_SIZE
 };
 
 void ServerNetwork_Init(void) {
@@ -45,6 +47,7 @@ void ServerNetwork_Init(void) {
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleMessage};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleSetDrawDistance};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandlePlayerClick};
+    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerTextures_HandleAck};
 }
 
 void ServerNetwork_Shutdown(void) {

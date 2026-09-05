@@ -10,10 +10,15 @@
 
 #include "raylib.h"
 #include "blockdefinition.h"
+#include "textureprotocol.h"
 
 typedef struct Player {
     unsigned char id;
     int entityId;
+    uint32_t textureSent[TEXTURE_LIMIT], textureRevision, textureOffset;
+    int textureId;
+    bool textureWaiting;
+    double textureLastSend;
     uint64_t connectionId;
     void *peer;
     char *name;

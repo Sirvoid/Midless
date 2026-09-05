@@ -17,6 +17,7 @@
 #include "entity.h"
 #include "logger.h"
 #include "luabindings.h"
+#include "world/textures.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -42,7 +43,8 @@ int serverPacketLengths[256] = {
     2, //remove block definition
     0, //define entity model
     2, //remove entity model
-    4 //set entity model
+    4, //set entity model
+    TEXTURE_BEGIN_SIZE, TEXTURE_DATA_SIZE, 3
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -160,6 +162,7 @@ void ServerPacket_HandleIdentification(void) {
     serverPacketPlayer->name = ServerPacket_ReadString();
     ServerLogger_Log(TextFormat("%s connected. Protocol version: %i\n", serverPacketPlayer->name, protocolVersion));
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMapInit());
+    ServerTextures_SendTerrain(serverPacketPlayer);
     ServerWorld_SendEntityModels(serverPacketPlayer);
     ServerWorld_AddPlayer(serverPacketPlayer);
     if (serverPacketPlayer->entityId < 0) {

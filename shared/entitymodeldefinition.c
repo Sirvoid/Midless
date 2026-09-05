@@ -1,8 +1,9 @@
 #include <string.h>
 #include "entitymodeldefinition.h"
+#include "textureprotocol.h"
 bool ModelDefinition_Validate(int id, const ModelDefinition *d) {
     if (!d || id < 1 || id > 255 || !d->name[0] || !memchr(d->name, 0, 65) ||
-        d->texture > 1 || !d->partCount || d->partCount > ENTITY_MODEL_MAX_PARTS) return false;
+        d->texture >= TEXTURE_LIMIT || !d->partCount || d->partCount > ENTITY_MODEL_MAX_PARTS) return false;
     for (int i = 0; i < d->partCount; i++) {
         const ModelPartDefinition *p = &d->parts[i];
         if (p->role > 5 || p->firstPersonVisible > 1) return false;

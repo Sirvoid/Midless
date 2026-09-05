@@ -143,3 +143,8 @@ void BlockItemRenderer_Draw(int blockId, Rectangle bounds) {
     Rectangle source = {0.0f, 0.0f, (float)texture.width, -(float)texture.height};
     DrawTexturePro(texture, source, bounds, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
 }
+
+void BlockItemRenderer_SetTexture(Texture2D texture) {
+    iconTerrain=texture;
+    for(int i=1;i<BLOCK_ITEM_COUNT;i++) BlockItemRenderer_Refresh(i);
+}

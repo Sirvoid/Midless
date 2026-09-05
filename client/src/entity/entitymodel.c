@@ -12,9 +12,10 @@
 #include "entitymodel.h"
 #include "resource.h"
 #include "rlgl.h"
+#include "../textures.h"
 
 EntityModelDefinition entityModels[256];
-static Texture2D terrainModelTexture;
+static ModelDefinition *receivedModels[256];
 
 typedef enum ModelFaceDirection {
     MODEL_FACE_EAST,
@@ -124,12 +125,11 @@ void EntityModel_DefineHumanoid(void) {
 
 void EntityModelDefinitions_Init(void) {
     EntityModel_DefineHumanoid();
-    terrainModelTexture = Resource_LoadTexture("terrain.png");
+
 }
 
 void EntityModelDefinitions_Shutdown(void) {
-    UnloadTexture(terrainModelTexture);
-    terrainModelTexture = (Texture2D){0};
+    for(int i=1;i<256;i++) { MemFree(receivedModels[i]); receivedModels[i]=NULL; }
     for (int i = 0; i < 256; i++) {
         EntityModelDefinition *model = &entityModels[i];
         if (model->boxCount == 0) continue;
@@ -206,13 +206,24 @@ static void RefreshModelUsers(int id) {
 }
 bool EntityModel_ApplyDefinition(int id, const ModelDefinition *d) {
     if (!ModelDefinition_Validate(id, d)) return false;
-    Texture2D texture = d->texture == 0 ? entityModels[0].defaultTexture : terrainModelTexture;
-    if (!texture.id) return false;
+    Texture2D texture = ClientTextures_Get(d->texture);
+    if (!receivedModels[id]) {
+        receivedModels[id] = MemAlloc(sizeof(*d));
+        if (receivedModels[id]) *receivedModels[id] = (ModelDefinition){0};
+    }
+    if (!receivedModels[id]) return false;
+    if (!texture.id) {
+        *receivedModels[id] = *d;
+        FreeDefinition(&entityModels[id]);
+        RefreshModelUsers(id);
+        return true;
+    }
     for (int i = 0; i < d->partCount; i++) for (int f = 0; f < 6; f++) {
         const int16_t *uv = d->parts[i].uv[f];
         if (uv[0] > texture.width || uv[0]+uv[2] > texture.width ||
             uv[1] > texture.height || uv[1]+uv[3] > texture.height) return false;
     }
+    *receivedModels[id] = *d;
     EntityModelDefinition result = {0};
     int count = d->partCount;
     result.boxCount = count;
@@ -240,10 +251,29 @@ bool EntityModel_ApplyDefinition(int id, const ModelDefinition *d) {
     return true;
 }
 void EntityModel_RemoveDefinition(int id) {
-    if (id < 1 || id > 255 || !entityModels[id].boxCount) return;
+    if (id < 1 || id > 255) return;
+    MemFree(receivedModels[id]); receivedModels[id]=NULL;
+    if (!entityModels[id].boxCount) return;
     FreeDefinition(&entityModels[id]);
     RefreshModelUsers(id);
 }
 void EntityModel_ResetDefinitions(void) {
     for (int id = 1; id < 256; id++) EntityModel_RemoveDefinition(id);
+}
+
+bool EntityModel_TextureFits(int textureId, int width, int height) {
+    for(int id=1;id<256;id++) {
+        ModelDefinition *d=receivedModels[id];
+        if(!d || d->texture!=textureId) continue;
+        for(int p=0;p<d->partCount;p++) for(int f=0;f<6;f++) {
+            int16_t *uv=d->parts[p].uv[f];
+            if(uv[0]>width || uv[0]+uv[2]>width || uv[1]>height || uv[1]+uv[3]>height) return false;
+        }
+    }
+    return true;
+}
+void EntityModel_RefreshTextures(int textureId) {
+    for(int id=1;id<256;id++)
+        if(receivedModels[id] && receivedModels[id]->texture==textureId)
+            EntityModel_ApplyDefinition(id,receivedModels[id]);
 }

@@ -16,6 +16,7 @@
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "../world/world.h"
+#include "../world/textures.h"
 #include "../utils.h"
 #include "stb_ds.h"
 
@@ -223,9 +224,9 @@ static int LuaBindings_DefineEntityModel(void) {
     Lua_PushField(2, "name"); Lua_CopyString(-1, d.name, sizeof(d.name)); Lua_Pop();
     Lua_PushField(2, "texture");
     const char *texture = Lua_GetString(-1);
-    if (!strcmp(texture, "humanoid")) d.texture = 0;
-    else if (!strcmp(texture, "terrain")) d.texture = 1;
-    else return Lua_Error("model texture must be 'humanoid' or 'terrain'");
+    int textureId=ServerTextures_Find(texture);
+    if(textureId<0) return Lua_Error("texture is not defined");
+    d.texture=textureId;
     Lua_Pop();
     Lua_PushField(2, "parts");
     int parts = Lua_GetTop();
@@ -510,7 +511,22 @@ int LuaBindings_BroadcastMessage(void) {
     return 0;
 }
 
+static int LuaBindings_DefineTexture(void) {
+    char name[65];
+    Lua_CopyString(1,name,sizeof(name));
+    char path[1024];
+    Lua_CopyString(2,path,sizeof(path));
+    if(!ServerTextures_Define(name,path)) return Lua_Error("texture registration failed: invalid PNG, limits exceeded, reserved name, or incompatible dimensions");
+    return 0;
+}
+static int LuaBindings_SetTerrainTexture(void) {
+    int id=ServerTextures_Find(Lua_GetString(1));
+    if(!ServerTextures_SetTerrain(id)) return Lua_Error("terrain texture must be a defined 256x256 PNG or 'terrain'");
+    return 0;
+}
 static const struct LuaMethod midlessLib[] = {
+    {"define_texture", LuaBindings_DefineTexture},
+    {"set_terrain_texture", LuaBindings_SetTerrainTexture},
     {"define_entity", LuaEntities_Register},
     {"spawn_entity", LuaEntities_Spawn},
     {"get_player_by_id", LuaBindings_GetPlayerById},

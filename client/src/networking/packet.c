@@ -18,6 +18,7 @@
 #include "particle.h"
 #include "block.h"
 #include "entitymodel.h"
+#include "textureprotocol.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -30,6 +31,7 @@ int Packet_Lengths[256] = {
     65, //3
     2, //4
     2, //5
+    TEXTURE_ACK_SIZE, //6
 };
 int pingCalculationPreviousTime = 0;
 

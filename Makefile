@@ -167,11 +167,11 @@ endif
 ifeq ($(PLATFORM_OS),WINDOWS)
 $(OBJ_DIR)/%.o: %.c
 	@if not exist "$(@D)" mkdir "$(@D)"
-	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDE_PATHS) $(CDIRECTIVES)
+	$(CC) -MMD -MP -c $< -o $@ $(CFLAGS) $(INCLUDE_PATHS) $(CDIRECTIVES)
 else
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p "$(@D)"
-	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDE_PATHS) $(CDIRECTIVES)
+	$(CC) -MMD -MP -c $< -o $@ $(CFLAGS) $(INCLUDE_PATHS) $(CDIRECTIVES)
 endif
 
 ifneq ($(BUILD_SERVER),TRUE)
@@ -187,3 +187,5 @@ clean:
     endif
 
 .PHONY: all clean
+
+-include $(OBJS:.o=.d)

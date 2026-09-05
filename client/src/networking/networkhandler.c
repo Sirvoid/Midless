@@ -19,6 +19,8 @@
 #include "localserver.h"
 #include "block.h"
 #include "entitymodel.h"
+#include "../textures.h"
+#include "textureprotocol.h"
 
 PacketHandlerEntry packets[256];
 int networkConnectedToServer = 0;
@@ -30,6 +32,7 @@ typedef struct IncomingPacket {
     int length;
 } IncomingPacket;
 static IncomingPacket *queuedData, *terrainQueuedData;
+static int queuedTextureBytes;
 static bool resetDefinitionsPending, disconnectPending, acceptingIncoming;
 static pthread_mutex_t networkQueueMutex = PTHREAD_MUTEX_INITIALIZER;
 int packetCount;
@@ -63,6 +66,9 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDefineEntityModel, 0}; //14
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleRemoveEntityModel, 2}; //15
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetEntityModel, 4}; //16
+    packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleBegin, TEXTURE_BEGIN_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleData, TEXTURE_DATA_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleTerrain, 3};
 }
 
 void Network_Connect(void) {
@@ -96,8 +102,10 @@ static void Network_PerformDisconnect(void) {
         Network_ClearQueue();
     }
     EntityModel_ResetDefinitions();
+    ClientTextures_Reset();
     Block_ResetDefinitions();
     Block_FlushDefinitionChanges();
+    ClientTextures_UpdateLiquidTints();
     networkConnectedToServer = false;
     networkThreadState = -1; //End network thread
     screenCursorEnabled = false;
@@ -110,6 +118,10 @@ static void Network_PerformDisconnect(void) {
 static void Network_ExecutePacket(IncomingPacket packet) {
     pthread_mutex_lock(&networkQueueMutex);
     bool stopping = disconnectPending;
+    if(packet.data[0]==PACKET_TEXTURE_BEGIN || packet.data[0]==PACKET_TEXTURE_DATA) {
+        queuedTextureBytes-=packet.length;
+        if(queuedTextureBytes<0) queuedTextureBytes=0;
+    }
     pthread_mutex_unlock(&networkQueueMutex);
     if (stopping) { MemFree(packet.data); return; }
     packetData = packet.data;
@@ -130,7 +142,7 @@ void Network_ProcessIncomingPackets(void) {
         Network_PerformDisconnect();
         return;
     }
-    if (reset) { EntityModel_ResetDefinitions(); Block_ResetDefinitions(); }
+    if (reset) { EntityModel_ResetDefinitions(); ClientTextures_Reset(); Block_ResetDefinitions(); }
     const int maxPacketsPerFrame = 1024;
     const double terrainPacketBudgetSeconds = 0.002;
     IncomingPacket gameplayPackets[maxPacketsPerFrame];
@@ -171,6 +183,7 @@ void Network_ProcessIncomingPackets(void) {
         pthread_mutex_unlock(&networkQueueMutex);
     }
     Block_FlushDefinitionChanges();
+    ClientTextures_UpdateLiquidTints();
 }
 
 //Receive data and list it for the main thread to execute
@@ -191,6 +204,12 @@ void Network_Receive(unsigned char *data, int dataLength) {
         pthread_mutex_unlock(&networkQueueMutex);
         MemFree(nextData);
         return;
+    }
+    if(opcode==PACKET_TEXTURE_BEGIN || opcode==PACKET_TEXTURE_DATA) {
+        if(queuedTextureBytes+dataLength>TEXTURE_MAX_BYTES) {
+            pthread_mutex_unlock(&networkQueueMutex); MemFree(nextData); return;
+        }
+        queuedTextureBytes+=dataLength;
     }
     bool modifiesTerrain = opcode == 0 || opcode == 1 || opcode == 2 || opcode == 7 || opcode == 8 ||
                            opcode == PACKET_DEFINE_BLOCK || opcode == PACKET_REMOVE_BLOCK_DEFINITION;
@@ -217,6 +236,7 @@ void Network_ClearQueue(void) {
     for (int i = 0; i < arrlen(queuedData); i++) MemFree(queuedData[i].data);
     arrfree(queuedData);
     queuedData = NULL;
+    queuedTextureBytes=0;
     for (int i = 0; i < arrlen(terrainQueuedData); i++) MemFree(terrainQueuedData[i].data);
     arrfree(terrainQueuedData);
     terrainQueuedData = NULL;
