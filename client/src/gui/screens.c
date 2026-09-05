@@ -121,6 +121,7 @@ void Screen_DrawPause(void) {
         Screen_Switch(SCREEN_GAME);
         DisableCursor();
         screenCursorEnabled = false;
+        return;
     }
 
     //Options Button
