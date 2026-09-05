@@ -232,6 +232,7 @@ void ServerPacket_HandlePlayerClick(void) {
         ServerPacket_CreateEntityAnimation(serverPacketPlayer->entityId, animation),
         serverPacketPlayer->id
     );
+    LuaBindings_InvokePlayerClick(serverPacketPlayer->id, button);
 }
 
 /* Packets sent */

@@ -131,6 +131,10 @@ int Lua_Ref(int table) {
     return luaL_ref(L, table);
 }
 
+void Lua_Unref(int table, int reference) {
+    luaL_unref(L, table, reference);
+}
+
 int Lua_GetRegistryIndex(void) {
     return LUA_REGISTRYINDEX;
 }

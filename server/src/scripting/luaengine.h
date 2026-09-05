@@ -29,6 +29,7 @@ void Lua_Run(void);
 void Lua_Stop(void);
 
 int Lua_Ref(int table);
+void Lua_Unref(int table, int reference);
 int Lua_RefFunction(int arg);
 int Lua_GetRegistryIndex(void);
 int Lua_GetRawI(int table, int index);

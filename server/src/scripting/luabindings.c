@@ -385,11 +385,36 @@ static int LuaBindings_GetPlayerName(void) {
     return 1;
 }
 
-static int LuaBindings_GetPlayerPosition(void) {
+static Entity *LuaBindings_CheckPlayerEntity(void) {
     int id = LuaBindings_CheckPlayer()->entityId;
-    if (!serverWorld.entities || id < 0 || !serverWorld.entities[id].active) return Lua_Error("player has no entity");
-    Vector3 position = serverWorld.entities[id].position;
+    if (!serverWorld.entities || id < 0 || id >= WORLD_MAX_ENTITIES || !serverWorld.entities[id].active) {
+        Lua_Error("player has no entity");
+        return NULL;
+    }
+    return &serverWorld.entities[id];
+}
+
+static int LuaBindings_GetPlayerPosition(void) {
+    Vector3 position = LuaBindings_CheckPlayerEntity()->position;
     LuaBindings_PushPosition(position);
+    return 1;
+}
+
+static int LuaBindings_GetPlayerEyePosition(void) {
+    Vector3 position = LuaBindings_CheckPlayerEntity()->position;
+    position.y += 1.5f;
+    LuaBindings_PushPosition(position);
+    return 1;
+}
+
+static int LuaBindings_GetPlayerLookDirection(void) {
+    Vector3 rotation = LuaBindings_CheckPlayerEntity()->rotation;
+    float yaw = rotation.x * PI / 128.0f;
+    float pitch = rotation.y * PI / 128.0f;
+    float horizontal = cosf(pitch);
+    LuaBindings_PushPosition((Vector3){
+        sinf(yaw) * horizontal, -sinf(pitch), cosf(yaw) * horizontal
+    });
     return 1;
 }
 
@@ -426,6 +451,8 @@ static const struct LuaMethod playerLib[] = {
     {"set_model", LuaBindings_SetPlayerModel},
     {"get_name", LuaBindings_GetPlayerName},
     {"get_position", LuaBindings_GetPlayerPosition},
+    {"get_eye_position", LuaBindings_GetPlayerEyePosition},
+    {"get_look_direction", LuaBindings_GetPlayerLookDirection},
     {"teleport", LuaBindings_TeleportPlayer},
     {"send_message", LuaBindings_SendPlayerMessage},
     {NULL, NULL}
@@ -453,6 +480,28 @@ void LuaBindings_InvokeChatMessage(int playerId, const char *message) {
     }
 }
 
+static int *luaPlayerClickCallbacks;
+
+static int LuaBindings_RegisterPlayerClick(void) {
+    int callback = Lua_RefFunction(1);
+    arrput(luaPlayerClickCallbacks, callback);
+    return 0;
+}
+
+void LuaBindings_InvokePlayerClick(int playerId, int button) {
+    if (!luaRunning || !serverWorld.players || playerId < 0 ||
+        playerId >= WORLD_MAX_PLAYERS || button < 0 || button > 1) return;
+    Player *player = serverWorld.players[playerId];
+    if (!player || player->disconnected) return;
+    int count = arrlen(luaPlayerClickCallbacks);
+    for (int i = 0; i < count; i++) {
+        Lua_GetRawI(Lua_GetRegistryIndex(), luaPlayerClickCallbacks[i]);
+        LuaBindings_PushPlayer(player);
+        Lua_PushString(button == 0 ? "left" : "right");
+        Lua_CallFunc(2, 0);
+    }
+}
+
 int LuaBindings_BroadcastMessage(void) {
     const char *message = Lua_GetString(1);
     ServerWorld_SendMessage(message);
@@ -474,6 +523,7 @@ static const struct LuaMethod midlessLib[] = {
     {"register_on_ready", LuaBindings_RegisterReady},
     {"register_on_step", LuaBindings_RegisterStep},
     {"register_on_player_message", LuaBindings_RegisterChatMessage},
+    {"register_on_player_click", LuaBindings_RegisterPlayerClick},
     {"register_on_player_join", LuaBindings_RegisterPlayerJoin},
     {"register_on_player_leave", LuaBindings_RegisterPlayerLeave},
     {"register_on_block_update", LuaBindings_RegisterBlockUpdate},
@@ -532,6 +582,10 @@ void LuaBindings_Init(void) {
 }
 
 void LuaBindings_Shutdown(void) {
+    for (int i = 0; i < arrlen(luaPlayerClickCallbacks); i++)
+        Lua_Unref(Lua_GetRegistryIndex(), luaPlayerClickCallbacks[i]);
+    arrfree(luaPlayerClickCallbacks);
+    luaPlayerClickCallbacks = NULL;
     LuaEntities_Shutdown();
     arrfree(luaJoinCallbacks);
     luaJoinCallbacks = NULL;
