@@ -39,6 +39,29 @@ static int LuaBindings_Sleep(void) {
 
 //---------World---------
 
+static void LuaBindings_PushPosition(Vector3 position) {
+    Lua_MakeTable(3);
+    Lua_PushNumber(position.x); Lua_SetField(-2, "x");
+    Lua_PushNumber(position.y); Lua_SetField(-2, "y");
+    Lua_PushNumber(position.z); Lua_SetField(-2, "z");
+}
+
+static Vector3 LuaBindings_ReadPosition(int arg, bool blockPosition) {
+    Lua_CheckTable(arg);
+    const char *fields[] = {"x", "y", "z"};
+    float values[3];
+    for (int i = 0; i < 3; i++) {
+        Lua_PushField(arg, fields[i]);
+        values[i] = blockPosition
+            ? Lua_GetIntRange(-1, -33554430, 33554430)
+            : Lua_GetNumber(-1);
+        Lua_Pop();
+        if (!isfinite(values[i]) || fabsf(values[i]) > 33554430.0f)
+            Lua_Error("position coordinates must be finite and within the network coordinate range");
+    }
+    return (Vector3){values[0], values[1], values[2]};
+}
+
 static int *luaReadyCallbacks = NULL;
 static bool luaReadyInvoked;
 
@@ -87,30 +110,23 @@ void LuaBindings_InvokeBlockUpdate(Vector3 position, unsigned short blockId, uns
     if(luaRunning == 0) return;
     for(int i = 0; i < arrlen(luaBlockUpdateCallbacks); i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaBlockUpdateCallbacks[i]);
-            Lua_PushInt(position.x);
-            Lua_PushInt(position.y);
-            Lua_PushInt(position.z);
+            LuaBindings_PushPosition(position);
             Lua_PushInt(blockId);
             Lua_PushInt(previousBlockId);
-        Lua_CallFunc(5, 0);
+        Lua_CallFunc(3, 0);
     }
 }
 
 static int LuaBindings_SetBlock(void) {
-    int x = Lua_GetInt(1);
-    int y = Lua_GetInt(2);
-    int z = Lua_GetInt(3);
-    int blockId = Lua_GetInt(4);
-    ServerWorld_SetBlock((Vector3) {x, y, z}, blockId, true);
+    Vector3 position = LuaBindings_ReadPosition(1, true);
+    int blockId = Lua_GetInt(2);
+    ServerWorld_SetBlock(position, blockId, true);
     return 0;
 }
 
 static int LuaBindings_GetBlock(void) {
-    int x = Lua_GetInt(1);
-    int y = Lua_GetInt(2);
-    int z = Lua_GetInt(3);
-
-    int blockId = ServerWorld_GetBlock((Vector3){x, y, z});
+    Vector3 position = LuaBindings_ReadPosition(1, true);
+    int blockId = ServerWorld_GetBlock(position);
     Lua_PushInt(blockId);
     return 1;
 }
@@ -373,28 +389,19 @@ static int LuaBindings_GetPlayerPosition(void) {
     int id = LuaBindings_CheckPlayer()->entityId;
     if (!serverWorld.entities || id < 0 || !serverWorld.entities[id].active) return Lua_Error("player has no entity");
     Vector3 position = serverWorld.entities[id].position;
-    Lua_PushNumber(position.x);
-    Lua_PushNumber(position.y);
-    Lua_PushNumber(position.z);
-    return 3;
+    LuaBindings_PushPosition(position);
+    return 1;
 }
 
 static int LuaBindings_TeleportPlayer(void) {
     Player *player = LuaBindings_CheckPlayer();
     if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
     int id = player->entityId;
-    float x = Lua_GetNumber(2);
-    float y = Lua_GetNumber(3);
-    float z = Lua_GetNumber(4);
-    // Positions are sent as signed 32-bit integers in 1/64-block units.
-    if (!isfinite(x) || !isfinite(y) || !isfinite(z) ||
-        fabsf(x) > 33554430.0f || fabsf(y) > 33554430.0f || fabsf(z) > 33554430.0f) {
-        return Lua_Error("teleport coordinates must be finite and within the network coordinate range");
-    }
+    Vector3 position = LuaBindings_ReadPosition(2, false);
     if (!serverWorld.entities || id < 0 || !serverWorld.entities[id].active) {
         return Lua_Error("player is not connected");
     }
-    ServerPlayer_Teleport(player, (Vector3){x, y, z});
+    ServerPlayer_Teleport(player, position);
     return 0;
 }
 
