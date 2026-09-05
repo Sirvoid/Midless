@@ -92,6 +92,10 @@ int Lua_GetRawI(int table, int index) {
     return lua_rawgeti(L, table, index);
 }
 
+void Lua_SetRawI(int table, int index) {
+    lua_rawseti(L, table, index);
+}
+
 int Lua_GetInt(int arg) {
     return luaL_checkinteger(L, arg);
     
@@ -117,7 +121,7 @@ void Lua_PushInt(int integer) {
     lua_pushinteger(L, integer);
 }
 
-void Lua_PushNumber(int number) {
+void Lua_PushNumber(double number) {
     lua_pushnumber(L, number);
 }
 
@@ -159,3 +163,23 @@ int Lua_PushField(int table, const char *name) {
     return !lua_isnil(L, -1);
 }
 void Lua_Pop(void) { lua_pop(L, 1); }
+
+void Lua_DefineObjectType(const char *name, const void *methods) {
+    luaL_newmetatable(L, name);
+    lua_newtable(L);
+    luaL_setfuncs(L, methods, 0);
+    lua_setfield(L, -2, "__index");
+    lua_pushstring(L, name);
+    lua_setfield(L, -2, "__metatable");
+    lua_pop(L, 1);
+}
+
+void *Lua_NewObject(const char *name, size_t size) {
+    void *object = lua_newuserdata(L, size);
+    luaL_setmetatable(L, name);
+    return object;
+}
+
+void *Lua_CheckObject(int arg, const char *name) {
+    return luaL_checkudata(L, arg, name);
+}

@@ -13,6 +13,7 @@
 
 typedef struct Player {
     unsigned char id;
+    uint64_t connectionId;
     void *peer;
     char *name;
     int drawDistance;
@@ -27,6 +28,8 @@ Player *ServerPlayer_Create(void *peer, bool isWeb);
 void ServerPlayer_Destroy(Player *player);
 void ServerPlayer_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation);
 void ServerPlayer_LoadChunks(Player* player);
+void ServerPlayer_Teleport(Player *player, Vector3 position);
+void ServerPlayer_SendMessage(Player *player, const char *message);
 
 // Send block definitions to this player.
 void ServerPlayer_DefineBlock(Player *player, int id, const BlockDefinition *definition);

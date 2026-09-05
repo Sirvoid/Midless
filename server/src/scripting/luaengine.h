@@ -8,7 +8,12 @@
 #ifndef MIDLESS_SERVER_LUA_ENGINE_H
 #define MIDLESS_SERVER_LUA_ENGINE_H
 
+#include <stddef.h>
+
 extern int luaRunning;
+void Lua_DefineObjectType(const char *name, const void *methods);
+void *Lua_NewObject(const char *name, size_t size);
+void *Lua_CheckObject(int arg, const char *name);
 
 void Lua_Init(void);
 void Lua_MakeTable(int fields);
@@ -27,6 +32,7 @@ int Lua_Ref(int table);
 int Lua_RefFunction(int arg);
 int Lua_GetRegistryIndex(void);
 int Lua_GetRawI(int table, int index);
+void Lua_SetRawI(int table, int index);
 int Lua_GetInt(int arg);
 void Lua_CheckTable(int arg);
 int Lua_PushField(int table, const char *name);
@@ -40,7 +46,7 @@ const char* Lua_GetString(int arg);
 
 void Lua_PushValue(int idx);
 void Lua_PushInt(int integer);
-void Lua_PushNumber(int number);
+void Lua_PushNumber(double number);
 void Lua_PushString(const char *string);
 
 #endif

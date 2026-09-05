@@ -160,6 +160,8 @@ void ServerPacket_HandleIdentification(void) {
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMapInit());
     ServerWorld_SendBlockDefinitions(serverPacketPlayer);
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateWorldTime(serverWorld.time));
+    if (serverWorld.players[serverPacketPlayer->id] == serverPacketPlayer)
+        LuaBindings_InvokePlayerJoin(serverPacketPlayer->id);
 }
 
 void ServerPacket_HandleSetBlock(void) {
@@ -198,7 +200,7 @@ void ServerPacket_HandleMessage(void) {
     sentMessage[nameLen + 3 + 64] = 0;
     
     ServerWorld_SendMessage(sentMessage);
-    LuaBindings_InvokeChatMessage(serverPacketPlayer->name, message);
+    LuaBindings_InvokeChatMessage(serverPacketPlayer->id, message);
     MemFree(sentMessage);
     MemFree(message);
 }

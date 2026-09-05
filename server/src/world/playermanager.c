@@ -4,6 +4,7 @@
 #include "../player.h"
 #include "../networkhandler.h"
 #include "../packet.h"
+#include "../scripting/luabindings.h"
 
 void ServerPlayerManager_Update(void) {
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
@@ -51,6 +52,7 @@ void ServerWorld_RemovePlayer(void *player) {
     ServerWorld_RemovePlayerFromChunks(removedPlayer);
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if (serverWorld.players[i] != removedPlayer) continue;
+        LuaBindings_InvokePlayerLeave(i);
         serverWorld.players[i] = NULL;
         ServerWorld_RemoveEntity(i);
         break;

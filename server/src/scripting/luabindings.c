@@ -7,6 +7,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+#include <string.h>
 #include "raylib.h"
 #include "luaengine.h"
 #include "../networkhandler.h"
@@ -39,7 +41,7 @@ static int *luaReadyCallbacks = NULL;
 static bool luaReadyInvoked;
 
 static int LuaBindings_RegisterReady(void) {
-    if (luaReadyInvoked) return Lua_Error("world.on_ready must be registered during script startup");
+    if (luaReadyInvoked) return Lua_Error("midless.register_on_ready must be registered during script startup");
     int callback = Lua_RefFunction(1);
     arrput(luaReadyCallbacks, callback);
     return 0;
@@ -56,7 +58,8 @@ void LuaBindings_InvokeReady(void) {
 
 int *luaBlockUpdateCallbacks = NULL;
 static int LuaBindings_RegisterBlockUpdate(void) {
-    arrput(luaBlockUpdateCallbacks, Lua_Ref(Lua_GetRegistryIndex()));
+    int callback = Lua_RefFunction(1);
+    arrput(luaBlockUpdateCallbacks, callback);
     return 0;
 }
 
@@ -154,18 +157,166 @@ static int LuaBindings_DefineBlock(void) {
         return Lua_Error("invalid block definition");
     }
     if (!serverWorld.players) {
-        return Lua_Error("world.define_block must run after world initialization.");
+        return Lua_Error("midless.define_block must run after world initialization.");
     }
     ServerWorld_DefineBlock(blockId, &definition);
     return 0;
 }
 
-static const struct LuaMethod worldLib[] = {
-    {"on_ready", LuaBindings_RegisterReady},
-    {"set_block", LuaBindings_SetBlock},
-    {"on_block_update", LuaBindings_RegisterBlockUpdate},
-    {"get_block", LuaBindings_GetBlock},
-    {"define_block", LuaBindings_DefineBlock},
+//---------Players---------
+
+#define LUA_PLAYER_TYPE "midless.Player"
+static int *luaJoinCallbacks, *luaLeaveCallbacks;
+static Player *luaLeavingPlayer;
+typedef struct LuaPlayerHandle {
+    int id;
+    uint64_t connectionId;
+} LuaPlayerHandle;
+
+static void LuaBindings_PushPlayer(Player *player) {
+    if (!player || (player->disconnected && player != luaLeavingPlayer)) {
+        Lua_PushString(NULL);
+        return;
+    }
+    LuaPlayerHandle *handle = Lua_NewObject(LUA_PLAYER_TYPE, sizeof(*handle));
+    handle->id = player->id;
+    handle->connectionId = player->connectionId;
+}
+
+static Player *LuaBindings_CheckPlayer(void) {
+    LuaPlayerHandle *handle = Lua_CheckObject(1, LUA_PLAYER_TYPE);
+    Player *player = serverWorld.players ? serverWorld.players[handle->id] : NULL;
+    if (!player || (player->disconnected && player != luaLeavingPlayer) || player->connectionId != handle->connectionId) {
+        Lua_Error("player is no longer connected");
+        return NULL;
+    }
+    return player;
+}
+
+static int LuaBindings_RegisterPlayerJoin(void) {
+    int callback = Lua_RefFunction(1);
+    arrput(luaJoinCallbacks, callback);
+    return 0;
+}
+
+static int LuaBindings_RegisterPlayerLeave(void) {
+    int callback = Lua_RefFunction(1);
+    arrput(luaLeaveCallbacks, callback);
+    return 0;
+}
+
+static void LuaBindings_InvokePlayerEvent(int playerId, bool leaving) {
+    if (!luaRunning || !serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS) return;
+    Player *player = serverWorld.players[playerId];
+    if (!player || (!leaving && player->disconnected)) return;
+    Player *previousLeavingPlayer = luaLeavingPlayer;
+    if (leaving) luaLeavingPlayer = player;
+    int count = leaving ? arrlen(luaLeaveCallbacks) : arrlen(luaJoinCallbacks);
+    for (int i = 0; i < count; i++) {
+        int callback = leaving ? luaLeaveCallbacks[i] : luaJoinCallbacks[i];
+        Lua_GetRawI(Lua_GetRegistryIndex(), callback);
+        LuaBindings_PushPlayer(player);
+        Lua_CallFunc(1, 0);
+    }
+    luaLeavingPlayer = previousLeavingPlayer;
+}
+
+void LuaBindings_InvokePlayerJoin(int playerId) {
+    LuaBindings_InvokePlayerEvent(playerId, false);
+}
+
+void LuaBindings_InvokePlayerLeave(int playerId) {
+    LuaBindings_InvokePlayerEvent(playerId, true);
+}
+
+static int LuaBindings_GetPlayerById(void) {
+    int id = Lua_GetIntRange(1, 0, WORLD_MAX_PLAYERS - 1);
+    LuaBindings_PushPlayer(serverWorld.players ? serverWorld.players[id] : NULL);
+    return 1;
+}
+
+static int LuaBindings_GetPlayerByName(void) {
+    const char *name = Lua_GetString(1);
+    if (serverWorld.players) {
+        for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+            Player *player = serverWorld.players[i];
+            if (player && !player->disconnected && player->name && !strcmp(player->name, name)) {
+                LuaBindings_PushPlayer(player);
+                return 1;
+            }
+        }
+    }
+    Lua_PushString(NULL);
+    return 1;
+}
+
+static int LuaBindings_GetPlayerId(void) {
+    Lua_PushInt(LuaBindings_CheckPlayer()->id);
+    return 1;
+}
+
+static int LuaBindings_ListPlayers(void) {
+    Lua_MakeTable(0);
+    if (!serverWorld.players) return 1;
+
+    int index = 1;
+    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+        Player *player = serverWorld.players[i];
+        if (!player || player->disconnected) continue;
+        LuaBindings_PushPlayer(player);
+        Lua_SetRawI(-2, index++);
+    }
+    return 1;
+}
+
+static int LuaBindings_GetPlayerName(void) {
+    Lua_PushString(LuaBindings_CheckPlayer()->name);
+    return 1;
+}
+
+static int LuaBindings_GetPlayerPosition(void) {
+    int id = LuaBindings_CheckPlayer()->id;
+    if (!serverWorld.entities || !serverWorld.entities[id].type) return Lua_Error("player has no entity");
+    Vector3 position = serverWorld.entities[id].position;
+    Lua_PushNumber(position.x);
+    Lua_PushNumber(position.y);
+    Lua_PushNumber(position.z);
+    return 3;
+}
+
+static int LuaBindings_TeleportPlayer(void) {
+    Player *player = LuaBindings_CheckPlayer();
+    if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
+    int id = player->id;
+    float x = Lua_GetNumber(2);
+    float y = Lua_GetNumber(3);
+    float z = Lua_GetNumber(4);
+    // Positions are sent as signed 32-bit integers in 1/64-block units.
+    if (!isfinite(x) || !isfinite(y) || !isfinite(z) ||
+        fabsf(x) > 33554430.0f || fabsf(y) > 33554430.0f || fabsf(z) > 33554430.0f) {
+        return Lua_Error("teleport coordinates must be finite and within the network coordinate range");
+    }
+    if (!serverWorld.entities || !serverWorld.entities[id].type) {
+        return Lua_Error("player is not connected");
+    }
+    ServerPlayer_Teleport(player, (Vector3){x, y, z});
+    return 0;
+}
+
+static int LuaBindings_SendPlayerMessage(void) {
+    Player *player = LuaBindings_CheckPlayer();
+    const char *message = Lua_GetString(2);
+    if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
+    ServerPlayer_SendMessage(player, message);
+    return 0;
+}
+
+static const struct LuaMethod playerLib[] = {
+    {"get_id", LuaBindings_GetPlayerId},
+    {"get_name", LuaBindings_GetPlayerName},
+    {"get_position", LuaBindings_GetPlayerPosition},
+    {"teleport", LuaBindings_TeleportPlayer},
+    {"send_message", LuaBindings_SendPlayerMessage},
     {NULL, NULL}
 };
 
@@ -173,15 +324,19 @@ static const struct LuaMethod worldLib[] = {
 
 int *luaChatMessageCallbacks = NULL;
 static int LuaBindings_RegisterChatMessage() {
-    arrput(luaChatMessageCallbacks, Lua_Ref(Lua_GetRegistryIndex()));
+    int callback = Lua_RefFunction(1);
+    arrput(luaChatMessageCallbacks, callback);
     return 0;
 }
 
-void LuaBindings_InvokeChatMessage(const char *name, const char *message) {
+void LuaBindings_InvokeChatMessage(int playerId, const char *message) {
     if(luaRunning == 0) return;
+    if (!serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS) return;
+    Player *player = serverWorld.players[playerId];
+    if (!player || player->disconnected) return;
     for(int i = 0; i < arrlen(luaChatMessageCallbacks); i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaChatMessageCallbacks[i]);
-            Lua_PushString(name);
+            LuaBindings_PushPlayer(player);
             Lua_PushString(message);
         Lua_CallFunc(2, 0);
     }
@@ -193,9 +348,20 @@ int LuaBindings_BroadcastMessage(void) {
     return 0;
 }
 
-static const struct LuaMethod chatLib[] = {
+static const struct LuaMethod midlessLib[] = {
+    {"get_player_by_id", LuaBindings_GetPlayerById},
+    {"get_player_by_name", LuaBindings_GetPlayerByName},
+    {"get_players", LuaBindings_ListPlayers},
+    {"get_block", LuaBindings_GetBlock},
+    {"set_block", LuaBindings_SetBlock},
+    {"define_block", LuaBindings_DefineBlock},
+    {"register_on_ready", LuaBindings_RegisterReady},
+    {"register_on_player_message", LuaBindings_RegisterChatMessage},
+    {"register_on_player_join", LuaBindings_RegisterPlayerJoin},
+    {"register_on_player_leave", LuaBindings_RegisterPlayerLeave},
+    {"register_on_block_update", LuaBindings_RegisterBlockUpdate},
     {"broadcast", LuaBindings_BroadcastMessage},
-    {"on_player_message", LuaBindings_RegisterChatMessage},
+    {"sleep", LuaBindings_Sleep},
     {NULL, NULL}
 };
 
@@ -230,13 +396,16 @@ static void LuaBindings_DefineBlockConstants(void) {
 void LuaBindings_Init(void) {
     luaReadyInvoked = false;
     LuaBindings_DefineBlockConstants();
-    Lua_DefineLib("chat", chatLib);
-    Lua_DefineLib("world", worldLib);
-
-    Lua_DefineGlobalFunc("sleep", LuaBindings_Sleep);
+    Lua_DefineObjectType(LUA_PLAYER_TYPE, playerLib);
+    Lua_DefineLib("midless", midlessLib);
 }
 
 void LuaBindings_Shutdown(void) {
+    arrfree(luaJoinCallbacks);
+    luaJoinCallbacks = NULL;
+    arrfree(luaLeaveCallbacks);
+    luaLeaveCallbacks = NULL;
+    luaLeavingPlayer = NULL;
     arrfree(luaReadyCallbacks);
     luaReadyCallbacks = NULL;
     luaReadyInvoked = false;
