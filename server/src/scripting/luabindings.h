@@ -7,6 +7,7 @@
 
 #ifndef MIDLESS_SERVER_LUA_BINDINGS_H
 #define MIDLESS_SERVER_LUA_BINDINGS_H
+#include <stdbool.h>
 
 
 void LuaBindings_Init(void);
@@ -17,6 +18,6 @@ void LuaBindings_InvokePlayerJoin(int playerId);
 void LuaBindings_InvokePlayerLeave(int playerId);
 void LuaBindings_InvokePlayerClick(int playerId, int button);
 void LuaBindings_InvokeBlockUpdate(Vector3 position, unsigned short blockId, unsigned short previousBlockId);
-void LuaBindings_InvokeChatMessage(int playerId, const char *message);
+bool LuaBindings_InvokeChatMessage(int playerId, const char *message);
 
 #endif

@@ -467,17 +467,19 @@ static int LuaBindings_RegisterChatMessage() {
     return 0;
 }
 
-void LuaBindings_InvokeChatMessage(int playerId, const char *message) {
-    if(luaRunning == 0) return;
-    if (!serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS) return;
+bool LuaBindings_InvokeChatMessage(int playerId, const char *message) {
+    if(luaRunning == 0) return false;
+    if (!serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS) return false;
     Player *player = serverWorld.players[playerId];
-    if (!player || player->disconnected) return;
-    for(int i = 0; i < arrlen(luaChatMessageCallbacks); i++) {
+    if (!player || player->disconnected) return false;
+    int count = arrlen(luaChatMessageCallbacks);
+    for(int i = 0; i < count; i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaChatMessageCallbacks[i]);
             LuaBindings_PushPlayer(player);
             Lua_PushString(message);
-        Lua_CallFunc(2, 0);
+        if (Lua_CallFuncHandled(2)) return true;
     }
+    return false;
 }
 
 static int *luaPlayerClickCallbacks;

@@ -9,6 +9,7 @@
 #define MIDLESS_SERVER_LUA_ENGINE_H
 
 #include <stddef.h>
+#include <stdbool.h>
 
 extern int luaRunning;
 void Lua_DefineObjectType(const char *name, const void *methods);
@@ -25,6 +26,7 @@ int Lua_GetGlobal(char* name);
 void Lua_SetGlobal(const char* name);
 void Lua_GetField(char* name);
 void Lua_CallFunc(int arguments, int results);
+bool Lua_CallFuncHandled(int arguments);
 void Lua_Run(void);
 void Lua_Stop(void);
 

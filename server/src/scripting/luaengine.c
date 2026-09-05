@@ -10,6 +10,7 @@
 #include "pthread.h"
 #include <dirent.h>
 #include <string.h>
+#include <stdbool.h>
 
 lua_State *L;
 int luaRunning = 0;
@@ -129,6 +130,17 @@ void Lua_Stop(void) {
 
 int Lua_Ref(int table) {
     return luaL_ref(L, table);
+}
+
+bool Lua_CallFuncHandled(int arguments) {
+    if (lua_pcall(L, arguments, 1, 0) != LUA_OK) {
+        printf("error running callback: %s\n", lua_tostring(L, -1));
+        lua_pop(L, 1);
+        return false;
+    }
+    bool handled = lua_isboolean(L, -1) && lua_toboolean(L, -1);
+    lua_pop(L, 1);
+    return handled;
 }
 
 void Lua_Unref(int table, int reference) {

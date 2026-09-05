@@ -193,6 +193,10 @@ void ServerPacket_HandlePlayerPosition(void) {
 
 void ServerPacket_HandleMessage(void) {
     char *message = ServerPacket_ReadString();
+    if (LuaBindings_InvokeChatMessage(serverPacketPlayer->id, message)) {
+        MemFree(message);
+        return;
+    }
     
     int nameLen = TextLength(serverPacketPlayer->name);
     char* sentMessage = MemAlloc(nameLen + 3 + 64 + 1);
@@ -207,10 +211,9 @@ void ServerPacket_HandleMessage(void) {
     memcpy(&sentMessage[nameLen + 3], message, TextLength(message));
     
     //end string
-    sentMessage[nameLen + 3 + 64] = 0;
+    sentMessage[nameLen + 3 + TextLength(message)] = 0;
     
     ServerWorld_SendMessage(sentMessage);
-    LuaBindings_InvokeChatMessage(serverPacketPlayer->id, message);
     MemFree(sentMessage);
     MemFree(message);
 }
