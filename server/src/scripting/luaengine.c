@@ -8,6 +8,8 @@
 #define LUA_IMPL
 #include "minilua.h"
 #include "pthread.h"
+#include <dirent.h>
+#include <string.h>
 
 lua_State *L;
 int luaRunning = 0;
@@ -58,12 +60,57 @@ void Lua_Init(void) {
     L = luaL_newstate();
 }
 
+static void Lua_LoadModFolder(const char *folder) {
+    DIR *dir = opendir(folder);
+
+    if(dir == NULL) {
+        printf("Could not open mod folder: %s\n", folder);
+        return;
+    }
+
+    struct dirent *entry;
+
+    while((entry = readdir(dir)) != NULL) {
+        size_t length = strlen(entry->d_name);
+
+        if(length < 4)
+            continue;
+
+        if(strcmp(entry->d_name + length - 4, ".lua") != 0)
+            continue;
+
+        char path[512];
+
+        snprintf(
+            path,
+            sizeof(path),
+            "%s/%s",
+            folder,
+            entry->d_name
+        );
+
+        printf("Loading %s\n", path);
+
+        if(luaL_dofile(L, path) != 0) {
+            printf(
+                "Lua error in %s: %s\n",
+                path,
+                lua_tostring(L, -1)
+            );
+
+            lua_pop(L, 1);
+        }
+    }
+
+    closedir(dir);
+}
+
 void Lua_Run(void) {
 
     int error = 0;
     if(L != NULL) {
         luaL_openlibs(L);
-        error = luaL_dofile(L, "mod.lua");
+        Lua_LoadModFolder("mods");
         luaRunning = 1;
     }
 
