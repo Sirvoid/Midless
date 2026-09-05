@@ -92,7 +92,7 @@ ifeq ($(BUILD_SERVER),TRUE)
 endif
 SRC_C := $(sort $(SRC_C))
 
-ifneq ($(BUILD_SERVER),TRUE)
+ifneq ($(SERVER_WEB_SUPPORT),TRUE)
 	SRC_C := $(filter-out ./libs/mongoose.c ./libs//mongoose.c,$(SRC_C))
 endif
 

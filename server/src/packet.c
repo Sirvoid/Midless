@@ -162,6 +162,12 @@ void ServerPacket_HandleIdentification(void) {
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMapInit());
     ServerWorld_SendEntityModels(serverPacketPlayer);
     ServerWorld_AddPlayer(serverPacketPlayer);
+    if (serverPacketPlayer->entityId < 0) {
+        ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMessage("World is full: no player or entity slots available."));
+        MemFree(serverPacketPlayer->name);
+        serverPacketPlayer->name = NULL;
+        return;
+    }
     ServerWorld_SendBlockDefinitions(serverPacketPlayer);
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateWorldTime(serverWorld.time));
     if (serverWorld.players[serverPacketPlayer->id] == serverPacketPlayer)
@@ -223,7 +229,7 @@ void ServerPacket_HandlePlayerClick(void) {
         ? ENTITY_ANIMATION_SWING_RIGHT_ARM
         : ENTITY_ANIMATION_SWING_LEFT_ARM;
     ServerWorld_BroadcastExcluding(
-        ServerPacket_CreateEntityAnimation(serverPacketPlayer->id, animation),
+        ServerPacket_CreateEntityAnimation(serverPacketPlayer->entityId, animation),
         serverPacketPlayer->id
     );
 }

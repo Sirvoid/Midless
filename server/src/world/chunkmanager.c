@@ -40,7 +40,7 @@ static bool loaderBusy;
 static Vector3 loaderPosition;
 
 static bool PositionInLoadRadius(Player *player, Vector3 chunkPosition) {
-    Entity entity = serverWorld.entities[player->id];
+    Entity entity = serverWorld.entities[player->entityId];
     Vector3 playerChunkPosition = {
         floorf(entity.position.x / CHUNK_SIZE_X),
         floorf(entity.position.y / CHUNK_SIZE_Y),
@@ -241,7 +241,7 @@ void ServerChunkManager_Update(void) {
         Chunk *chunk = serverWorld.chunks[i].value;
         for (int j = arrlen(chunk->players) - 1; j >= 0; j--) {
             Player *player = chunk->players[j];
-            Entity entity = serverWorld.entities[player->id];
+            Entity entity = serverWorld.entities[player->entityId];
             Vector3 playerChunkPosition = {
                 floorf(entity.position.x / CHUNK_SIZE_X),
                 floorf(entity.position.y / CHUNK_SIZE_Y),

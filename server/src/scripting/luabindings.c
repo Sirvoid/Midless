@@ -11,6 +11,7 @@
 #include <string.h>
 #include "raylib.h"
 #include "luaengine.h"
+#include "luaentities.h"
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "../world/world.h"
@@ -368,8 +369,8 @@ static int LuaBindings_GetPlayerName(void) {
 }
 
 static int LuaBindings_GetPlayerPosition(void) {
-    int id = LuaBindings_CheckPlayer()->id;
-    if (!serverWorld.entities || !serverWorld.entities[id].type) return Lua_Error("player has no entity");
+    int id = LuaBindings_CheckPlayer()->entityId;
+    if (!serverWorld.entities || id < 0 || !serverWorld.entities[id].active) return Lua_Error("player has no entity");
     Vector3 position = serverWorld.entities[id].position;
     Lua_PushNumber(position.x);
     Lua_PushNumber(position.y);
@@ -380,7 +381,7 @@ static int LuaBindings_GetPlayerPosition(void) {
 static int LuaBindings_TeleportPlayer(void) {
     Player *player = LuaBindings_CheckPlayer();
     if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
-    int id = player->id;
+    int id = player->entityId;
     float x = Lua_GetNumber(2);
     float y = Lua_GetNumber(3);
     float z = Lua_GetNumber(4);
@@ -389,7 +390,7 @@ static int LuaBindings_TeleportPlayer(void) {
         fabsf(x) > 33554430.0f || fabsf(y) > 33554430.0f || fabsf(z) > 33554430.0f) {
         return Lua_Error("teleport coordinates must be finite and within the network coordinate range");
     }
-    if (!serverWorld.entities || !serverWorld.entities[id].type) {
+    if (!serverWorld.entities || id < 0 || !serverWorld.entities[id].active) {
         return Lua_Error("player is not connected");
     }
     ServerPlayer_Teleport(player, (Vector3){x, y, z});
@@ -408,7 +409,7 @@ static int LuaBindings_SetPlayerModel(void) {
     Player *player = LuaBindings_CheckPlayer();
     if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
     int modelId = Lua_GetIntRange(2, 0, 255);
-    if (!ServerWorld_SetEntityModel(player->id, modelId)) return Lua_Error("model is not defined");
+    if (!ServerWorld_SetEntityModel(player->entityId, modelId)) return Lua_Error("model is not defined");
     return 0;
 }
 
@@ -451,6 +452,8 @@ int LuaBindings_BroadcastMessage(void) {
 }
 
 static const struct LuaMethod midlessLib[] = {
+    {"define_entity", LuaEntities_Register},
+    {"spawn_entity", LuaEntities_Spawn},
     {"get_player_by_id", LuaBindings_GetPlayerById},
     {"get_player_by_name", LuaBindings_GetPlayerByName},
     {"get_players", LuaBindings_ListPlayers},
@@ -511,6 +514,7 @@ static void LuaBindings_DefineModelConstants(void) {
 }
 
 void LuaBindings_Init(void) {
+    LuaEntities_Init();
     luaReadyInvoked = false;
     LuaBindings_DefineBlockConstants();
     LuaBindings_DefineModelConstants();
@@ -519,6 +523,7 @@ void LuaBindings_Init(void) {
 }
 
 void LuaBindings_Shutdown(void) {
+    LuaEntities_Shutdown();
     arrfree(luaJoinCallbacks);
     luaJoinCallbacks = NULL;
     arrfree(luaLeaveCallbacks);

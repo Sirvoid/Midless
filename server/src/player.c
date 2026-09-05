@@ -24,6 +24,7 @@ Player *ServerPlayer_Create(void *peer, bool isWeb) {
     if (player == NULL) return NULL;
 
     *player = (Player){0};
+    player->entityId = -1;
     player->connectionId = ++nextConnectionId;
     player->peer = peer;
     player->drawDistance = 3;
@@ -52,12 +53,13 @@ void ServerPlayer_RemoveBlockDefinition(Player *player, int id) {
 }
 
 void ServerPlayer_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation) {
-    ServerWorld_TeleportEntity(player->id, position, rotation);
+    ServerWorld_TeleportEntity(player->entityId, position, rotation);
 }
 
 void ServerPlayer_Teleport(Player *player, Vector3 position) {
-    Entity *entity = &serverWorld.entities[player->id];
-    ServerWorld_TeleportEntity(player->id, position, entity->rotation);
+    if (player->entityId < 0) return;
+    Entity *entity = &serverWorld.entities[player->entityId];
+    ServerWorld_TeleportEntity(player->entityId, position, entity->rotation);
     Entity localEntity = *entity;
     localEntity.id = USHRT_MAX;
     Vector3 localPosition = {position.x - 0.5f, position.y, position.z - 0.5f};
@@ -66,7 +68,7 @@ void ServerPlayer_Teleport(Player *player, Vector3 position) {
 
 void ServerPlayer_LoadChunks(Player* player) {
 
-    Entity entity = serverWorld.entities[player->id];
+    Entity entity = serverWorld.entities[player->entityId];
     double loadDeadline = GetTime() + 0.008;
 
     if (player->chunkRequestPending) return;

@@ -121,7 +121,7 @@ void ServerNetwork_ProcessIncomingPackets(void) {
         serverPacketDataLength = packet.length;
         serverPacketReaderIndex = 1;
         if (!serverPacketPlayer->disconnected &&
-            (serverPacketData[0] == 0 || serverPacketPlayer->name != NULL)) {
+            (serverPacketData[0] == 0 || serverPacketPlayer->entityId >= 0)) {
             (*serverPacketHandlers[serverPacketData[0]].handler)();
         }
         free(packet.data);

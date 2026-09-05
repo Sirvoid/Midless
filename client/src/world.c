@@ -498,13 +498,13 @@ void World_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
     if (entity->type == 0) return;
     if (Vector3DistanceSqr(entity->position, position) > 64.0f) {
         entity->position = position;
-        entity->rotation = (Vector3) {0, rotation.y, 0};
+        entity->rotation = (Vector3) {entity->type == 1 ? 0 : rotation.x, rotation.y, 0};
         entity->targetPosition = position;
         entity->targetRotation = entity->rotation;
         entity->targetHeadPitch = rotation.x;
         entity->animation.lastPosition = position;
         for (int i = 0; i < entity->model.partCount; i++) {
-            if (entity->model.parts[i].type == PART_TYPE_HEAD) {
+            if (entity->type == 1 && entity->model.parts[i].type == PART_TYPE_HEAD) {
                 entity->model.parts[i].rotation.x = rotation.x;
             }
         }
@@ -512,7 +512,7 @@ void World_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
     }
 
     entity->targetPosition = position;
-    entity->targetRotation = (Vector3) {0, rotation.y, 0};
+    entity->targetRotation = (Vector3) {entity->type == 1 ? 0 : rotation.x, rotation.y, 0};
     entity->targetHeadPitch = rotation.x;
 }
 
@@ -534,6 +534,7 @@ void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 ro
 }
 
 void World_RemoveEntity(int id) {
+    if (!world.entities || id < 0 || id >= WORLD_MAX_ENTITIES) return;
     Entity_Destroy(&world.entities[id]);
 }
 

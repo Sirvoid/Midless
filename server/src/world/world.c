@@ -19,6 +19,7 @@
 #include "world.h"
 #include "chunkmanager.h"
 #include "playermanager.h"
+#include "../scripting/luabindings.h"
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "worldgenerator.h"
@@ -70,8 +71,9 @@ void ServerWorld_Init(void) {
 }
 
 void ServerWorld_Shutdown(void) {
-    ServerChunkManager_Shutdown();
     ServerPlayerManager_Shutdown();
+    ServerEntities_Shutdown();
+    ServerChunkManager_Shutdown();
     MemFree(serverWorld.players);
     MemFree(serverWorld.entities);
     serverWorld.players = NULL;
@@ -101,6 +103,12 @@ void ServerWorld_Update(void) {
     }
 
     ServerPlayerManager_Update();
+    float dt = elapsedMilliseconds > 0 ? elapsedMilliseconds / 1000.0f : 0.0f;
+    if (dt > 0.25f) dt = 0.25f;
+    if (dt > 0) {
+        LuaBindings_InvokeStep(dt);
+        ServerEntities_Update(dt);
+    }
 }
 
 void ServerWorld_SendMessage(const char *message) {
@@ -195,13 +203,14 @@ void ServerWorld_SendEntityModels(Player *player) {
 }
 bool ServerWorld_SetEntityModel(int entityId, int modelId) {
     if (!serverWorld.entities || entityId < 0 || entityId >= WORLD_MAX_ENTITIES ||
-        !serverWorld.entities[entityId].type || modelId < 0 || modelId > 255 ||
+        !serverWorld.entities[entityId].active || serverWorld.entities[entityId].pendingRemoval || modelId < 0 || modelId > 255 ||
         (modelId && !serverWorld.modelDefinitions[modelId])) return false;
     serverWorld.entities[entityId].model = modelId;
+    Entity *entity = &serverWorld.entities[entityId];
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         Player *p = serverWorld.players[i];
-        if (p && !p->disconnected) ServerNetwork_Send(p,
-            ServerPacket_CreateSetEntityModel(i == entityId ? USHRT_MAX : entityId, modelId));
+        if (p && !p->disconnected && (entity->announced || p->entityId == entityId)) ServerNetwork_Send(p,
+            ServerPacket_CreateSetEntityModel(p->entityId == entityId ? USHRT_MAX : entityId, modelId));
     }
     return true;
 }

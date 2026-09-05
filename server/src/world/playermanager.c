@@ -29,20 +29,20 @@ void ServerWorld_AddPlayer(void *player) {
 
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if (serverWorld.players[i] != NULL) continue;
+        int entityId = ServerWorld_AddEntity(1, 0, (Vector3){0, 80, 0}, i);
+        if (entityId < 0) return;
+        newPlayer->entityId = entityId;
         serverWorld.players[i] = newPlayer;
         newPlayer->id = i;
-        ServerWorld_AddEntity(i, 1, 0, (Vector3){0, 80, 0});
 
-        Entity localEntity = serverWorld.entities[i];
+        Entity localEntity = serverWorld.entities[newPlayer->entityId];
         localEntity.id = USHRT_MAX;
         ServerNetwork_Send(player, ServerPacket_CreateSpawnEntity(&localEntity));
         break;
     }
 
-    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
-        if (serverWorld.players[i] == NULL || i == newPlayer->id) continue;
-        ServerNetwork_Send(player, ServerPacket_CreateSpawnEntity(&serverWorld.entities[i]));
-    }
+    if (newPlayer->entityId < 0) return;
+    ServerEntities_Send(newPlayer);
 
     ServerWorld_SendMessage(TextFormat("%s joined the game!", newPlayer->name));
 }
@@ -54,7 +54,7 @@ void ServerWorld_RemovePlayer(void *player) {
         if (serverWorld.players[i] != removedPlayer) continue;
         LuaBindings_InvokePlayerLeave(i);
         serverWorld.players[i] = NULL;
-        ServerWorld_RemoveEntity(i);
+        ServerWorld_RemoveEntity(removedPlayer->entityId);
         break;
     }
     ServerPlayer_Destroy(removedPlayer);

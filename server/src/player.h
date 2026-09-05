@@ -13,6 +13,7 @@
 
 typedef struct Player {
     unsigned char id;
+    int entityId;
     uint64_t connectionId;
     void *peer;
     char *name;

@@ -53,7 +53,10 @@ void ServerWorld_AddPlayer(void *player);
 void ServerWorld_RemovePlayer(void *player);
 
 void ServerWorld_TeleportEntity(int id, Vector3 position, Vector3 rotation);
-void ServerWorld_AddEntity(int id, int type, int model, Vector3 position);
+int ServerWorld_AddEntity(int type, int model, Vector3 position, int ownerPlayerId);
+void ServerEntities_Update(float dt);
+void ServerEntities_Shutdown(void);
+void ServerEntities_Send(Player *player);
 void ServerWorld_RemoveEntity(int id);
 
 void ServerWorld_Send(void *player);
