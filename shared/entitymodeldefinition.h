@@ -17,7 +17,7 @@ typedef struct ModelPartDefinition {
 } ModelPartDefinition;
 typedef struct ModelDefinition {
     char name[65];
-    uint16_t texture; // 0 = humanoid, 1 = terrain
+    uint16_t texture; // 0 = humanoid, 1 = active terrain, 2..65 = server textures
     uint8_t partCount;
     ModelPartDefinition parts[ENTITY_MODEL_MAX_PARTS];
 } ModelDefinition;

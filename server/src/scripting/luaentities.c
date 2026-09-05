@@ -52,7 +52,6 @@ static int PushVector(lua_State *state, Vector3 v) {
 static int GetPosition(lua_State *state) { return PushVector(state, Check(state)->position); }
 static int GetRotation(lua_State *state) {
     Vector3 r = Check(state)->rotation;
-    r.x *= PI / 128.0f; r.y *= PI / 128.0f;
     return PushVector(state, r);
 }
 static int SetPosition(lua_State *state) {
@@ -64,12 +63,6 @@ static int SetPosition(lua_State *state) {
 static int SetRotation(lua_State *state) {
     Entity *e = Check(state);
     Vector3 r = ReadVector(state, 2, 1000000.0f);
-    if (r.z != 0) return luaL_error(state, "entity roll is not supported by the protocol");
-    // The existing protocol stores pitch and yaw in 1/256-turn units.
-    r.x = fmodf(r.x, 2 * PI) * 128.0f / PI;
-    r.y = fmodf(r.y, 2 * PI) * 128.0f / PI;
-    if (r.x < 0) r.x += 256;
-    if (r.y < 0) r.y += 256;
     ServerWorld_TeleportEntity(e->id, e->position, r);
     return 0;
 }

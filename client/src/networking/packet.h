@@ -51,7 +51,7 @@ void Packet_HandleEntityAnimation(void);
 
 unsigned char* Packet_CreateIdentification(unsigned short version, char* name);
 unsigned char* Packet_CreateSetBlock(unsigned char blockId, Vector3 position);
-unsigned char* Packet_CreatePlayerPosition(Vector3 position, Vector2 rotation);
+unsigned char* Packet_CreatePlayerPosition(Vector3 position, Vector3 rotation);
 unsigned char* Packet_CreateMessage(char* message);
 unsigned char *Packet_CreateSetDrawDistance(unsigned char distance);
 unsigned char *Packet_CreatePlayerClick(unsigned char button);

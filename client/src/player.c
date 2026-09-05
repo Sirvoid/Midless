@@ -325,7 +325,7 @@ bool Player_TryPlaceBlock(Vector3 pos, int blockId)
 void Player_Update(void) {
     
     if(GetTime() - playerLastPositionPacketTime > 0.05) {
-        Network_Send(Packet_CreatePlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector2) { -playerCameraAngle.x + PI / 2,  playerCameraAngle.y - PI / 2}));
+        Network_Send(Packet_CreatePlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector3) {playerCameraAngle.y - PI / 2, -playerCameraAngle.x + PI / 2, 0}));
         playerLastPositionPacketTime = GetTime();
     }
 

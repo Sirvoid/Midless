@@ -325,7 +325,8 @@ entity:set_position({
 
 ## Rotation
 
-Rotation is in radians.
+Rotation uses XYZ Euler angles in radians: `x` is pitch, `y` is yaw, and
+`z` is roll.
 
 ```lua
 local rotation = entity:get_rotation()

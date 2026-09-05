@@ -100,7 +100,7 @@ void ServerTextures_Update(void) {
     nextSend=now+0.016;
     // One acknowledged chunk per client per pass, at most 64 KiB globally.
     static unsigned cursor;
-    int budget=16;
+    int budget=15;
     for(int n=0;n<WORLD_MAX_PLAYERS && budget>0;n++) {
         int slot=cursor++%WORLD_MAX_PLAYERS;
         Player *p=serverWorld.players[slot];

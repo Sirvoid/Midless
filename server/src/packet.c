@@ -17,6 +17,7 @@
 #include "entity.h"
 #include "logger.h"
 #include "luabindings.h"
+#include "rotation.h"
 #include "world/textures.h"
 
 #define PACKET_STRING_SIZE 64
@@ -31,7 +32,7 @@ int serverPacketLengths[256] = {
     0, //load chunk
     14,  //setblock
     17, //spawnEntity
-    17, //teleportEntity
+    18, //teleportEntity
     65, //Message
     3, //despawnEntity
     13, //unload chunk
@@ -190,7 +191,10 @@ void ServerPacket_HandleSetBlock(void) {
 
 void ServerPacket_HandlePlayerPosition(void) {
     Vector3 position = (Vector3) { ServerPacket_ReadInt() / 64.0f, ServerPacket_ReadInt() / 64.0f, ServerPacket_ReadInt() / 64.0f };
-    Vector3 rotation = (Vector3) {ServerPacket_ReadByte(), ServerPacket_ReadByte(), 0};
+    Vector3 rotation = {0};
+    rotation.x = Rotation_Decode(ServerPacket_ReadByte());
+    rotation.y = Rotation_Decode(ServerPacket_ReadByte());
+    rotation.z = Rotation_Decode(ServerPacket_ReadByte());
     ServerPlayer_UpdatePositionRotation(serverPacketPlayer, position, rotation);
 }
 
@@ -332,8 +336,9 @@ unsigned char* ServerPacket_CreateTeleportEntity(Entity *entity, Vector3 positio
     ServerPacket_WriteInt(packet, (int)(position.x * 64));
     ServerPacket_WriteInt(packet, (int)(position.y * 64));
     ServerPacket_WriteInt(packet, (int)(position.z * 64));
-    ServerPacket_WriteByte(packet, rotation.x);
-    ServerPacket_WriteByte(packet, rotation.y);
+    ServerPacket_WriteByte(packet, Rotation_Encode(rotation.x));
+    ServerPacket_WriteByte(packet, Rotation_Encode(rotation.y));
+    ServerPacket_WriteByte(packet, Rotation_Encode(rotation.z));
     return packet;
 }
 

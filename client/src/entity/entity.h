@@ -28,7 +28,7 @@ typedef struct Entity{
     char type;
     unsigned char modelId;
     Vector3 position;
-    Vector3 rotation;
+    Vector3 rotation; // XYZ Euler radians: X pitch, Y yaw, Z roll.
     Vector3 targetPosition;
     Vector3 targetRotation;
     float targetHeadPitch;

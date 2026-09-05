@@ -31,7 +31,7 @@ IncomingPacket *serverIncomingPackets = NULL;
 static const int serverIncomingPacketLengths[] = {
     67, 
     14, 
-    15, 
+    16,
     65, 
     2,
     2,

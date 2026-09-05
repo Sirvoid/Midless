@@ -410,8 +410,8 @@ static int LuaBindings_GetPlayerEyePosition(void) {
 
 static int LuaBindings_GetPlayerLookDirection(void) {
     Vector3 rotation = LuaBindings_CheckPlayerEntity()->rotation;
-    float yaw = rotation.x * PI / 128.0f;
-    float pitch = rotation.y * PI / 128.0f;
+    float yaw = rotation.y;
+    float pitch = rotation.x;
     float horizontal = cosf(pitch);
     LuaBindings_PushPosition((Vector3){
         sinf(yaw) * horizontal, -sinf(pitch), cosf(yaw) * horizontal

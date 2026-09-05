@@ -20,6 +20,7 @@
 #include "rlgl.h"
 #include "raymath.h"
 #include "world.h"
+#include "rotation.h"
 #include "player.h"
 #include "chunkmeshgeneration.h"
 #include "chunklightning.h"
@@ -89,13 +90,14 @@ void World_Update(void) {
         if (entity->type == 0) continue;
 
         entity->position = Vector3Lerp(entity->position, entity->targetPosition, interpolationAmount);
-        float yawDifference = atan2f(sinf(entity->targetRotation.y - entity->rotation.y),
-                                     cosf(entity->targetRotation.y - entity->rotation.y));
-        entity->rotation.y += yawDifference * interpolationAmount;
+        entity->rotation.y = Rotation_Interpolate(entity->rotation.y, entity->targetRotation.y, interpolationAmount);
+        entity->rotation.z = Rotation_Interpolate(entity->rotation.z, entity->targetRotation.z, interpolationAmount);
+        if (entity->type != 1)
+            entity->rotation.x = Rotation_Interpolate(entity->rotation.x, entity->targetRotation.x, interpolationAmount);
         for (int partIndex = 0; partIndex < entity->model.partCount; partIndex++) {
             EntityModelPart *part = &entity->model.parts[partIndex];
-            if (part->type == PART_TYPE_HEAD) {
-                part->rotation.x = Lerp(part->rotation.x, entity->targetHeadPitch, interpolationAmount);
+            if (entity->type == 1 && part->type == PART_TYPE_HEAD) {
+                part->rotation.x = Rotation_Interpolate(part->rotation.x, entity->targetHeadPitch, interpolationAmount);
             }
         }
 
@@ -499,7 +501,7 @@ void World_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
     if (entity->type == 0) return;
     if (Vector3DistanceSqr(entity->position, position) > 64.0f) {
         entity->position = position;
-        entity->rotation = (Vector3) {entity->type == 1 ? 0 : rotation.x, rotation.y, 0};
+        entity->rotation = (Vector3) {entity->type == 1 ? 0 : rotation.x, rotation.y, rotation.z};
         entity->targetPosition = position;
         entity->targetRotation = entity->rotation;
         entity->targetHeadPitch = rotation.x;
@@ -513,7 +515,7 @@ void World_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
     }
 
     entity->targetPosition = position;
-    entity->targetRotation = (Vector3) {entity->type == 1 ? 0 : rotation.x, rotation.y, 0};
+    entity->targetRotation = (Vector3) {entity->type == 1 ? 0 : rotation.x, rotation.y, rotation.z};
     entity->targetHeadPitch = rotation.x;
 }
 

@@ -19,6 +19,7 @@
 #include "block.h"
 #include "entitymodel.h"
 #include "textureprotocol.h"
+#include "rotation.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -27,7 +28,7 @@ int packetDataLength;
 int Packet_Lengths[256] = {
     67, //0
     14, //1
-    15, //2
+    16, //2
     65, //3
     2, //4
     2, //5
@@ -237,14 +238,16 @@ void Packet_HandleTeleportEntity(void) {
     int x = Packet_ReadInt();
     int y = Packet_ReadInt();
     int z = Packet_ReadInt();
-    int yaw = Packet_ReadSByte();
-    int pitch = Packet_ReadSByte();
+    Vector3 rotation = {0};
+    rotation.x = Rotation_Decode(Packet_ReadByte());
+    rotation.y = Rotation_Decode(Packet_ReadByte());
+    rotation.z = Rotation_Decode(Packet_ReadByte());
     Vector3 position = (Vector3) { x / 64.0f, y / 64.0f, z / 64.0f };
     if (id == USHRT_MAX) {
         Player_Teleport(position);
         return;
     }
-    World_TeleportEntity(id, position, (Vector3) {pitch / 128.0f * PI, yaw / 128.0f * PI, 0});
+    World_TeleportEntity(id, position, rotation);
 }
 
 void Packet_HandleMessage(void) {
@@ -309,15 +312,16 @@ unsigned char *Packet_CreateSetBlock(unsigned char blockId, Vector3 position) {
     return packet;
 }
 
-unsigned char *Packet_CreatePlayerPosition(Vector3 position, Vector2 rotation) {
+unsigned char *Packet_CreatePlayerPosition(Vector3 position, Vector3 rotation) {
     packetWriterIndex = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[2]);
     Packet_WriteByte(packet, 2);
     Packet_WriteInt(packet, (int)(position.x * 64));
     Packet_WriteInt(packet, (int)(position.y * 64));
     Packet_WriteInt(packet, (int)(position.z * 64));
-    Packet_WriteSByte(packet, round(rotation.x / PI * 128));
-    Packet_WriteSByte(packet, round(rotation.y / PI * 128));
+    Packet_WriteByte(packet, Rotation_Encode(rotation.x));
+    Packet_WriteByte(packet, Rotation_Encode(rotation.y));
+    Packet_WriteByte(packet, Rotation_Encode(rotation.z));
     return packet;
 }
 
