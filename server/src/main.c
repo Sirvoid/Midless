@@ -22,8 +22,10 @@
 #include "luabindings.h"
 #include "logger.h"
 #include "utils.h"
+#include "runtimepaths.h"
 
 int main(void) {
+    if (!RuntimePaths_Init()) return 1;
 
     #if !defined(SERVER_HEADLESS)
         InitWindow(400, 400, "Server");

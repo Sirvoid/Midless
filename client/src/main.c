@@ -25,11 +25,13 @@
 #include "networkhandler.h"
 #include "chat.h"
 #include "localserver.h"
+#include "runtimepaths.h"
 
 
 void Game_RunLoop(void);
 
 int main(void) {
+    if (!RuntimePaths_Init()) return 1;
 
     int screenWidth = 1280;
     int screenHeight = 720;
