@@ -47,7 +47,14 @@ void ChunkMeshGeneration_Shutdown(void) {
     indicesT = NULL;
 }
 
+static bool SameLiquidOccludes(const Block *block, const Block *next) {
+    return block == next && block->colliderType == BLOCK_COLLIDER_LIQUID &&
+           block->modelType == BLOCK_MODEL_SOLID && block->fullCube;
+}
+
 static bool FaceVisible(const Block *block, const Block *next) {
+    if (SameLiquidOccludes(block, next)) return false;
+    if (next->colliderType != BLOCK_COLLIDER_SOLID) return true;
     if (block->fastOpaqueCube) {
         return !next->fastOpaqueCube;
     }
@@ -146,6 +153,8 @@ void ChunkMeshGeneration_Build(Chunk *chunk) {
 }
 
 bool ChunkMeshGeneration_IsOpaqueFaceVisible(const Block *block, const Block *next) {
+    if (SameLiquidOccludes(block, next)) return false;
+    if (next->colliderType != BLOCK_COLLIDER_SOLID) return true;
     if (next->modelType == BLOCK_MODEL_GAS) return true;
     if (next->renderType != BLOCK_RENDER_OPAQUE) return true;
     if (next->modelType == BLOCK_MODEL_SPRITE) return true;
@@ -153,6 +162,8 @@ bool ChunkMeshGeneration_IsOpaqueFaceVisible(const Block *block, const Block *ne
 }
 
 bool ChunkMeshGeneration_IsTranslucentFaceVisible(const Block *block, const Block *next) {
+    if (SameLiquidOccludes(block, next)) return false;
+    if (next->colliderType != BLOCK_COLLIDER_SOLID) return true;
     if (next->modelType == BLOCK_MODEL_GAS) return true;
     if (next->renderType == BLOCK_RENDER_TRANSPARENT) return true;
     return !block->fullCube || !next->fullCube;

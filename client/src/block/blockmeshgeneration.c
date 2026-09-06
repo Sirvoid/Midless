@@ -99,7 +99,8 @@ void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigne
                        const Block *block, int translucent, int light, int sunlight) {
     const BlockMeshTemplate *meshTemplate = &templates[block - blockDefinitions];
     const unsigned char *source = meshTemplate->vertices[(int)face];
-    int baseVertex = verticesIndex[translucent] / 3;
+
+    int baseVertex = (verticesIndex[translucent] / 3) % 65536;
     static const unsigned short faceIndices[6] = {0, 1, 2, 1, 0, 3};
     for (int i = 0; i < 6; i++) indices[indicesIndex[translucent]++] = (unsigned short)(baseVertex + faceIndices[i]);
 

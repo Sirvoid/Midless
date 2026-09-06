@@ -1,11 +1,12 @@
 /**
  * Copyright (c) 2021-2022 Sirvoid
- * 
+ *
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT
  */
 
 #include <stdlib.h>
+#include <stdint.h>
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
@@ -36,7 +37,7 @@ void ChunkMesh_Upload(ChunkMesh *mesh, unsigned char *vertices, unsigned short *
 
     mesh->vboId = (unsigned int*)RL_CALLOC(MAX_CHUNKMESH_VERTEX_BUFFERS, sizeof(unsigned int));
 
-    mesh->vaoId = 0;        
+    mesh->vaoId = 0;
     mesh->vboId[0] = 0;
     mesh->vboId[1] = 0;
     mesh->vboId[2] = 0;
@@ -82,7 +83,7 @@ void ChunkMesh_Unload(ChunkMesh *mesh) {
     if (mesh->vboId == NULL) return;
     rlUnloadVertexArray(mesh->vaoId);
     for (int i = 0; i < MAX_CHUNKMESH_VERTEX_BUFFERS; i++) rlUnloadVertexBuffer(mesh->vboId[i]);
-    
+
     RL_FREE(mesh->vboId);
     mesh->vboId = NULL;
     mesh->vaoId = 0;
@@ -136,30 +137,33 @@ void ChunkMesh_Draw(ChunkMesh *mesh, Material material, Matrix transform) {
     Matrix matProjection = rlGetMatrixProjection();
 
     matModelView = MatrixMultiply(transform, MatrixMultiply(rlGetMatrixTransform(), matView));
-    
-    if (!rlEnableVertexArray(mesh->vaoId)) {
-        rlEnableVertexBuffer(mesh->vboId[0]);
-        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_UNSIGNED_BYTE, 0, 0, 0);
-        rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION]);
 
-        rlEnableVertexBuffer(mesh->vboId[1]);
-        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01], 2, 0x1403, 0, 0, 0);
-        rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01]);
-
-        rlEnableVertexBuffer(mesh->vboId[2]);
-        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR], 1, RL_UNSIGNED_BYTE, 0, 0, 0);
-        rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR]);
-
-        rlEnableVertexBufferElement(mesh->vboId[3]);
-    }
+    rlEnableVertexArray(mesh->vaoId);
 
     Matrix matMVP = MatrixIdentity();
     matMVP = MatrixMultiply(matModelView, matProjection);
 
     rlSetUniformMatrix(material.shader.locs[SHADER_LOC_MATRIX_MVP], matMVP);
     rlSetUniformMatrix(matModelViewLocation, matModelView);
-    
-    rlDrawVertexArrayElements(0, mesh->drawTriangleCount * 3, 0);
+
+    for (int first = 0; first < mesh->drawVertexCount; first += 65536) {
+        int count = mesh->drawVertexCount - first;
+        if (count > 65536) count = 65536;
+        rlEnableVertexBuffer(mesh->vboId[0]);
+        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION], 3, RL_UNSIGNED_BYTE,
+                             0, 0, (void *)(uintptr_t)(first * 3));
+        rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_POSITION]);
+        rlEnableVertexBuffer(mesh->vboId[1]);
+        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01], 2, 0x1403,
+                             0, 0, (void *)(uintptr_t)(first * 2 * sizeof(unsigned short)));
+        rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_TEXCOORD01]);
+        rlEnableVertexBuffer(mesh->vboId[2]);
+        rlSetVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR], 1, RL_UNSIGNED_BYTE,
+                             0, 0, (void *)(uintptr_t)first);
+        rlEnableVertexAttribute(material.shader.locs[SHADER_LOC_VERTEX_COLOR]);
+        rlEnableVertexBufferElement(mesh->vboId[3]);
+        rlDrawVertexArrayElements((first / 4) * 6, (count / 4) * 6, 0);
+    }
 
     rlDisableVertexArray();
     rlDisableVertexBuffer();

@@ -118,7 +118,6 @@ void Block_BuildDefinition(void) {
 
     Block_Define(16, "lava", 15, 15, 15);
     blockDefinitions[16].colliderType = BLOCK_COLLIDER_LIQUID;
-    blockDefinitions[16].renderType = BLOCK_RENDER_TRANSLUCENT;
     blockDefinitions[16].lightType = BLOCK_LIGHT_EMIT;
 
     Block_Define(17, "stone_slab", 1, 1, 1);
