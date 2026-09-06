@@ -243,6 +243,9 @@ static int LuaBindings_DefineEntityModel(void) {
         p->role = LuaBindings_IntField(part, "role", 0, 0, 5);
         if (Lua_PushField(part, "first_person_visible")) p->firstPersonVisible = Lua_GetBoolean(-1);
         Lua_Pop();
+        if (Lua_PushField(part, "grip")) p->hasGrip = true;
+        Lua_Pop();
+        if (p->hasGrip) LuaBindings_ModelVector(part, "grip", p->grip, false);
         LuaBindings_ModelVector(part, "position", p->position, true);
         LuaBindings_ModelVector(part, "min", p->min, false);
         LuaBindings_ModelVector(part, "max", p->max, false);

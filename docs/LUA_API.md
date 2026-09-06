@@ -468,6 +468,18 @@ model.part.LEFT_LEG
 
 Roles allow the normal player animation system to animate those parts.
 
+## Held block position
+
+The first `model.part.RIGHT_ARM` part holds the selected block at the bottom center of its bounds.
+
+Add `grip` to that part to change the position:
+
+```lua
+grip = {-1.25, -9, -0.5}
+```
+
+Coordinates use model units relative to the part's pivot.
+
 ## Remove model
 
 ```lua

@@ -14,6 +14,7 @@ typedef struct EntityModelPart{
     Mesh mesh;
     Vector3 position;
     Vector3 rotation;
+    Vector3 grip;
     int type;
     bool visibleInFirstPerson;
 } EntityModelPart;

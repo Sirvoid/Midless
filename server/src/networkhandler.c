@@ -35,7 +35,8 @@ static const int serverIncomingPacketLengths[] = {
     65, 
     2,
     2,
-    TEXTURE_ACK_SIZE
+    TEXTURE_ACK_SIZE,
+    2 // held block
 };
 
 void ServerNetwork_Init(void) {
@@ -48,6 +49,7 @@ void ServerNetwork_Init(void) {
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleSetDrawDistance};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandlePlayerClick};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerTextures_HandleAck};
+    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleHeldBlock};
 }
 
 void ServerNetwork_Shutdown(void) {

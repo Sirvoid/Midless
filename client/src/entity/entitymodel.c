@@ -27,7 +27,7 @@ typedef enum ModelFaceDirection {
 } ModelFaceDirection;
 
 void EntityModel_DefineHumanoid(void) {
-    EntityModelDefinition model;
+    EntityModelDefinition model = {0};
     int boxCount = 6;
     model.boxCount = 6;
     model.boxes = MemAlloc(sizeof(BoundingBox[boxCount]));
@@ -155,6 +155,7 @@ void EntityModel_Create(EntityModel *model, EntityModelDefinition modelDef) {
         model->parts[i].type = modelDef.types[i];
         model->parts[i].visibleInFirstPerson = modelDef.firstPersonVisible[i];
         EntityModelPart_Build(&model->parts[i], modelDef.boxes[i], modelDef.uvs[i], (Vector2) {modelDef.defaultTexture.width, modelDef.defaultTexture.height}, modelDef.positions[i]);
+        if (modelDef.hasGrip[i]) model->parts[i].grip = modelDef.grips[i];
     }
 }
 
@@ -243,6 +244,8 @@ bool EntityModel_ApplyDefinition(int id, const ModelDefinition *d) {
         result.boxes[i].max = (Vector3){p->max[0]/64.0f,p->max[1]/64.0f,p->max[2]/64.0f};
         result.types[i] = (PartType)p->role;
         result.firstPersonVisible[i] = p->firstPersonVisible;
+        result.hasGrip[i] = p->hasGrip;
+        result.grips[i] = (Vector3){p->grip[0]/1024.0f, p->grip[1]/1024.0f, p->grip[2]/1024.0f};
         for (int f = 0; f < 6; f++) result.uvs[i][f] = (Rectangle){p->uv[f][0],p->uv[f][1],p->uv[f][2],p->uv[f][3]};
     }
     FreeDefinition(&entityModels[id]);

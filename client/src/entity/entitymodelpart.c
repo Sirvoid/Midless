@@ -122,6 +122,7 @@ void EntityModelPart_Build(EntityModelPart *part, BoundingBox box, Rectangle *uv
 
     UploadMesh(mesh, false);
 
+    part->grip = (Vector3){(box.min.x + box.max.x) / 32.0f, box.min.y / 16.0f, (box.min.z + box.max.z) / 32.0f};
     part->position = position;
     part->rotation = (Vector3) {0, 0, 0};
 }

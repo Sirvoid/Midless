@@ -23,6 +23,8 @@ typedef enum PartType{
 
 typedef struct EntityModelDefinition {
     int boxCount;
+    Vector3 grips[ENTITY_MODEL_MAX_PARTS];
+    bool hasGrip[ENTITY_MODEL_MAX_PARTS];
     BoundingBox *boxes;
     Rectangle (*uvs)[6];
     Vector3 *positions;

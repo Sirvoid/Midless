@@ -14,5 +14,6 @@ void BlockItemRenderer_Shutdown(void);
 void BlockItemRenderer_Refresh(int blockId);
 void BlockItemRenderer_Draw(int blockId, Rectangle bounds);
 
+bool BlockItemRenderer_Draw3D(int blockId, Matrix transform, float brightness);
 void BlockItemRenderer_SetTexture(Texture2D texture);
 #endif

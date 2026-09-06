@@ -9,6 +9,7 @@
 #include "raymath.h"
 #include "entity.h"
 #include "world.h"
+#include "blockitemrenderer.h"
 
 static float Entity_GetBrightness(Vector3 position) {
     Vector3 samplePosition = {position.x, position.y + 0.75f, position.z};
@@ -117,6 +118,7 @@ static void Entity_ApplyThirdPersonAnimation(Entity *entity) {
 static void Entity_DrawFiltered(Entity *entity, bool firstPersonOnly) {
     EntityModel *model = &entity->model;
     Entity_ApplyBrightness(entity);
+    bool heldDrawn = false;
     for (int i = 0; i < model->partCount; i++) {
         EntityModelPart *part = &model->parts[i];
         if (firstPersonOnly && !part->visibleInFirstPerson) continue;
@@ -139,6 +141,15 @@ static void Entity_DrawFiltered(Entity *entity, bool firstPersonOnly) {
         drawMatrix.m14 += entity->position.z;
 
         DrawMesh(part->mesh, model->material, drawMatrix);
+        if (!heldDrawn && !firstPersonOnly && part->type == PART_TYPE_RIGHT_ARM && entity->heldBlock) {
+            Matrix item = MatrixScale(0.25f, 0.25f, 0.25f);
+            item.m12 = part->grip.x;
+            item.m13 = part->grip.y;
+            item.m14 = part->grip.z;
+            BlockItemRenderer_Draw3D(entity->heldBlock, MatrixMultiply(item, drawMatrix),
+                                     Entity_GetBrightness(entity->position));
+            heldDrawn = true;
+        }
     }
 }
 
@@ -157,6 +168,14 @@ void Entity_DrawFirstPerson(Entity *entity, Camera camera, float swingProgress) 
         (-190.0f + swing.twist * 35.0f) * DEG2RAD
     };
 
+    Matrix item = MatrixMultiply(MatrixScale(0.35f, 0.35f, 0.35f),
+        MatrixRotateXYZ((Vector3){-swing.arc * 0.8f, 30.0f * DEG2RAD, -swing.twist * 0.6f}));
+    item.m12 = 0.40f - swing.arc * 0.18f;
+    item.m13 = -0.30f + swing.arc * 0.08f;
+    item.m14 = -0.65f - swing.arc * 0.12f;
+    if (BlockItemRenderer_Draw3D(entity->heldBlock, MatrixMultiply(item, cameraTransform),
+                                Entity_GetBrightness(entity->position))) return;
+
     EntityModel *model = &entity->model;
     Entity_ApplyBrightness(entity);
     for (int i = 0; i < model->partCount; i++) {
@@ -169,6 +188,7 @@ void Entity_DrawFirstPerson(Entity *entity, Camera camera, float swingProgress) 
         drawMatrix.m14 = -0.25f;
         drawMatrix = MatrixMultiply(drawMatrix, cameraTransform);
         DrawMesh(part->mesh, model->material, drawMatrix);
+
     }
 }
 

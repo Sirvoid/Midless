@@ -33,6 +33,7 @@ int Packet_Lengths[256] = {
     2, //4
     2, //5
     TEXTURE_ACK_SIZE, //6
+    2, //7 held block
 };
 int pingCalculationPreviousTime = 0;
 
@@ -226,6 +227,7 @@ void Packet_HandleSpawnEntity(void) {
         return;
     }
     World_AddEntity(id, type, modelId, position, (Vector3) {0, 0, 0});
+    if (world.entities && id < WORLD_MAX_ENTITIES) world.entities[id].heldBlock = Packet_ReadByte();
 }
 
 void Packet_HandleDespawnEntity(void) {
@@ -388,6 +390,8 @@ void Packet_HandleDefineEntityModel(void) {
         ModelPartDefinition *p = &d.parts[i];
         p->role = Packet_ReadByte();
         p->firstPersonVisible = Packet_ReadByte();
+        p->hasGrip = Packet_ReadByte();
+        for (int a = 0; a < 3; a++) p->grip[a] = Packet_ReadShort();
         for (int a = 0; a < 3; a++) p->position[a] = Packet_ReadShort();
         for (int a = 0; a < 3; a++) p->min[a] = Packet_ReadShort();
         for (int a = 0; a < 3; a++) p->max[a] = Packet_ReadShort();
@@ -400,4 +404,18 @@ void Packet_HandleSetEntityModel(void) {
     int entityId = Packet_ReadUShort();
     int modelId = Packet_ReadByte();
     EntityModel_SetEntityModel(entityId, modelId);
+}
+
+unsigned char *Packet_CreateHeldBlock(unsigned char blockId) {
+    packetWriterIndex = 0;
+    unsigned char *packet = MemAlloc(2);
+    Packet_WriteByte(packet, 7);
+    Packet_WriteByte(packet, blockId);
+    return packet;
+}
+void Packet_HandleHeldBlock(void) {
+    int id = Packet_ReadUShort();
+    unsigned char blockId = Packet_ReadByte();
+    if (world.entities && id < WORLD_MAX_ENTITIES && world.entities[id].type)
+        world.entities[id].heldBlock = blockId;
 }

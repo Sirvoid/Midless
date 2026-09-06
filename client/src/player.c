@@ -33,6 +33,7 @@ Vector2 playerOldMousePosition = {0.0f, 0.0f};
 Vector2 playerCameraAngle = {0.0f, 0.0f};
 double playerLastPositionPacketTime;
 Player player;
+static int lastSentHeldBlock;
 
 void Player_Init(void) {
 
@@ -51,6 +52,7 @@ void Player_Init(void) {
     player.collisionBox.max = (Vector3) { 0.8f, 1.5f, 0.8f };
 
     player.blockSelected = 15;
+    lastSentHeldBlock = -1;
     player.entityType = 0;
     player.modelId = 0;
     player.hasEntityModel = false;
@@ -110,6 +112,7 @@ void Player_Draw(void) {
     localEntity.rotation = (Vector3){0, -playerCameraAngle.x + PI / 2.0f, 0};
     localEntity.model = player.entityModel;
     localEntity.animation = player.animation;
+    localEntity.heldBlock = Block_IsSelectable(player.blockSelected) ? player.blockSelected : 0;
     if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) {
         float swingProgress = EntityAnimation_GetSwingProgress(
             &player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
@@ -245,7 +248,7 @@ void Player_CheckInputs() {
                 Network_Send(Packet_CreateSetBlock(0, player.rayResult.hitPos));
             }
         } else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
-            EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_LEFT_ARM);
+            EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
             Network_Send(Packet_CreatePlayerClick(1));
             Vector3 placePos = Vector3Add(player.rayResult.hitPos, player.rayResult.normal);
             
@@ -396,6 +399,11 @@ void Player_Update(void) {
     }
     
     Player_CheckInputs();
+    int heldBlock = Block_IsSelectable(player.blockSelected) ? player.blockSelected : 0;
+    if (heldBlock != lastSentHeldBlock && player.hasEntityModel) {
+        Network_Send(Packet_CreateHeldBlock(heldBlock));
+        lastSentHeldBlock = heldBlock;
+    }
     EntityAnimation_Update(&player.animation, player.position, GetFrameTime());
 }
 

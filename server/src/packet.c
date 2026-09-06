@@ -31,7 +31,7 @@ int serverPacketLengths[256] = {
     3,  //map init (protocol version)
     0, //load chunk
     14,  //setblock
-    17, //spawnEntity
+    18, //spawnEntity
     18, //teleportEntity
     65, //Message
     3, //despawnEntity
@@ -45,7 +45,8 @@ int serverPacketLengths[256] = {
     0, //define entity model
     2, //remove entity model
     4, //set entity model
-    TEXTURE_BEGIN_SIZE, TEXTURE_DATA_SIZE, 3
+    TEXTURE_BEGIN_SIZE, TEXTURE_DATA_SIZE, 3,
+    4 // held block
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -235,9 +236,7 @@ void ServerPacket_HandleSetDrawDistance(void) {
 void ServerPacket_HandlePlayerClick(void) {
     unsigned char button = ServerPacket_ReadByte();
     if (button > 1) return;
-    EntityAnimationType animation = button == 0
-        ? ENTITY_ANIMATION_SWING_RIGHT_ARM
-        : ENTITY_ANIMATION_SWING_LEFT_ARM;
+    EntityAnimationType animation = ENTITY_ANIMATION_SWING_RIGHT_ARM;
     ServerWorld_BroadcastExcluding(
         ServerPacket_CreateEntityAnimation(serverPacketPlayer->entityId, animation),
         serverPacketPlayer->id
@@ -317,6 +316,7 @@ unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity) {
     ServerPacket_WriteInt(packet, (int)(entity->position.x * 64));
     ServerPacket_WriteInt(packet, (int)(entity->position.y * 64));
     ServerPacket_WriteInt(packet, (int)(entity->position.z * 64));
+    ServerPacket_WriteByte(packet, entity->heldBlock);
     return packet;
 }
 
@@ -418,6 +418,8 @@ unsigned char *ServerPacket_CreateDefineEntityModel(int id, const ModelDefinitio
         const ModelPartDefinition *p = &d->parts[i];
         ServerPacket_WriteByte(packet, p->role);
         ServerPacket_WriteByte(packet, p->firstPersonVisible);
+        ServerPacket_WriteByte(packet, p->hasGrip);
+        for (int a = 0; a < 3; a++) ServerPacket_WriteShort(packet, p->grip[a]);
         for (int a = 0; a < 3; a++) ServerPacket_WriteShort(packet, p->position[a]);
         for (int a = 0; a < 3; a++) ServerPacket_WriteShort(packet, p->min[a]);
         for (int a = 0; a < 3; a++) ServerPacket_WriteShort(packet, p->max[a]);
@@ -442,4 +444,25 @@ unsigned char *ServerPacket_CreateSetEntityModel(unsigned short entityId, unsign
     ServerPacket_WriteUShort(packet, entityId);
     ServerPacket_WriteByte(packet, modelId);
     return packet;
+}
+
+unsigned char *ServerPacket_CreateHeldBlock(Entity *entity) {
+    serverPacketWriterIndex = 0;
+    unsigned char *packet = MemAlloc(4);
+    ServerPacket_WriteByte(packet, 20);
+    ServerPacket_WriteUShort(packet, entity->id);
+    ServerPacket_WriteByte(packet, entity->heldBlock);
+    return packet;
+}
+void ServerPacket_HandleHeldBlock(void) {
+    int id = serverPacketPlayer->entityId;
+    unsigned char blockId = ServerPacket_ReadByte();
+    if (!serverWorld.entities || id < 0 || id >= WORLD_MAX_ENTITIES) return;
+    Entity *entity = &serverWorld.entities[id];
+    if (!entity->active || entity->pendingRemoval || entity->ownerPlayerId != serverPacketPlayer->id) return;
+    if (blockId && !ServerWorld_IsBlockDefined(blockId)) return;
+    if (entity->heldBlock == blockId) return;
+    entity->heldBlock = blockId;
+    if (entity->announced)
+        ServerWorld_BroadcastExcluding(ServerPacket_CreateHeldBlock(entity), entity->ownerPlayerId);
 }

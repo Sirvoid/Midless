@@ -45,6 +45,8 @@ void ServerPacket_HandlePlayerPosition(void);
 void ServerPacket_HandleMessage(void);
 void ServerPacket_HandleSetDrawDistance(void);
 void ServerPacket_HandlePlayerClick(void);
+void ServerPacket_HandleHeldBlock(void);
+unsigned char *ServerPacket_CreateHeldBlock(Entity *entity);
 
 unsigned char* ServerPacket_CreateMapInit(void);
 unsigned char *ServerPacket_CreateDefineEntityModel(int id, const ModelDefinition *definition);

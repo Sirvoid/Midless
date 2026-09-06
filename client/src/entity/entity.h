@@ -25,6 +25,7 @@ typedef struct EntityAnimation {
 } EntityAnimation;
 
 typedef struct Entity{
+    unsigned char heldBlock;
     char type;
     unsigned char modelId;
     Vector3 position;

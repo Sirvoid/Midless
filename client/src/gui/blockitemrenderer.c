@@ -18,11 +18,13 @@
 
 typedef struct BlockItemIcon {
     RenderTexture2D target;
+    Mesh mesh;
     bool loaded;
 } BlockItemIcon;
 
 static BlockItemIcon icons[BLOCK_ITEM_COUNT];
 static Texture2D iconTerrain;
+static Material heldMaterial;
 
 static Color FaceColor(int face, bool sprite) {
     if (sprite) return WHITE;
@@ -94,13 +96,14 @@ static void BuildIcon(int blockId, Material material) {
         EndMode3D();
     EndTextureMode();
 
-    UnloadMesh(mesh);
+    icons[blockId].mesh = mesh;
     icons[blockId].target = target;
     icons[blockId].loaded = true;
 }
 
 void BlockItemRenderer_Init(Texture2D terrain) {
     iconTerrain = terrain;
+    heldMaterial = LoadMaterialDefault();
     Material material = LoadMaterialDefault();
     SetMaterialTexture(&material, MATERIAL_MAP_DIFFUSE, terrain);
 
@@ -117,16 +120,27 @@ void BlockItemRenderer_Init(Texture2D terrain) {
 }
 
 void BlockItemRenderer_Shutdown(void) {
+    if (heldMaterial.maps) {
+        heldMaterial.maps[MATERIAL_MAP_DIFFUSE].texture.id = rlGetTextureIdDefault();
+        UnloadMaterial(heldMaterial);
+        heldMaterial = (Material){0};
+    }
     iconTerrain = (Texture2D){0};
     for (int blockId = 0; blockId < BLOCK_ITEM_COUNT; blockId++) {
-        if (icons[blockId].loaded) UnloadRenderTexture(icons[blockId].target);
+        if (icons[blockId].loaded) {
+            UnloadRenderTexture(icons[blockId].target);
+            UnloadMesh(icons[blockId].mesh);
+        }
         icons[blockId] = (BlockItemIcon){0};
     }
 }
 
 void BlockItemRenderer_Refresh(int blockId) {
     if (blockId < 1 || blockId >= BLOCK_ITEM_COUNT) return;
-    if (icons[blockId].loaded) UnloadRenderTexture(icons[blockId].target);
+    if (icons[blockId].loaded) {
+        UnloadRenderTexture(icons[blockId].target);
+        UnloadMesh(icons[blockId].mesh);
+    }
     icons[blockId] = (BlockItemIcon){0};
     if (!iconTerrain.id || !Block_IsSelectable(blockId)) return;
     Material material = LoadMaterialDefault();
@@ -147,4 +161,15 @@ void BlockItemRenderer_Draw(int blockId, Rectangle bounds) {
 void BlockItemRenderer_SetTexture(Texture2D texture) {
     iconTerrain=texture;
     for(int i=1;i<BLOCK_ITEM_COUNT;i++) BlockItemRenderer_Refresh(i);
+}
+
+bool BlockItemRenderer_Draw3D(int blockId, Matrix transform, float brightness) {
+    if (blockId < 1 || blockId >= BLOCK_ITEM_COUNT || !icons[blockId].loaded) return false;
+    unsigned char light = (unsigned char)(Clamp(brightness, 0.0f, 1.0f) * 255);
+    heldMaterial.maps[MATERIAL_MAP_DIFFUSE].texture = iconTerrain;
+    heldMaterial.maps[MATERIAL_MAP_DIFFUSE].color = (Color){light, light, light, 255};
+    rlDisableBackfaceCulling();
+    DrawMesh(icons[blockId].mesh, heldMaterial, transform);
+    rlEnableBackfaceCulling();
+    return true;
 }

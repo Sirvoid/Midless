@@ -52,7 +52,7 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMapInit, 0}; //0
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleLoadChunk, 0}; //1
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetBlock, 14}; //2
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSpawnEntity, 17}; //3
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSpawnEntity, 18}; //3
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleTeleportEntity, 18}; //4
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMessage, 65}; //5
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDespawnEntity, 3}; //6
@@ -69,6 +69,7 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleBegin, TEXTURE_BEGIN_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleData, TEXTURE_DATA_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleTerrain, 3};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleHeldBlock, 4}; //20
 }
 
 void Network_Connect(void) {

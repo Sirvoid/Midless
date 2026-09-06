@@ -7,11 +7,13 @@
 #define PACKET_SET_ENTITY_MODEL 16
 #define ENTITY_MODEL_MAX_PARTS 64
 #define ENTITY_MODEL_HEADER_SIZE 69
-#define ENTITY_MODEL_PART_SIZE 68
+#define ENTITY_MODEL_PART_SIZE 75
 // Coordinates use 1/64 of a model unit. UVs are signed pixel rectangles.
 // Faces: east, west, up, down, north, south (matches existing models).
 typedef struct ModelPartDefinition {
     uint8_t role, firstPersonVisible;
+    uint8_t hasGrip;
+    int16_t grip[3];
     int16_t position[3], min[3], max[3];
     int16_t uv[6][4];
 } ModelPartDefinition;
