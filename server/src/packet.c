@@ -30,7 +30,7 @@ int serverPacketDataLength;
 int serverPacketLengths[256] = {
     3,  //map init (protocol version)
     0, //load chunk
-    14,  //setblock
+    15,  //setblock
     18, //spawnEntity
     18, //teleportEntity
     65, //Message
@@ -184,10 +184,10 @@ void ServerPacket_HandleSetBlock(void) {
     Vector3 position = (Vector3) { ServerPacket_ReadInt(), ServerPacket_ReadInt(), ServerPacket_ReadInt() };
     if (!ServerWorld_IsBlockDefined(blockId)) {
         ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateSetBlock(
-            (unsigned char)ServerWorld_GetBlock(position), position));
+            (unsigned char)ServerWorld_GetBlock(position), position, false));
         return;
     }
-    ServerWorld_SetBlock(position, blockId, true);
+    ServerWorld_SetBlock(position, blockId, true, true, true);
 }
 
 void ServerPacket_HandlePlayerPosition(void) {
@@ -280,7 +280,7 @@ unsigned char* ServerPacket_CreateUnloadChunk(Vector3 chunkPosition) {
     return packet;
 }
 
-unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 position) {
+unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 position, bool byPlayer) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[2]);
     ServerPacket_WriteByte(packet, 2);
@@ -288,6 +288,7 @@ unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 positi
     ServerPacket_WriteInt(packet, (int)position.x);
     ServerPacket_WriteInt(packet, (int)position.y);
     ServerPacket_WriteInt(packet, (int)position.z);
+    ServerPacket_WriteByte(packet, byPlayer);
     return packet;
 }
 

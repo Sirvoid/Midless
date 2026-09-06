@@ -72,6 +72,6 @@ void ServerWorld_RemoveBlockDefinition(int id);
 
 int ServerWorld_GetBlock(Vector3 blockPos);
 void ServerWorld_SetBlockFast(Vector3 blockPos, int blockId);
-void ServerWorld_SetBlock(Vector3 blockPos, int blockId, bool broadcast);
+void ServerWorld_SetBlock(Vector3 blockPos, int blockId, bool broadcast, bool byPlayer, bool callCallbacks);
 
 #endif

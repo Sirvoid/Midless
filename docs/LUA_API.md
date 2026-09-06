@@ -58,6 +58,24 @@ midless.set_block({x = 10, y = 20, z = 10}, 1)
 
 Use block ID `0` to place air.
 
+## Set multiple blocks
+
+```lua
+midless.set_blocks(updates, callCallbacks)
+```
+
+Example:
+
+```lua
+midless.set_blocks({
+    {pos = {x = 10, y = 20, z = 10}, blockId = 1},
+    {pos = {x = 11, y = 20, z = 10}, blockId = 1},
+    {pos = {x = 12, y = 20, z = 10}, blockId = 0},
+}, false)
+```
+
+`callCallbacks` controls whether `on_block_update` is called. It defaults to `true`.
+
 ---
 
 # Messages

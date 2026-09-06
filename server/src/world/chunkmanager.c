@@ -354,7 +354,7 @@ void ServerWorld_SetBlockFast(Vector3 blockPosition, int blockId) {
     }));
 }
 
-void ServerWorld_SetBlock(Vector3 blockPosition, int blockId, bool broadcast) {
+void ServerWorld_SetBlock(Vector3 blockPosition, int blockId, bool broadcast, bool byPlayer, bool callCallbacks) {
     Vector3 chunkPosition = {
         floorf(blockPosition.x / CHUNK_SIZE_X),
         floorf(blockPosition.y / CHUNK_SIZE_Y),
@@ -370,6 +370,6 @@ void ServerWorld_SetBlock(Vector3 blockPosition, int blockId, bool broadcast) {
     int previousBlock = ServerChunk_GetBlock(chunk, localPosition);
     if (previousBlock == blockId) return;
     ServerChunk_SetBlock(chunk, localPosition, blockId);
-    if (broadcast) ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockId, blockPosition));
-    LuaBindings_InvokeBlockUpdate(blockPosition, blockId, previousBlock);
+    if (broadcast) ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockId, blockPosition, byPlayer));
+    if (callCallbacks) LuaBindings_InvokeBlockUpdate(blockPosition, blockId, previousBlock);
 }

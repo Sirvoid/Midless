@@ -51,7 +51,7 @@ void Network_Init(void) {
     packetCount = 0;
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMapInit, 0}; //0
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleLoadChunk, 0}; //1
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetBlock, 14}; //2
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetBlock, 15}; //2
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSpawnEntity, 18}; //3
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleTeleportEntity, 18}; //4
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMessage, 65}; //5

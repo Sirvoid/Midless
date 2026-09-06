@@ -207,9 +207,10 @@ void Packet_HandleUnloadChunk(void) {
 void Packet_HandleSetBlock(void) {
     int blockId = Packet_ReadByte();
     Vector3 position = (Vector3) { Packet_ReadInt(), Packet_ReadInt(), Packet_ReadInt() };
+    bool byPlayer = Packet_ReadByte();
     if (!Block_IsDefined(blockId)) return;
     int oldBlockId = World_GetBlock(position);
-    if (blockId == 0 && oldBlockId != 0) Particle_SpawnBlockBreak(position, oldBlockId);
+    if (byPlayer && blockId == 0 && oldBlockId != 0) Particle_SpawnBlockBreak(position, oldBlockId);
     World_SetBlock(position, blockId, false);
 }
 
@@ -274,8 +275,6 @@ void Packet_HandleBlockBatch(void) {
             Packet_ReadInt(), Packet_ReadInt(), Packet_ReadInt()
         };
         if (!Block_IsDefined(blockId)) continue;
-        int oldBlockId = World_GetBlock(position);
-        if (blockId == 0 && oldBlockId != 0) Particle_SpawnBlockBreak(position, oldBlockId);
         World_SetBlock(position, blockId, false);
     }
 }

@@ -122,7 +122,73 @@ void LuaBindings_InvokeBlockUpdate(Vector3 position, unsigned short blockId, uns
 static int LuaBindings_SetBlock(void) {
     Vector3 position = LuaBindings_ReadPosition(1, true);
     int blockId = Lua_GetInt(2);
-    ServerWorld_SetBlock(position, blockId, true);
+    ServerWorld_SetBlock(position, blockId, true, false, true);
+    return 0;
+}
+
+#define LUA_BLOCK_BATCH_SIZE 4096
+#define LUA_MAX_BLOCK_UPDATES 1000000
+
+static ServerBlockUpdate LuaBindings_ReadBlockUpdate(int table) {
+    Lua_CheckTable(table);
+
+    Lua_PushField(table, "pos");
+    Vector3 position = LuaBindings_ReadPosition(-1, true);
+    Lua_Pop();
+
+    Lua_PushField(table, "blockId");
+    int blockId = Lua_GetIntRange(-1, 0, 255);
+    Lua_Pop();
+    if (!ServerWorld_IsBlockDefined(blockId)) Lua_Error("blockId is not defined");
+
+    return (ServerBlockUpdate){
+        .position = position,
+        .blockId = (unsigned char)blockId
+    };
+}
+
+static int LuaBindings_SetBlocks(void) {
+    Lua_CheckTable(1);
+    bool callCallbacks = Lua_GetTop() < 2 || Lua_GetBoolean(2);
+    int count = Lua_TableLength(1);
+    if (count < 0 || count > LUA_MAX_BLOCK_UPDATES)
+        return Lua_Error("set_blocks accepts at most 1000000 updates");
+
+    // Validate the complete input before changing any blocks.
+    for (int i = 0; i < count; i++) {
+        Lua_GetRawI(1, i + 1);
+        LuaBindings_ReadBlockUpdate(-1);
+        Lua_Pop();
+    }
+
+    ServerBlockUpdate *updates = count > 0 ? MemAlloc(sizeof(*updates) * count) : NULL;
+    if (count > 0 && updates == NULL) return Lua_Error("could not allocate block update batch");
+
+    int changedCount = 0;
+    for (int i = 0; i < count; i++) {
+        Lua_GetRawI(1, i + 1);
+        ServerBlockUpdate update = LuaBindings_ReadBlockUpdate(-1);
+        Lua_Pop();
+
+        int previousBlockId = ServerWorld_GetBlock(update.position);
+        if (previousBlockId == update.blockId) continue;
+        ServerWorld_SetBlock(update.position, update.blockId, false, false, callCallbacks);
+        if (ServerWorld_GetBlock(update.position) == update.blockId)
+            updates[changedCount++] = update;
+    }
+
+    for (int offset = 0; offset < changedCount; offset += LUA_BLOCK_BATCH_SIZE) {
+        int remaining = changedCount - offset;
+        unsigned short batchCount = (unsigned short)(remaining < LUA_BLOCK_BATCH_SIZE
+            ? remaining : LUA_BLOCK_BATCH_SIZE);
+        for (int playerId = 0; playerId < WORLD_MAX_PLAYERS; playerId++) {
+            Player *player = serverWorld.players[playerId];
+            if (player == NULL) continue;
+            ServerNetwork_Send(player, ServerPacket_CreateBlockBatch(updates + offset, batchCount));
+        }
+    }
+
+    MemFree(updates);
     return 0;
 }
 
@@ -541,6 +607,7 @@ static const struct LuaMethod midlessLib[] = {
     {"get_players", LuaBindings_ListPlayers},
     {"get_block", LuaBindings_GetBlock},
     {"set_block", LuaBindings_SetBlock},
+    {"set_blocks", LuaBindings_SetBlocks},
     {"define_block", LuaBindings_DefineBlock},
     {"define_entity_model", LuaBindings_DefineEntityModel},
     {"remove_entity_model", LuaBindings_RemoveEntityModel},

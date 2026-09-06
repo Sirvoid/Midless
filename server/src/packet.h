@@ -57,7 +57,7 @@ unsigned char *ServerPacket_CreateRemoveBlockDefinition(int id);
 unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length,
                                             Vector3 chunkPosition, const unsigned char *skyMask);
 unsigned char* ServerPacket_CreateUnloadChunk(Vector3 chunkPosition);
-unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 position);
+unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 position, bool byPlayer);
 unsigned char* ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, unsigned short count);
 unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity);
 unsigned char* ServerPacket_CreateDespawnEntity(Entity *entity);
