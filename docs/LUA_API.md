@@ -233,10 +233,8 @@ player:teleport({x = 0, y = 80, z = 0})
 ## Change model
 
 ```lua
-player:set_model(modelId)
+player:set_model(modelName)
 ```
-
-Model `0` is the default player model.
 
 ## Send message
 
@@ -254,7 +252,7 @@ Entities are custom objects controlled by Lua.
 
 ```lua
 midless.define_entity("my_mod:example", {
-    model = 0,
+    model = "my_mod:cube",
 
     on_spawn = function(self)
         print("Spawned!")
@@ -325,8 +323,7 @@ entity:set_position({
 
 ## Rotation
 
-Rotation uses XYZ Euler angles in radians: `x` is pitch, `y` is yaw, and
-`z` is roll.
+Rotation uses XYZ Euler angles in radians: `x` is pitch, `y` is yaw, and `z` is roll.
 
 ```lua
 local rotation = entity:get_rotation()
@@ -341,7 +338,7 @@ entity:set_rotation({
 ## Change model
 
 ```lua
-entity:set_model(modelId)
+entity:set_model(modelName)
 ```
 
 ## Remove
@@ -352,12 +349,85 @@ entity:remove()
 
 ---
 
+# Textures
+
+## Define a texture
+
+Load a PNG texture:
+
+```lua
+midless.define_texture(modelName, filePath)
+```
+
+The texture file is loaded from the server's working directory.
+
+Use a unique namespaced name for your texture.
+
+## Use a texture on an entity model
+
+Set the model's `texture` to the texture name:
+
+```lua
+midless.define_texture("my_mod:slime", "slime.png")
+
+midless.define_entity_model("my_mod:slime", {
+    texture = "my_mod:slime",
+
+    parts = {
+        ...
+    }
+})
+```
+
+UVs use:
+
+```text
+{x, y, width, height}
+```
+
+in image pixels.
+
+## Replace the terrain texture
+
+The terrain texture must be a `256x256` atlas:
+
+```lua
+midless.define_texture("my_mod:terrain", "terrain.png")
+midless.set_terrain_texture("my_mod:terrain")
+```
+
+Restore the default terrain:
+
+```lua
+midless.set_terrain_texture("terrain")
+```
+
+## Update a texture
+
+Define the same texture name again:
+
+```lua
+midless.define_texture("my_mod:slime", "new_slime.png")
+```
+
+Models using that texture update automatically.
+
+## Limits
+
+* PNG only
+* Maximum 64 custom textures
+* Maximum texture size: `1024x1024`
+* Terrain textures must be `256x256`
+* `"terrain"` and `"humanoid"` are built-in texture names
+
+---
+
 # Entity Models
 
 Custom entity models can be created from boxes.
 
 ```lua
-midless.define_entity_model(1, {
+midless.define_entity_model("my_mod:cube", {
     name = "Cube",
     texture = "terrain",
 
@@ -365,7 +435,6 @@ midless.define_entity_model(1, {
         {
             role = model.part.NONE,
             position = {0, 0, 0},
-
             min = {-4, 0, -4},
             max = {4, 8, 4},
 
@@ -375,7 +444,7 @@ midless.define_entity_model(1, {
                 up    = {0, 0, 16, 16},
                 down  = {0, 0, 16, 16},
                 north = {0, 0, 16, 16},
-                south = {0, 0, 16, 16},
+                south = {0, 0, 16, 16}
             }
         }
     }
@@ -384,12 +453,7 @@ midless.define_entity_model(1, {
 
 `16` model units = `1` block.
 
-Available textures:
-
-```text
-"humanoid"
-"terrain"
-```
+Available textures are `"humanoid"`, `"terrain"`, and any name registered with `midless.define_texture`. See [Textures](#textures).
 
 ## Model part roles
 
@@ -407,19 +471,13 @@ Roles allow the normal player animation system to animate those parts.
 ## Remove model
 
 ```lua
-midless.remove_entity_model(modelId)
+midless.remove_entity_model(modelName)
 ```
 
-## Change an entity model by ID
+## Change an entity model
 
 ```lua
-midless.set_entity_model(entityId, modelId)
-```
-
-Usually, prefer:
-
-```lua
-entity:set_model(modelId)
+entity:set_model(modelName)
 ```
 
 ---
@@ -433,6 +491,7 @@ Custom block IDs can use IDs `19` through `255`.
 ```lua
 midless.define_block(19, {
     name = "Example Block",
+
     textures = {
         all = 1
     }
@@ -672,32 +731,76 @@ end)
 
 # Example Mod
 
-This creates an entity whenever the player right-clicks.
+This example creates a simple slime that wanders around.
 
 ```lua
-midless.define_entity("example:spinner", {
-    model = 0,
+midless.define_texture("example:slime", "slime.png")
+
+midless.define_entity_model("example:slime", {
+    texture = "example:slime",
+
+    parts = {
+        {
+            role = model.part.NONE,
+            position = {0, 0, 0},
+            min = {-5, 0, -5},
+            max = {5, 8, 5},
+
+            uv = {
+                east  = {0, 0, 16, 16},
+                west  = {0, 0, 16, 16},
+                up    = {0, 0, 16, 16},
+                down  = {0, 0, 16, 16},
+                north = {0, 0, 16, 16},
+                south = {0, 0, 16, 16}
+            }
+        }
+    }
+})
+
+midless.define_entity("example:slime", {
+    model = "example:slime",
 
     on_spawn = function(self)
-        self.age = 0
+        self.direction = vector.new(1, 0, 0)
+        self.timer = 0
     end,
 
     on_step = function(self, dt)
-        self.age = self.age + dt
+        self.timer = self.timer + dt
 
-        if self.age >= 5 then
-            self.object:remove()
-            return
+        -- Pick a new direction every 2 seconds.
+        if self.timer >= 2 then
+            self.timer = 0
+
+            local angle = math.random() * math.pi * 2
+
+            self.direction = {
+                x = math.cos(angle),
+                y = 0,
+                z = math.sin(angle)
+            }
+
+            self.object:set_rotation({
+                x = 0,
+                y = -angle,
+                z = 0
+            })
         end
 
-        self.object:set_rotation({
-            x = 0,
-            y = self.age,
-            z = 0
-        })
+        -- Move the slime.
+        local pos = self.object:get_position()
+
+        pos = vector.add(
+            pos,
+            vector.multiply(self.direction, dt)
+        )
+
+        self.object:set_position(pos)
     end
 })
 
+-- Spawn a slime three blocks in front of the player.
 midless.register_on_player_click(function(player, button)
     if button ~= "right" then
         return
@@ -708,6 +811,8 @@ midless.register_on_player_click(function(player, button)
         vector.multiply(player:get_look_direction(), 3)
     )
 
-    midless.spawn_entity("example:spinner", pos)
+    midless.spawn_entity("example:slime", pos)
 end)
 ```
+
+Right-click to spawn a slime. Each slime picks a new direction every few seconds and moves around on its own.

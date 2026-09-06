@@ -20,6 +20,7 @@
 
 typedef struct World{
     ModelDefinition *modelDefinitions[256];
+    char modelNames[256][65]; // Names retain their slots until the world resets.
     BlockDefinition blockDefinitions[256];
     bool hasBlockDefinition[256];
     Player** players;

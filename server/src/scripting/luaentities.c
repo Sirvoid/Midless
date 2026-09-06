@@ -2,6 +2,7 @@
 #include <math.h>
 #include <string.h>
 #include "luaentities.h"
+#include "luamodels.h"
 #include "../world/world.h"
 
 extern lua_State *L;
@@ -70,7 +71,7 @@ static int Remove(lua_State *state) { ServerWorld_RemoveEntity(Check(state)->id)
 static int GetId(lua_State *state) { lua_pushinteger(state, Check(state)->id); return 1; }
 static int SetModel(lua_State *state) {
     Entity *e = Check(state);
-    lua_Integer model = luaL_checkinteger(state, 2);
+    int model = LuaModels_Resolve(2, false);
     if (model < 0 || model > 255 || !ServerWorld_SetEntityModel(e->id, (int)model))
         return luaL_error(state, "model is not defined");
     return 0;
@@ -101,7 +102,7 @@ int LuaEntities_Register(void) {
     for (int i = 0; i < definitionCount; i++)
         if (!strcmp(name, definitions[i].name)) return luaL_error(L, "entity name is already registered");
     lua_getfield(L, 2, "model");
-    lua_Integer model = luaL_checkinteger(L, -1);
+    int model = LuaModels_Resolve(-1, false);
     if (model < 0 || model > 255 || (model && !serverWorld.modelDefinitions[model]))
         return luaL_error(L, "model is not defined");
     lua_pop(L, 1);

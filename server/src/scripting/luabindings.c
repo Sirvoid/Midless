@@ -12,6 +12,7 @@
 #include "raylib.h"
 #include "luaengine.h"
 #include "luaentities.h"
+#include "luamodels.h"
 #include "luavector.h"
 #include "../networkhandler.h"
 #include "../packet.h"
@@ -218,7 +219,7 @@ static void LuaBindings_ModelVector(int table, const char *name, int16_t values[
 }
 
 static int LuaBindings_DefineEntityModel(void) {
-    int id = Lua_GetIntRange(1, 1, 255);
+    int id = LuaModels_Resolve(1, true);
     Lua_CheckTable(2);
     ModelDefinition d = {0};
     Lua_PushField(2, "name"); Lua_CopyString(-1, d.name, sizeof(d.name)); Lua_Pop();
@@ -262,15 +263,18 @@ static int LuaBindings_DefineEntityModel(void) {
     }
     Lua_Pop();
     if (!ServerWorld_DefineEntityModel(id, &d)) return Lua_Error("invalid entity model or allocation failed");
+    LuaModels_BindName(1, id);
     return 0;
 }
 static int LuaBindings_RemoveEntityModel(void) {
-    ServerWorld_RemoveEntityModel(Lua_GetIntRange(1, 1, 255));
+    int id = LuaModels_Resolve(1, false);
+    if (id == 0) return Lua_Error("cannot remove the built-in humanoid model");
+    ServerWorld_RemoveEntityModel(id);
     return 0;
 }
 static int LuaBindings_SetEntityModel(void) {
     int entityId = Lua_GetIntRange(1, 0, WORLD_MAX_ENTITIES - 1);
-    int modelId = Lua_GetIntRange(2, 0, 255);
+    int modelId = LuaModels_Resolve(2, false);
     if (!ServerWorld_SetEntityModel(entityId, modelId)) return Lua_Error("entity or model is not defined");
     return 0;
 }
@@ -442,7 +446,7 @@ static int LuaBindings_SendPlayerMessage(void) {
 static int LuaBindings_SetPlayerModel(void) {
     Player *player = LuaBindings_CheckPlayer();
     if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
-    int modelId = Lua_GetIntRange(2, 0, 255);
+    int modelId = LuaModels_Resolve(2, false);
     if (!ServerWorld_SetEntityModel(player->entityId, modelId)) return Lua_Error("model is not defined");
     return 0;
 }
