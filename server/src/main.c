@@ -42,7 +42,13 @@ int main(void) {
 
     ServerWorld_Init();
     ServerNetwork_Init();
-    Lua_Run();
+    if (!Lua_Run()) {
+        ServerNetwork_Shutdown();
+        ServerWorld_Shutdown();
+        LuaBindings_Shutdown();
+        Lua_Stop();
+        return 1;
+    }
 
     int serverThreadState = 0;
     pthread_t serverThreadId;

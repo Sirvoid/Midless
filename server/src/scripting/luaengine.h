@@ -27,7 +27,7 @@ void Lua_SetGlobal(const char* name);
 void Lua_GetField(char* name);
 void Lua_CallFunc(int arguments, int results);
 bool Lua_CallFuncHandled(int arguments);
-void Lua_Run(void);
+bool Lua_Run(void);
 void Lua_Stop(void);
 
 int Lua_Ref(int table);

@@ -17,6 +17,7 @@
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "../world/world.h"
+#include "../world/worldgen.h"
 #include "../world/textures.h"
 #include "../utils.h"
 #include "stb_ds.h"
@@ -671,6 +672,7 @@ void LuaBindings_Init(void) {
     LuaBindings_DefineModelConstants();
     Lua_DefineObjectType(LUA_PLAYER_TYPE, playerLib);
     Lua_DefineLib("midless", midlessLib);
+    LuaWorldgen_Init();
 }
 
 void LuaBindings_Shutdown(void) {

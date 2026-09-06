@@ -11,6 +11,8 @@
 #include <dirent.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
+bool Worldgen_Freeze(void);
 
 lua_State *L;
 int luaRunning = 0;
@@ -61,15 +63,21 @@ void Lua_Init(void) {
     L = luaL_newstate();
 }
 
-static void Lua_LoadModFolder(const char *folder) {
+static int CompareModNames(const void *a, const void *b) {
+    return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+static bool Lua_LoadModFolder(const char *folder) {
     DIR *dir = opendir(folder);
 
     if(dir == NULL) {
         printf("Could not open mod folder: %s\n", folder);
-        return;
+        return true;
     }
 
     struct dirent *entry;
+    char **names = NULL;
+    int count = 0;
 
     while((entry = readdir(dir)) != NULL) {
         size_t length = strlen(entry->d_name);
@@ -80,6 +88,17 @@ static void Lua_LoadModFolder(const char *folder) {
         if(strcmp(entry->d_name + length - 4, ".lua") != 0)
             continue;
 
+        char **grown = realloc(names, (count + 1) * sizeof(*names));
+        if (!grown) { for (int i = 0; i < count; i++) free(names[i]); free(names); closedir(dir); return false; }
+        names = grown;
+        names[count] = malloc(length + 1);
+        if (!names[count]) { for (int i = 0; i < count; i++) free(names[i]); free(names); closedir(dir); return false; }
+        memcpy(names[count++], entry->d_name, length + 1);
+    }
+    closedir(dir);
+    if (count > 1) qsort(names, count, sizeof(*names), CompareModNames);
+    bool success = true;
+    for (int i = 0; i < count; i++) {
         char path[512];
 
         snprintf(
@@ -87,12 +106,13 @@ static void Lua_LoadModFolder(const char *folder) {
             sizeof(path),
             "%s/%s",
             folder,
-            entry->d_name
+            names[i]
         );
 
         printf("Loading %s\n", path);
 
         if(luaL_dofile(L, path) != 0) {
+            success = false;
             printf(
                 "Lua error in %s: %s\n",
                 path,
@@ -101,17 +121,18 @@ static void Lua_LoadModFolder(const char *folder) {
 
             lua_pop(L, 1);
         }
+        free(names[i]);
     }
-
-    closedir(dir);
+    free(names);
+    return success;
 }
 
-void Lua_Run(void) {
+bool Lua_Run(void) {
 
     int error = 0;
     if(L != NULL) {
         luaL_openlibs(L);
-        Lua_LoadModFolder("mods");
+        if (!Lua_LoadModFolder("mods") || !Worldgen_Freeze()) return false;
         luaRunning = 1;
     }
 
@@ -119,6 +140,7 @@ void Lua_Run(void) {
         fprintf(stderr, "%s \n", lua_tostring(L, -1));
         lua_pop(L, 1);
     }
+    return L != NULL && !error;
 }
 
 void Lua_Stop(void) {

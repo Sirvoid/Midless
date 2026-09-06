@@ -643,6 +643,550 @@ midless.define_block(19, {
 })
 ```
 
+# World Generation
+
+World generation is defined in Lua when mods load. The engine handles the actual chunk generation.
+
+```lua
+local wg = midless.worldgen
+local f = wg.field
+```
+
+## Basic setup
+
+Use `wg.configure()` to configure the world:
+
+```lua
+wg.configure({
+    id = "my_mod:world",
+    version = 1,
+
+    min_y = -128,
+    max_y = 256,
+    sea_level = 48,
+
+    temperature = f.noise2d({frequency = 0.001}),
+    moisture = f.noise2d({frequency = 0.001}),
+})
+```
+
+Without a world generation mod, the world is flat at `y = 64`.
+
+Existing chunks are never regenerated when the generator changes.
+
+---
+
+## Fields
+
+Fields are values calculated from world coordinates.
+
+```lua
+local height = f.noise2d({
+    frequency = 0.01,
+    octaves = 4,
+})
+
+local caves = f.noise3d({
+    frequency = 0.03,
+})
+```
+
+They can be combined like normal numbers:
+
+```lua
+local terrain = f.noise3d({frequency = 0.02}) - f.y() / 100
+```
+
+### Coordinates
+
+```lua
+f.x()
+f.y()
+f.z()
+```
+
+### Math
+
+```lua
+a + b
+a - b
+a * b
+a / b
+a % b
+
+f.min(a, b)
+f.max(a, b)
+f.abs(a)
+
+f.floor(a)
+f.ceil(a)
+f.trunc(a)
+
+f.sin(a)
+f.cos(a)
+```
+
+### Conditions
+
+```lua
+f.lt(a, b)
+f.eq(a, b)
+f.select(condition, yes, no)
+```
+
+Conditions return `0` or `1`.
+
+### Noise
+
+```lua
+f.noise2d({
+    type = "opensimplex2s",
+    frequency = 0.01,
+    octaves = 3,
+})
+
+f.noise3d({
+    frequency = 0.02,
+})
+```
+
+Common noise options:
+
+| Option        | Default           |
+| ------------- | ----------------- |
+| `type`        | `"opensimplex2s"` |
+| `fractal`     | `"fbm"`           |
+| `frequency`   | `0.01`            |
+| `octaves`     | `3`               |
+| `lacunarity`  | `2`               |
+| `gain`        | `0.5`             |
+| `seed_offset` | `0`               |
+
+Noise types:
+
+```text
+opensimplex2
+opensimplex2s
+cellular
+perlin
+value_cubic
+value
+```
+
+Fractal types:
+
+```text
+none
+fbm
+ridged
+pingpong
+```
+
+---
+
+## Terrain
+
+Terrain can be controlled with `density`.
+
+```lua
+wg.configure({
+    id = "my_mod:world",
+
+    density =
+        f.noise3d({frequency = 0.02})
+        - f.y() / 100,
+
+    min_y = -128,
+    max_y = 256,
+    sea_level = 48,
+})
+```
+
+Positive density is solid.
+
+Zero or negative density is empty.
+
+You can carve caves with another field:
+
+```lua
+wg.configure({
+    id = "my_mod:world",
+
+    density = terrain,
+    caves = f.noise3d({frequency = 0.04}),
+})
+```
+
+Positive `caves` values carve terrain.
+
+---
+
+## Biomes
+
+Define biomes with `wg.define_biome()`:
+
+```lua
+wg.define_biome("my_mod:highlands", {
+    temperature = -0.4,
+    moisture = 0.5,
+
+    height = 90,
+    height_variation = 45,
+
+    height_noise = f.noise2d({
+        frequency = 0.008,
+        octaves = 5,
+    }),
+
+    top = 3,
+    filler = 2,
+    filler_depth = 3,
+    stone = 1,
+    underwater = 6,
+})
+```
+
+`temperature` and `moisture` decide where the biome appears.
+
+`height` and `height_variation` control its terrain.
+
+The material fields control its blocks:
+
+```text
+top             Surface block
+filler          Blocks below the surface
+filler_depth    Filler thickness
+stone           Main underground block
+underwater      Underwater surface block
+```
+
+---
+
+## Ores
+
+Define ores with `wg.define_ore()`:
+
+```lua
+wg.define_ore("my_mod:iron", {
+    block = 19,
+    replaces = {1},
+
+    min_y = -64,
+    max_y = 48,
+
+    distribution = "veins",
+    size = 12,
+    spacing = 16,
+    chance = 0.7,
+})
+```
+
+You can restrict an ore to a biome:
+
+```lua
+biome = "my_mod:highlands"
+```
+
+### Distributions
+
+```text
+clusters    Round deposits
+veins       Random-walking veins
+layers      Horizontal layers
+noise       Places ore using a noise field
+```
+
+Example using noise:
+
+```lua
+wg.define_ore("my_mod:iron", {
+    block = 19,
+    replaces = {1},
+
+    distribution = "noise",
+
+    noise = f.noise3d({
+        frequency = 0.05,
+    }),
+
+    threshold = 0.6,
+})
+```
+
+---
+
+## Structures
+
+Structures are made from blocks relative to an origin:
+
+```lua
+wg.define_structure("my_mod:ruin", {
+    blocks = {
+        {x = 0, y = 0, z = 0, block = 1},
+        {x = 0, y = 1, z = 0, block = 1},
+        {x = 1, y = 0, z = 0, block = 1},
+    },
+
+    spacing = 160,
+    chance = 0.3,
+
+    min_y = 49,
+    max_y = 256,
+
+    rotate = true,
+})
+```
+
+Useful options:
+
+```text
+spacing             Distance between placement areas
+chance              Chance to generate
+min_y / max_y       Height range
+biome               Restrict to a biome
+max_slope           Maximum terrain height difference
+rotate              Random 90° rotation
+air_only            Only replace air
+foundation          Foundation block
+foundation_depth    Maximum foundation depth
+```
+
+Block `0` can be used to carve air.
+
+A one-block structure can also be used for things like flowers or decorations.
+
+---
+
+## Trees
+
+Simple trees can be defined as structures:
+
+```lua
+wg.define_structure("my_mod:tree", {
+    tree = {
+        height = 7,
+        radius = 3,
+        trunk = 10,
+        leaves = 11,
+    },
+
+    spacing = 32,
+    chance = 0.4,
+})
+```
+
+For more complicated trees and shapes, use procedural features.
+
+---
+
+## Material rules
+
+Rules replace blocks during generation.
+
+```lua
+wg.define_rule({
+    match = 3,
+    block = 2,
+    offset_y = -1,
+})
+```
+
+You can add a condition:
+
+```lua
+wg.define_rule({
+    match = 3,
+    when = f.lt(f.y(), 50),
+    block = 2,
+})
+```
+
+Rules run before ores and structures.
+
+---
+
+## Procedural features
+
+Features can generate shapes such as branches, pillars, rocks, or custom trees.
+
+```lua
+wg.define_feature("my_mod:pillars", {
+    when =
+        f.eq(f.y(), 65)
+        * f.eq(f.x() % 16, 0)
+        * f.eq(f.z() % 16, 0),
+
+    commands = {
+        {
+            op = "stroke",
+            block = 1,
+            steps = 8,
+
+            dx = 0,
+            dy = 1,
+            dz = 0,
+
+            radius = 1.5,
+            bounds = 2,
+        },
+
+        {
+            op = "sphere",
+            block = 4,
+
+            radius = 2.5,
+            bounds = 3,
+        },
+    },
+})
+```
+
+There are two shape commands:
+
+### `stroke`
+
+Moves in a direction while drawing spheres.
+
+```lua
+{
+    op = "stroke",
+
+    block = 1,
+    steps = 8,
+
+    dx = 0,
+    dy = 1,
+    dz = 0,
+
+    radius = 1,
+    bounds = 2,
+}
+```
+
+Useful fields inside strokes:
+
+```lua
+f.step()
+f.steps()
+```
+
+These can be used to change the radius along the stroke.
+
+### `sphere`
+
+Draws a sphere:
+
+```lua
+{
+    op = "sphere",
+
+    block = 1,
+    radius = 3,
+    bounds = 4,
+}
+```
+
+Features can chain commands using position slots:
+
+```lua
+{
+    op = "stroke",
+    from = 0,
+    to = 1,
+    ...
+},
+
+{
+    op = "sphere",
+    from = 1,
+    ...
+}
+```
+
+Slot `0` is the feature's starting position.
+
+Feature origin coordinates are also available:
+
+```lua
+f.origin_x()
+f.origin_y()
+f.origin_z()
+```
+
+---
+
+## Example terrain mod
+
+```lua
+local wg = midless.worldgen
+local f = wg.field
+
+local terrain_noise = f.noise2d({
+    frequency = 0.005,
+    octaves = 4,
+})
+
+wg.configure({
+    id = "example:world",
+    version = 1,
+
+    min_y = -128,
+    max_y = 256,
+    sea_level = 48,
+
+    temperature = f.noise2d({
+        frequency = 0.001,
+        seed_offset = 10,
+    }),
+
+    moisture = f.noise2d({
+        frequency = 0.001,
+        seed_offset = 20,
+    }),
+})
+
+wg.define_biome("example:plains", {
+    temperature = 0,
+    moisture = 0,
+
+    height = 64,
+    height_variation = 12,
+    height_noise = terrain_noise,
+
+    top = 3,
+    filler = 2,
+    filler_depth = 3,
+    stone = 1,
+})
+
+wg.define_ore("example:iron", {
+    block = 19,
+    replaces = {1},
+
+    min_y = -64,
+    max_y = 32,
+
+    distribution = "veins",
+    size = 8,
+    spacing = 24,
+    chance = 0.5,
+})
+
+wg.define_structure("example:tree", {
+    tree = {
+        height = 6,
+        radius = 3,
+        trunk = 10,
+        leaves = 11,
+    },
+
+    spacing = 32,
+    chance = 0.3,
+
+    biome = "example:plains",
+})
+```
+
 ---
 
 # Vectors

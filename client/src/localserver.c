@@ -71,7 +71,13 @@ bool LocalServer_Start(void) {
     LuaBindings_Init();
     ServerWorld_Init();
     ServerNetwork_Init();
-    Lua_Run();
+    if (!Lua_Run()) {
+        ServerNetwork_Shutdown();
+        ServerWorld_Shutdown();
+        LuaBindings_Shutdown();
+        Lua_Stop();
+        return false;
+    }
     localPlayer = ServerPlayer_Create(NULL, false);
     if (localPlayer == NULL) {
         ServerWorld_Shutdown();

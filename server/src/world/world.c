@@ -24,6 +24,7 @@
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "worldgenerator.h"
+#include "worldgen.h"
 #include "../utils.h"
 
 World serverWorld;
@@ -76,6 +77,7 @@ void ServerWorld_Shutdown(void) {
     ServerEntities_Shutdown();
     ServerTextures_Shutdown();
     ServerChunkManager_Shutdown();
+    Worldgen_ClearFeatures();
     MemFree(serverWorld.players);
     MemFree(serverWorld.entities);
     serverWorld.players = NULL;
