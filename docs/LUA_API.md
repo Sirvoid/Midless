@@ -379,14 +379,6 @@ midless.define_entity_model("my_mod:slime", {
 })
 ```
 
-UVs use:
-
-```text
-{x, y, width, height}
-```
-
-in image pixels.
-
 ## Replace the terrain texture
 
 The terrain texture must be a `256x256` atlas:
@@ -452,6 +444,14 @@ midless.define_entity_model("my_mod:cube", {
 ```
 
 `16` model units = `1` block.
+
+UVs use:
+
+```text
+{x, y, width, height}
+```
+
+in image pixels.
 
 Available textures are `"humanoid"`, `"terrain"`, and any name registered with `midless.define_texture`. See [Textures](#textures).
 
