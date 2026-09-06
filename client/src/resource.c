@@ -5,7 +5,7 @@ Image Resource_LoadImage(const char* fileName) {
     #if defined(PLATFORM_WEB)
         Image image = LoadImage(TextFormat("client/bin/textures/%s", fileName)); 
     #else
-        Image image = LoadImage(TextFormat("textures/%s", fileName)); 
+        Image image = LoadImage(TextFormat("%stextures/%s", GetApplicationDirectory(), fileName));
     #endif
 
     return image;
