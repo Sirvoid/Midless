@@ -10,8 +10,10 @@
 
 #include "raylib.h"
 #include <stdint.h>
+#include "entitybody.h"
 
 typedef struct Entity{
+    EntityBody body;
     int id;
     uint64_t generation;
     bool active, pendingRemoval, dirty, announced;

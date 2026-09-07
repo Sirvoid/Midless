@@ -1,4 +1,5 @@
 #include "world.h"
+#include "../entityphysics.h"
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "../scripting/luaentities.h"
@@ -10,6 +11,11 @@ void ServerWorld_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
     if (!serverWorld.entities || id < 0 || id >= WORLD_MAX_ENTITIES) return;
     Entity *e = &serverWorld.entities[id];
     if (!e->active || e->pendingRemoval) return;
+    if (e->ownerPlayerId < 0 && e->body.enabled) {
+        e->body.velocity = (Vector3){0};
+        e->body.sleeping = e->body.grounded = e->body.blockedByUnloaded = false;
+    }
+    ServerPhysics_InvalidateIndex();
     e->position = position;
     e->rotation = rotation;
     e->dirty = true;
@@ -23,6 +29,8 @@ int ServerWorld_AddEntity(int type, int model, Vector3 position, int ownerPlayer
         *e = (Entity){.id = id, .generation = ++nextGeneration, .active = true,
             .ownerPlayerId = ownerPlayerId, .definitionId = -1, .scriptRef = -2,
             .type = type, .model = model, .position = position};
+        e->body = EntityBody_Default();
+        ServerPhysics_InvalidateIndex();
         return id;
     }
     return -1;
@@ -36,6 +44,7 @@ void ServerWorld_RemoveEntity(int id) {
 static void Destroy(Entity *e) {
     LuaEntities_Remove(e);
     if (e->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(e), e->ownerPlayerId);
+    ServerPhysics_InvalidateIndex();
     e->active = false;
     e->type = 0;
 }
@@ -46,6 +55,7 @@ void ServerEntities_Update(float dt) {
         Entity *e = &serverWorld.entities[id];
         if (e->active && !e->pendingRemoval && e->generation <= cutoff) LuaEntities_Step(e, dt);
     }
+    ServerPhysics_Update(dt);
     for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
         Entity *e = &serverWorld.entities[id];
         if (!e->active) continue;
@@ -77,5 +87,6 @@ void ServerEntities_Shutdown(void) {
         Entity *e = &serverWorld.entities[id];
         if (e->active) { e->pendingRemoval = true; Destroy(e); }
     }
+    ServerPhysics_Reset();
     shuttingDown = false;
 }

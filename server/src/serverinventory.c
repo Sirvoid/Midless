@@ -4,49 +4,20 @@
 #include "packet.h"
 #include "networkhandler.h"
 #include "world/world.h"
+#include "blockshape.h"
 
 #define BLOCK_INTERACTION_REACH 8.0f
 
-typedef struct BlockPhysics {
-    BoundingBox bounds;
-    bool solid, targetable, liquid;
-} BlockPhysics;
+typedef BlockShape BlockPhysics;
 
 static const Vector3 faceNormals[6] = {
     {-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}
 };
 
 static BlockPhysics GetBlockPhysics(int blockId, Vector3 position) {
-    BlockPhysics physics = {.bounds = {{0, 0, 0}, {1, 1, 1}}};
-    if (!blockId || !ServerWorld_IsBlockDefined(blockId)) return physics;
-    physics.solid = physics.targetable = true;
-    if (serverWorld.hasBlockDefinition[blockId]) {
-        const BlockDefinition *definition = &serverWorld.blockDefinitions[blockId];
-        physics.bounds.min = (Vector3){definition->min[0] / 16.0f, definition->min[1] / 16.0f, definition->min[2] / 16.0f};
-        physics.bounds.max = (Vector3){definition->max[0] / 16.0f, definition->max[1] / 16.0f, definition->max[2] / 16.0f};
-        physics.solid = definition->colliderType == BLOCK_COLLIDER_SOLID;
-        physics.liquid = definition->colliderType == BLOCK_COLLIDER_LIQUID;
-        physics.targetable = definition->modelType != BLOCK_MODEL_GAS && !physics.liquid;
-    } else {
-        if (blockId == 5 || blockId == 16) {
-            physics.solid = physics.targetable = false;
-            physics.liquid = true;
-        } else if (blockId == 12 || blockId == 13) {
-            physics.solid = false;
-            physics.bounds = (BoundingBox){{0.25f, 0, 0.25f}, {0.75f, 0.625f, 0.75f}};
-        } else if (blockId == 15) {
-            physics.solid = false;
-        } else if (blockId == 17 || blockId == 18) {
-            physics.bounds.max.y = 0.5f;
-        }
-    }
-    physics.bounds.min.x += position.x;
-    physics.bounds.min.y += position.y;
-    physics.bounds.min.z += position.z;
-    physics.bounds.max.x += position.x;
-    physics.bounds.max.y += position.y;
-    physics.bounds.max.z += position.z;
-    return physics;
+    const BlockDefinition *definition = blockId > 0 && blockId < 256 && serverWorld.hasBlockDefinition[blockId]
+        ? &serverWorld.blockDefinitions[blockId] : NULL;
+    return BlockShape_Get(blockId, definition, position);
 }
 
 static bool IsLoaded(Vector3 position) {

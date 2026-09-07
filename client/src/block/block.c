@@ -11,6 +11,7 @@
 #include "world.h"
 #include "player.h"
 #include "block.h"
+#include "blockshape.h"
 #include "blockmeshgeneration.h"
 #include "resource.h"
 
@@ -72,9 +73,7 @@ void Block_BuildDefinition(void) {
     }
 
     Block_Define(0, "air", 0, 0, 0);
-    blockDefinitions[0].modelType = BLOCK_MODEL_GAS;
     blockDefinitions[0].renderType = BLOCK_RENDER_TRANSPARENT;
-    blockDefinitions[0].colliderType = BLOCK_COLLIDER_NONE;
 
     Block_Define(1, "stone", 1, 1, 1);
     Block_Define(2, "dirt", 2, 2, 2);
@@ -83,7 +82,6 @@ void Block_BuildDefinition(void) {
     
     Block_Define(5, "water", 14, 14, 14);
     blockDefinitions[5].renderType = BLOCK_RENDER_TRANSLUCENT;
-    blockDefinitions[5].colliderType = BLOCK_COLLIDER_LIQUID;
     
     Block_Define(6, "sand", 11, 11, 11);
     Block_Define(7, "iron_ore", 6, 6, 6);
@@ -94,40 +92,33 @@ void Block_BuildDefinition(void) {
     blockDefinitions[11].renderType = BLOCK_RENDER_TRANSPARENT;
     
     Block_Define(12, "rose", 12, 12, 12);
-    blockDefinitions[12].modelType = BLOCK_MODEL_SPRITE;
     blockDefinitions[12].renderType = BLOCK_RENDER_TRANSPARENT;
-    blockDefinitions[12].colliderType = BLOCK_COLLIDER_NONE;
-    blockDefinitions[12].minBB = (Vector3) {4, 0, 4};
-    blockDefinitions[12].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(13, "dandelion", 13, 13, 13);
-    blockDefinitions[13].modelType = BLOCK_MODEL_SPRITE;
     blockDefinitions[13].renderType = BLOCK_RENDER_TRANSPARENT;
-    blockDefinitions[13].colliderType = BLOCK_COLLIDER_NONE;
-    blockDefinitions[13].minBB = (Vector3) {4, 0, 4};
-    blockDefinitions[13].maxBB = (Vector3) {12, 10, 12};
     
     Block_Define(14, "glass", 17, 17, 17);
     blockDefinitions[14].renderType = BLOCK_RENDER_TRANSPARENT;
 
     Block_Define(15, "fire", 16, 16, 16);
     blockDefinitions[15].renderType = BLOCK_RENDER_TRANSPARENT;
-    blockDefinitions[15].modelType = BLOCK_MODEL_SPRITE;
-    blockDefinitions[15].colliderType = BLOCK_COLLIDER_NONE;
     blockDefinitions[15].lightType = BLOCK_LIGHT_EMIT;
 
     Block_Define(16, "lava", 15, 15, 15);
-    blockDefinitions[16].colliderType = BLOCK_COLLIDER_LIQUID;
     blockDefinitions[16].lightType = BLOCK_LIGHT_EMIT;
 
     Block_Define(17, "stone_slab", 1, 1, 1);
-    blockDefinitions[17].maxBB = (Vector3) {16, 8, 16};
 
     Block_Define(18, "wood_slab", 4, 4, 4);
-    blockDefinitions[18].maxBB = (Vector3) {16, 8, 16};
 
     for (int i = 0; i < 256; i++) {
         Block *block = &blockDefinitions[i];
+        BlockDefinition shape = {0};
+        BlockShape_Default(i, &shape);
+        block->modelType = shape.modelType;
+        block->colliderType = shape.colliderType;
+        block->minBB = (Vector3){shape.min[0], shape.min[1], shape.min[2]};
+        block->maxBB = (Vector3){shape.max[0], shape.max[1], shape.max[2]};
         Block_Finalize(block);
         block->lightPassFaces = Block_GetLightPassFaces(block);
     }
