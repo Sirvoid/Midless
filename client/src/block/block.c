@@ -195,15 +195,6 @@ bool Block_IsOverridden(int id) {
     return id > 0 && id < 256 && overridden[id];
 }
 
-int Block_NextSelectable(int id, int direction) {
-    id = (id >= 0 && id < 256) ? id : 0;
-    for (int i = 0; i < 256; i++) {
-        id = (id + (direction < 0 ? 255 : 1)) % 256;
-        if (Block_IsSelectable(id)) return id;
-    }
-    return 0;
-}
-
 static void Block_Replace(int id, Block block) {
     const Block *old = &blockDefinitions[id];
     lightingChanged |= old->renderType != block.renderType || old->lightType != block.lightType ||
@@ -255,5 +246,5 @@ void Block_FlushDefinitionChanges(void) {
     World_InvalidateBlockDefinitions(lightingChanged);
     lightingChanged = false;
     if (!Block_IsSelectable(player.blockSelected))
-        player.blockSelected = Block_NextSelectable(player.blockSelected, 1);
+        player.blockSelected = 0;
 }

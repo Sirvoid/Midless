@@ -21,6 +21,7 @@
 #include "client.h"
 #include "clientws.h"
 #include "blockitemrenderer.h"
+#include "inventoryscreen.h"
 
 Screen currentScreen = SCREEN_LOGIN;
 bool screenCursorEnabled = false;
@@ -101,11 +102,10 @@ void Screen_DrawGame(void) {
     DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 + 2,  4, 6, uiColBg);
     DrawRectangle(screenWidth / 2 - 2, screenHeight / 2 - 8,  4, 6, uiColBg);
 
-    // Draw the selected block.
-    BlockItemRenderer_Draw(player.blockSelected, (Rectangle){screenWidth - 88, 8, 80, 80});
+    ClientInventory_Draw(false);
 
     //Draw Chat
-    Chat_Draw((Vector2){16, screenHeight - 52}, uiColBg);
+    Chat_Draw((Vector2){16, screenHeight - 82}, uiColBg);
 }
 
 void Screen_DrawPause(void) {
@@ -303,6 +303,8 @@ void Screen_Draw(void) {
     
     if (currentScreen == SCREEN_GAME)
         Screen_DrawGame();
+    else if (currentScreen == SCREEN_INVENTORY)
+        ClientInventory_Draw(true);
     else if (currentScreen == SCREEN_PAUSE)
         Screen_DrawPause();
     else if(currentScreen == SCREEN_LOADING)

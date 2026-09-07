@@ -21,6 +21,8 @@
 #include "entitymodel.h"
 #include "../textures.h"
 #include "textureprotocol.h"
+#include "inventoryprotocol.h"
+#include "inventoryclient.h"
 
 PacketHandlerEntry packets[256];
 int networkConnectedToServer = 0;
@@ -70,6 +72,7 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleData, TEXTURE_DATA_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleTerrain, 3};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleHeldBlock, 4}; //20
+    packets[packetCount++] = (PacketHandlerEntry) {&ClientInventory_HandleState, INVENTORY_STATE_PACKET_SIZE}; //21
 }
 
 void Network_Connect(void) {
@@ -92,6 +95,7 @@ void Network_Disconnect(void) {
 }
 
 static void Network_PerformDisconnect(void) {
+    ClientInventory_Reset();
     for (int i = 0; i < hmlen(world.chunks); i++) world.chunks[i].value->modified = false;
     bool wasLocal = LocalServer_IsRunning();
     if (wasLocal) {
@@ -143,7 +147,7 @@ void Network_ProcessIncomingPackets(void) {
         Network_PerformDisconnect();
         return;
     }
-    if (reset) { EntityModel_ResetDefinitions(); ClientTextures_Reset(); Block_ResetDefinitions(); }
+    if (reset) { ClientInventory_Reset(); EntityModel_ResetDefinitions(); ClientTextures_Reset(); Block_ResetDefinitions(); }
     const int maxPacketsPerFrame = 1024;
     const double terrainPacketBudgetSeconds = 0.002;
     IncomingPacket gameplayPackets[maxPacketsPerFrame];

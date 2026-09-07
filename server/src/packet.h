@@ -40,12 +40,10 @@ void ServerPacket_WriteInt(unsigned char* packet, int value);
 void ServerPacket_WriteArray(unsigned char* packet, unsigned char* array, int size);
 
 void ServerPacket_HandleIdentification(void);
-void ServerPacket_HandleSetBlock(void);
 void ServerPacket_HandlePlayerPosition(void);
 void ServerPacket_HandleMessage(void);
 void ServerPacket_HandleSetDrawDistance(void);
 void ServerPacket_HandlePlayerClick(void);
-void ServerPacket_HandleHeldBlock(void);
 unsigned char *ServerPacket_CreateHeldBlock(Entity *entity);
 
 unsigned char* ServerPacket_CreateMapInit(void);

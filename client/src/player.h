@@ -52,8 +52,6 @@ void Player_SetEntityModel(int type, int modelId);
 void Player_ClearEntityModel(void);
 void Player_Teleport(Vector3 position);
 
-bool Player_TryPlaceBlock(Vector3 pos, int blockId);
-
 bool Player_TestCollision(Vector3 offset);
 float Player_GetLiquidSubmersion(void);
 bool Player_GetCameraLiquidTint(Color *tint);

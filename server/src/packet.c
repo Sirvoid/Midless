@@ -19,6 +19,8 @@
 #include "luabindings.h"
 #include "rotation.h"
 #include "world/textures.h"
+#include "serverinventory.h"
+#include "inventoryprotocol.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -46,7 +48,8 @@ int serverPacketLengths[256] = {
     2, //remove entity model
     4, //set entity model
     TEXTURE_BEGIN_SIZE, TEXTURE_DATA_SIZE, 3,
-    4 // held block
+    4, // held block
+    INVENTORY_STATE_PACKET_SIZE
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -174,21 +177,14 @@ void ServerPacket_HandleIdentification(void) {
         return;
     }
     ServerWorld_SendBlockDefinitions(serverPacketPlayer);
+    ServerInventory_GiveStartingBlocks(serverPacketPlayer);
+    ServerInventory_Send(serverPacketPlayer);
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateWorldTime(serverWorld.time));
     if (serverWorld.players[serverPacketPlayer->id] == serverPacketPlayer)
         LuaBindings_InvokePlayerJoin(serverPacketPlayer->id);
 }
 
-void ServerPacket_HandleSetBlock(void) {
-    int blockId = ServerPacket_ReadByte();
-    Vector3 position = (Vector3) { ServerPacket_ReadInt(), ServerPacket_ReadInt(), ServerPacket_ReadInt() };
-    if (!ServerWorld_IsBlockDefined(blockId)) {
-        ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateSetBlock(
-            (unsigned char)ServerWorld_GetBlock(position), position, false));
-        return;
-    }
-    ServerWorld_SetBlock(position, blockId, true, true, true);
-}
+
 
 void ServerPacket_HandlePlayerPosition(void) {
     Vector3 position = (Vector3) { ServerPacket_ReadInt() / 64.0f, ServerPacket_ReadInt() / 64.0f, ServerPacket_ReadInt() / 64.0f };
@@ -455,15 +451,4 @@ unsigned char *ServerPacket_CreateHeldBlock(Entity *entity) {
     ServerPacket_WriteByte(packet, entity->heldBlock);
     return packet;
 }
-void ServerPacket_HandleHeldBlock(void) {
-    int id = serverPacketPlayer->entityId;
-    unsigned char blockId = ServerPacket_ReadByte();
-    if (!serverWorld.entities || id < 0 || id >= WORLD_MAX_ENTITIES) return;
-    Entity *entity = &serverWorld.entities[id];
-    if (!entity->active || entity->pendingRemoval || entity->ownerPlayerId != serverPacketPlayer->id) return;
-    if (blockId && !ServerWorld_IsBlockDefined(blockId)) return;
-    if (entity->heldBlock == blockId) return;
-    entity->heldBlock = blockId;
-    if (entity->announced)
-        ServerWorld_BroadcastExcluding(ServerPacket_CreateHeldBlock(entity), entity->ownerPlayerId);
-}
+

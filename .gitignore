@@ -2,6 +2,7 @@ midless.code-workspace
 .vscode/
 bin/
 build/
+tests/
 *.o
 libs/*.c
 libs/*.h

@@ -24,6 +24,7 @@ Player *ServerPlayer_Create(void *peer, bool isWeb) {
     if (player == NULL) return NULL;
 
     *player = (Player){0};
+    Inventory_Init(&player->inventory);
     player->entityId = -1;
     player->connectionId = ++nextConnectionId;
     player->peer = peer;

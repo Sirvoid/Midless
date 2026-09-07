@@ -20,20 +20,20 @@
 #include "entitymodel.h"
 #include "textureprotocol.h"
 #include "rotation.h"
+#include "inventoryprotocol.h"
 
 #define PACKET_STRING_SIZE 64
 
 unsigned char *packetData;
 int packetDataLength;
 int Packet_Lengths[256] = {
-    67, //0
-    14, //1
-    16, //2
-    65, //3
-    2, //4
-    2, //5
-    TEXTURE_ACK_SIZE, //6
-    2, //7 held block
+    67, //0 identification
+    16, //1 player position
+    65, //2 message
+    2, //3 draw distance
+    2, //4 player click
+    TEXTURE_ACK_SIZE, //5
+    INVENTORY_ACTION_PACKET_SIZE, //6
 };
 int pingCalculationPreviousTime = 0;
 
@@ -302,21 +302,10 @@ unsigned char *Packet_CreateIdentification(unsigned short version, char *name) {
     return packet;
 }
 
-unsigned char *Packet_CreateSetBlock(unsigned char blockId, Vector3 position) {
+unsigned char *Packet_CreatePlayerPosition(Vector3 position, Vector3 rotation) {
     packetWriterIndex = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[1]);
     Packet_WriteByte(packet, 1);
-    Packet_WriteByte(packet, blockId);
-    Packet_WriteInt(packet, floor(position.x));
-    Packet_WriteInt(packet, floor(position.y));
-    Packet_WriteInt(packet, floor(position.z));
-    return packet;
-}
-
-unsigned char *Packet_CreatePlayerPosition(Vector3 position, Vector3 rotation) {
-    packetWriterIndex = 0;
-    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[2]);
-    Packet_WriteByte(packet, 2);
     Packet_WriteInt(packet, (int)(position.x * 64));
     Packet_WriteInt(packet, (int)(position.y * 64));
     Packet_WriteInt(packet, (int)(position.z * 64));
@@ -328,24 +317,24 @@ unsigned char *Packet_CreatePlayerPosition(Vector3 position, Vector3 rotation) {
 
 unsigned char *Packet_CreateMessage(char *message) {
     packetWriterIndex = 0;
-    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[3]);
-    Packet_WriteByte(packet, 3);
+    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[2]);
+    Packet_WriteByte(packet, 2);
     Packet_WriteString(packet, message);
     return packet;
 }
 
 unsigned char *Packet_CreateSetDrawDistance(unsigned char distance) {
     packetWriterIndex = 0;
-    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
-    Packet_WriteByte(packet, 4);
+    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[3]);
+    Packet_WriteByte(packet, 3);
     Packet_WriteByte(packet, distance);
     return packet;
 }
 
 unsigned char *Packet_CreatePlayerClick(unsigned char button) {
     packetWriterIndex = 0;
-    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[5]);
-    Packet_WriteByte(packet, 5);
+    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
+    Packet_WriteByte(packet, 4);
     Packet_WriteByte(packet, button);
     return packet;
 }
@@ -405,13 +394,6 @@ void Packet_HandleSetEntityModel(void) {
     EntityModel_SetEntityModel(entityId, modelId);
 }
 
-unsigned char *Packet_CreateHeldBlock(unsigned char blockId) {
-    packetWriterIndex = 0;
-    unsigned char *packet = MemAlloc(2);
-    Packet_WriteByte(packet, 7);
-    Packet_WriteByte(packet, blockId);
-    return packet;
-}
 void Packet_HandleHeldBlock(void) {
     int id = Packet_ReadUShort();
     unsigned char blockId = Packet_ReadByte();

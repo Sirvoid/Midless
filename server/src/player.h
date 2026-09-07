@@ -11,8 +11,11 @@
 #include "raylib.h"
 #include "blockdefinition.h"
 #include "textureprotocol.h"
+#include "inventory.h"
 
 typedef struct Player {
+    Inventory inventory;
+    uint32_t inventoryRevision, inventorySequence;
     unsigned char id;
     int entityId;
     uint32_t textureSent[TEXTURE_LIMIT], textureRevision, textureOffset;

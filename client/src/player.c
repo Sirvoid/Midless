@@ -20,6 +20,7 @@
 #include "packet.h"
 #include "particle.h"
 #include "entity.h"
+#include "inventoryclient.h"
 
 #define MOUSE_SENSITIVITY 0.003f
 #define THIRD_PERSON_DISTANCE 4.0f
@@ -33,7 +34,6 @@ Vector2 playerOldMousePosition = {0.0f, 0.0f};
 Vector2 playerCameraAngle = {0.0f, 0.0f};
 double playerLastPositionPacketTime;
 Player player;
-static int lastSentHeldBlock;
 
 void Player_Init(void) {
 
@@ -51,8 +51,7 @@ void Player_Init(void) {
     player.collisionBox.min = (Vector3) { 0.2f, 0, 0.2f };
     player.collisionBox.max = (Vector3) { 0.8f, 1.5f, 0.8f };
 
-    player.blockSelected = 15;
-    lastSentHeldBlock = -1;
+    ClientInventory_Reset();
     player.entityType = 0;
     player.modelId = 0;
     player.hasEntityModel = false;
@@ -131,7 +130,11 @@ void Player_CheckInputs() {
         player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
     }
     
-    if (IsKeyPressed(KEY_ESCAPE)) {
+    if ((IsKeyPressed(KEY_E) && !chatOpen &&
+         (currentScreen == SCREEN_GAME || currentScreen == SCREEN_INVENTORY)) ||
+        (IsKeyPressed(KEY_ESCAPE) && currentScreen == SCREEN_INVENTORY)) {
+        ClientInventory_Toggle();
+    } else if (IsKeyPressed(KEY_ESCAPE)) {
         if (screenCursorEnabled) {
             DisableCursor();
             chatOpen = false;
@@ -141,7 +144,7 @@ void Player_CheckInputs() {
             Screen_Switch(SCREEN_PAUSE);
         }
         screenCursorEnabled = !screenCursorEnabled;
-    } else if (IsKeyPressed(KEY_T)) {
+    } else if (IsKeyPressed(KEY_T) && currentScreen != SCREEN_INVENTORY) {
         if (screenCursorEnabled && !chatOpen) {
             DisableCursor();
             screenCursorEnabled = false;
@@ -234,8 +237,11 @@ void Player_CheckInputs() {
         player.velocity = Vector3Add(player.velocity, moveVel);
         
         float wheel = GetMouseWheelMove();
-        if (wheel > 0.35f) player.blockSelected = Block_NextSelectable(player.blockSelected, 1);
-        if (wheel < -0.35f) player.blockSelected = Block_NextSelectable(player.blockSelected, -1);
+        if (wheel > 0.35f) ClientInventory_Scroll(-1);
+        if (wheel < -0.35f) ClientInventory_Scroll(1);
+        for (int slot = 0; slot < INVENTORY_HOTBAR_SLOTS; slot++) {
+            if (IsKeyPressed(KEY_ONE + slot)) ClientInventory_Select(slot);
+        }
         
         player.rayResult = Raycast_Cast(eyePosition, forward, true);
 
@@ -243,54 +249,15 @@ void Player_CheckInputs() {
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
             Network_Send(Packet_CreatePlayerClick(0));
             if (player.rayResult.hitblockId != -1) {
-                Particle_SpawnBlockBreak(player.rayResult.hitPos, player.rayResult.hitblockId);
-                World_SetBlock(player.rayResult.hitPos, 0, true);
-                Network_Send(Packet_CreateSetBlock(0, player.rayResult.hitPos));
+                ClientInventory_Interact(false, player.rayResult.hitPos, player.rayResult.normal, player.rayResult.hitblockId);
             }
         } else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
             Network_Send(Packet_CreatePlayerClick(1));
-            Vector3 placePos = Vector3Add(player.rayResult.hitPos, player.rayResult.normal);
-            
-            if (player.rayResult.hitblockId != -1) {
-                int bottomblockId = World_GetBlock(Vector3Add(placePos, (Vector3){0, -1, 0}));
-                if (Block_IsOverridden(player.blockSelected)) {
-                    Player_TryPlaceBlock(placePos, player.blockSelected);
-                } else switch (player.blockSelected)
-                {
-                    case -1: // null
-                    case 0: // air
-                        break;
-
-                    case 12:
-                    case 13:
-                        if (bottomblockId == 2 || bottomblockId == 3 || bottomblockId == 6) { // dirt, grass, sand
-                            Player_TryPlaceBlock(placePos, player.blockSelected);
-                        }
-                        break;
-                        
-                    case 17: // stone_slab
-                        if (player.rayResult.normal.y == 1 && player.rayResult.hitblockId == 17) {
-                            Player_TryPlaceBlock(player.rayResult.hitPos, 1);
-                            break;
-                        }
-
-                    case 18: // wood_slab
-                        if (player.rayResult.normal.y == 1 && player.rayResult.hitblockId == 18) {
-                            Player_TryPlaceBlock(player.rayResult.hitPos, 4);
-                            break;
-                        }
-
-                    default:
-                        Player_TryPlaceBlock(placePos, player.blockSelected);
-                        break;
-                }
-            }
-        } else if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) { //Pick Block
-            int pickedId = World_GetBlock(player.rayResult.hitPos);
-            if (Block_IsSelectable(pickedId)) player.blockSelected = pickedId;
+            ClientInventory_Interact(true, player.rayResult.hitPos, player.rayResult.normal, player.rayResult.hitblockId);
         }
     }
+
     player.camera.position = eyePosition;
     if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) {
         Vector3 cameraDirection = player.cameraMode == PLAYER_CAMERA_THIRD_PERSON_BEHIND
@@ -308,24 +275,8 @@ void Player_CheckInputs() {
     player.camera.target = Vector3Add(eyePosition, forward);
 }
 
-bool Player_TryPlaceBlock(Vector3 pos, int blockId)
-{
-    if (!Block_IsSelectable(blockId)) return false;
-    int oldBlock = World_GetBlock(pos);
-    World_SetBlock(pos, blockId, true);
-    if (Player_TestCollision((Vector3){ 0 }))
-    {
-        World_SetBlock(pos, oldBlock, true);
-        return false;
-    }
-
-    Network_Send(Packet_CreateSetBlock(blockId, pos));
-    return true;
-}
-
-
-
 void Player_Update(void) {
+    ClientInventory_Update();
     
     if(GetTime() - playerLastPositionPacketTime > 0.05) {
         Network_Send(Packet_CreatePlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector3) {playerCameraAngle.y - PI / 2, -playerCameraAngle.x + PI / 2, 0}));
@@ -399,11 +350,6 @@ void Player_Update(void) {
     }
     
     Player_CheckInputs();
-    int heldBlock = Block_IsSelectable(player.blockSelected) ? player.blockSelected : 0;
-    if (heldBlock != lastSentHeldBlock && player.hasEntityModel) {
-        Network_Send(Packet_CreateHeldBlock(heldBlock));
-        lastSentHeldBlock = heldBlock;
-    }
     EntityAnimation_Update(&player.animation, player.position, GetFrameTime());
 }
 

@@ -14,8 +14,11 @@ typedef enum Screen {
     SCREEN_LOADING,
     SCREEN_JOINING,
     SCREEN_LOGIN,
-    SCREEN_OPTIONS
+    SCREEN_OPTIONS,
+    SCREEN_INVENTORY
 } Screen;
+
+extern Screen currentScreen;
 
 extern bool screenCursorEnabled;
 extern bool screenShowDebug;

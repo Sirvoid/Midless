@@ -42,7 +42,6 @@ const Block *Block_GetDefinition(int id);
 bool Block_IsDefined(int id);
 bool Block_IsSelectable(int id);
 bool Block_IsOverridden(int id);
-int Block_NextSelectable(int id, int direction);
 bool Block_ApplyDefinition(int id, const BlockDefinition *definition);
 void Block_RemoveDefinition(int id);
 void Block_ResetDefinitions(void);
