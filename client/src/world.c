@@ -528,6 +528,7 @@ void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 ro
     if (modelId < 0 || modelId >= 256) return;
 
     if (world.entities[id].type != 0) Entity_Destroy(&world.entities[id]);
+    world.entities[id] = (Entity){0};
     world.entities[id].type = type;
     world.entities[id].modelId = (unsigned char)modelId;
     world.entities[id].position = position;
@@ -537,7 +538,8 @@ void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 ro
     world.entities[id].targetHeadPitch = rotation.x;
     EntityAnimation_Init(&world.entities[id].animation, position);
     
-    EntityModel_Create(&world.entities[id].model, *EntityModel_GetDefinition(modelId));
+    if (type != ENTITY_TYPE_DROPPED_ITEM)
+        EntityModel_Create(&world.entities[id].model, *EntityModel_GetDefinition(modelId));
 }
 
 void World_RemoveEntity(int id) {

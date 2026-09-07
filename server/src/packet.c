@@ -49,7 +49,8 @@ int serverPacketLengths[256] = {
     4, //set entity model
     TEXTURE_BEGIN_SIZE, TEXTURE_DATA_SIZE, 3,
     4, // held block
-    INVENTORY_STATE_PACKET_SIZE
+    INVENTORY_STATE_PACKET_SIZE,
+    DROPPED_ITEM_PACKET_SIZE
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -449,6 +450,20 @@ unsigned char *ServerPacket_CreateHeldBlock(Entity *entity) {
     ServerPacket_WriteByte(packet, 20);
     ServerPacket_WriteUShort(packet, entity->id);
     ServerPacket_WriteByte(packet, entity->heldBlock);
+    return packet;
+}
+
+unsigned char *ServerPacket_CreateDroppedItem(Entity *entity) {
+    serverPacketWriterIndex = 0;
+    unsigned char *packet = MemAlloc(DROPPED_ITEM_PACKET_SIZE);
+    if (!packet) return NULL;
+    ServerPacket_WriteByte(packet, PACKET_DROPPED_ITEM);
+    ServerPacket_WriteUShort(packet, entity->id);
+    ServerPacket_WriteUShort(packet, entity->drop.stack.itemId);
+    ServerPacket_WriteByte(packet, entity->drop.stack.count);
+    ServerPacket_WriteInt(packet, (int)(entity->position.x * 64));
+    ServerPacket_WriteInt(packet, (int)(entity->position.y * 64));
+    ServerPacket_WriteInt(packet, (int)(entity->position.z * 64));
     return packet;
 }
 

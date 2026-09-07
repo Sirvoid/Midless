@@ -11,6 +11,7 @@
 #include "raylib.h"
 #include "entitymodel.h"
 #include "entityanimation.h"
+#include "droppeditem.h"
 
 #define ENTITY_ARM_SWING_DURATION 0.275f
 
@@ -25,6 +26,7 @@ typedef struct EntityAnimation {
 } EntityAnimation;
 
 typedef struct Entity{
+    ItemStack droppedStack;
     unsigned char heldBlock;
     char type;
     unsigned char modelId;

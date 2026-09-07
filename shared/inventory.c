@@ -26,37 +26,37 @@ static void MoveItems(ItemStack *source, ItemStack *destination, int requested) 
     if (!source->count) source->itemId = 0;
 }
 
+int Inventory_AddPartial(Inventory *inventory, uint16_t itemId, int count) {
+    if (!itemId || count <= 0) return 0;
+    int remaining = count;
+    // Fill matching stacks before empty slots, preferring the hotbar for new stacks.
+    for (int pass = 0; pass < 2; pass++) {
+        for (int i = 0; i < INVENTORY_SLOT_COUNT && remaining > 0; i++) {
+            int index = (i + INVENTORY_STORAGE_SLOTS) % INVENTORY_SLOT_COUNT;
+            ItemStack *slot = &inventory->slots[index];
+            if (pass == 0 ? (!slot->count || slot->itemId != itemId) : slot->count != 0) continue;
+            int moved = Item_GetMaxStack(itemId) - slot->count;
+            if (moved > remaining) moved = remaining;
+            slot->itemId = itemId;
+            slot->count += moved;
+            remaining -= moved;
+        }
+    }
+    return count - remaining;
+}
+
 bool Inventory_Add(Inventory *inventory, uint16_t itemId, int count) {
     if (!itemId || count <= 0) return false;
     Inventory result = *inventory;
-    // Fill existing stacks first, then empty slots. New stacks prefer the hotbar.
-    for (int pass = 0; pass < 2; pass++) {
-        for (int i = 0; i < INVENTORY_SLOT_COUNT && count > 0; i++) {
-            int index = (i + INVENTORY_STORAGE_SLOTS) % INVENTORY_SLOT_COUNT;
-            ItemStack *slot = &result.slots[index];
-            if (pass == 0 ? (!slot->count || slot->itemId != itemId) : slot->count != 0) continue;
-            int moved = Item_GetMaxStack(itemId) - slot->count;
-            if (moved > count) moved = count;
-            slot->itemId = itemId;
-            slot->count += moved;
-            count -= moved;
-        }
-    }
-    if (count != 0) return false;
+    if (Inventory_AddPartial(&result, itemId, count) != count) return false;
     *inventory = result;
     return true;
 }
 
 bool Inventory_Close(Inventory *inventory) {
-    Inventory result = *inventory;
-    if (result.cursor.count && result.cursorOrigin < INVENTORY_SLOT_COUNT) {
-        MoveItems(&result.cursor, &result.slots[result.cursorOrigin], result.cursor.count);
-    }
-    if (result.cursor.count && !Inventory_Add(&result, result.cursor.itemId, result.cursor.count)) return false;
-    result.cursor = (ItemStack){0};
-    result.cursorOrigin = INVENTORY_NO_SLOT;
-    result.open = false;
-    *inventory = result;
+    if (inventory->cursor.count) return false;
+    inventory->cursorOrigin = INVENTORY_NO_SLOT;
+    inventory->open = false;
     return true;
 }
 

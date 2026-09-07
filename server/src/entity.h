@@ -11,9 +11,11 @@
 #include "raylib.h"
 #include <stdint.h>
 #include "entitybody.h"
+#include "droppeditem.h"
 
 typedef struct Entity{
     EntityBody body;
+    DroppedItem drop;
     int id;
     uint64_t generation;
     bool active, pendingRemoval, dirty, announced;

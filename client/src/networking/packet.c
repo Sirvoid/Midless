@@ -400,3 +400,20 @@ void Packet_HandleHeldBlock(void) {
     if (world.entities && id < WORLD_MAX_ENTITIES && world.entities[id].type)
         world.entities[id].heldBlock = blockId;
 }
+
+void Packet_HandleDroppedItem(void) {
+    if (packetDataLength != DROPPED_ITEM_PACKET_SIZE) return;
+    int id = Packet_ReadUShort();
+    ItemStack stack = {Packet_ReadUShort(), Packet_ReadByte()};
+    Vector3 position = {Packet_ReadInt() / 64.0f, Packet_ReadInt() / 64.0f, Packet_ReadInt() / 64.0f};
+    if (!world.entities || id >= WORLD_MAX_ENTITIES || !stack.itemId || stack.itemId > 255 ||
+        !stack.count || stack.count > Item_GetMaxStack(stack.itemId) ||
+        fabsf(position.x) > 1000000 || fabsf(position.y) > 1000000 || fabsf(position.z) > 1000000) return;
+    Entity *entity = &world.entities[id];
+    if (entity->type != ENTITY_TYPE_DROPPED_ITEM) {
+        World_AddEntity(id, ENTITY_TYPE_DROPPED_ITEM, 0, position, (Vector3){0});
+    } else {
+        World_TeleportEntity(id, position, (Vector3){0});
+    }
+    entity->droppedStack = stack;
+}

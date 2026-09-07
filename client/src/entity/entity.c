@@ -154,6 +154,19 @@ static void Entity_DrawFiltered(Entity *entity, bool firstPersonOnly) {
 }
 
 void Entity_Draw(Entity *entity) {
+    if (entity->type == ENTITY_TYPE_DROPPED_ITEM) {
+        Vector3 position = entity->position;
+        Vector3 chunkPosition = {floorf(position.x / CHUNK_SIZE_X), floorf(position.y / CHUNK_SIZE_Y), floorf(position.z / CHUNK_SIZE_Z)};
+        Chunk *chunk = World_GetChunkAt(chunkPosition);
+        if (!chunk || !chunk->isBlockDataReady) return;
+        float phase = (float)GetTime() * 1.8f;
+        Matrix transform = MatrixMultiply(MatrixScale(0.25f, 0.25f, 0.25f), MatrixRotateY(phase));
+        transform.m12 = position.x;
+        transform.m13 = position.y + 0.06f + sinf(phase * 1.5f) * 0.04f;
+        transform.m14 = position.z;
+        BlockItemRenderer_Draw3D(entity->droppedStack.itemId, transform, Entity_GetBrightness(position));
+        return;
+    }
     Entity_ApplyThirdPersonAnimation(entity);
     Entity_DrawFiltered(entity, false);
 }
@@ -194,6 +207,10 @@ void Entity_DrawFirstPerson(Entity *entity, Camera camera, float swingProgress) 
 
 void Entity_Destroy(Entity *entity) {
     if (entity->type == 0) return;
+    if (entity->type == ENTITY_TYPE_DROPPED_ITEM) {
+        *entity = (Entity){0};
+        return;
+    }
     entity->type = 0;
     EntityModel_Unload(&entity->model);
     EntityModel_Destroy(&entity->model);

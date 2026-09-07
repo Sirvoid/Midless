@@ -36,6 +36,12 @@ void ClientInventory_Draw(bool showStorage) {
     if (hoveredSlot >= 0) {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) ClientInventory_Click(hoveredSlot, false);
         else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) ClientInventory_Click(hoveredSlot, true);
+    } else if (showStorage && inventory->cursor.count) {
+        Rectangle panel = {left - 10, top - 35, size * 9 + 20, size * 4.35f + 45};
+        if (!CheckCollisionPointRec(mouse, panel)) {
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) ClientInventory_Throw(false);
+            else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) ClientInventory_Throw(true);
+        }
     }
     if (showStorage) {
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), (Color){0, 0, 0, 100});
@@ -60,6 +66,6 @@ void ClientInventory_Draw(bool showStorage) {
         DrawRectangle((int)x - 4, (int)mouse.y - 26, width + 8, 24, (Color){0, 0, 0, 220});
         DrawText(name, (int)x, (int)mouse.y - 22, 16, WHITE);
     }
-    const char *hint = ClientInventory_CloseBlocked() ? "Make room for the cursor stack before closing." : "";
+    const char *hint = ClientInventory_CloseBlocked() ? "Cannot drop the held stack here right now." : "";
     DrawText(hint, (GetScreenWidth() - MeasureText(hint, 14)) / 2, (int)(top + size * 4.35f + 20), 14, WHITE);
 }

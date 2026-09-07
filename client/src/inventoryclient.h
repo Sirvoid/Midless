@@ -11,6 +11,7 @@ bool ClientInventory_IsOpen(void);
 const Inventory *ClientInventory_Get(void);
 bool ClientInventory_Toggle(void);
 void ClientInventory_Click(int slot, bool rightClick);
+void ClientInventory_Throw(bool oneItem);
 void ClientInventory_Select(int hotbarSlot);
 void ClientInventory_Scroll(int direction);
 void ClientInventory_Interact(bool place, Vector3 hit, Vector3 normal, int targetBlock);

@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include "world.h"
 #include "../player.h"
+#include "../droppeditems.h"
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "../scripting/luabindings.h"
@@ -53,6 +54,7 @@ void ServerWorld_RemovePlayer(void *player) {
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if (serverWorld.players[i] != removedPlayer) continue;
         LuaBindings_InvokePlayerLeave(i);
+        ServerDrops_ForgetPlayer(i);
         serverWorld.players[i] = NULL;
         ServerWorld_RemoveEntity(removedPlayer->entityId);
         break;

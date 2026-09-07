@@ -1,10 +1,12 @@
 #include <math.h>
+#include <stdlib.h>
 #include "serverinventory.h"
 #include "inventoryprotocol.h"
 #include "packet.h"
 #include "networkhandler.h"
 #include "world/world.h"
 #include "blockshape.h"
+#include "droppeditems.h"
 
 #define BLOCK_INTERACTION_REACH 8.0f
 
@@ -108,14 +110,13 @@ static bool OverlapsPlayer(BoundingBox block) {
 }
 
 static void TryHarvestBlock(Player *player, const InventoryAction *action) {
-    Inventory result = player->inventory;
-    if (!Inventory_Add(&result, action->targetBlock, 1)) {
-        ServerPlayer_SendMessage(player, "Inventory full");
+    Vector3 target = {(float)action->x, (float)action->y, (float)action->z};
+    Vector3 position = {target.x + 0.5f, target.y + 0.5f, target.z + 0.5f};
+    Vector3 velocity = {(rand() % 201 - 100) / 100.0f, 2.5f, (rand() % 201 - 100) / 100.0f};
+    if (ServerDrops_Spawn((ItemStack){action->targetBlock, 1}, position, velocity, 0.5f) < 0) {
+        ServerPlayer_SendMessage(player, "Cannot break this block: no room for another dropped item.");
         return;
     }
-
-    player->inventory = result;
-    Vector3 target = {(float)action->x, (float)action->y, (float)action->z};
     ServerWorld_SetBlock(target, 0, true, true, true);
 }
 
@@ -189,11 +190,17 @@ void ServerInventory_HandleAction(void) {
             if (action.type == INVENTORY_BREAK) TryHarvestBlock(player, &action);
             else TryPlaceBlock(player, &action);
         }
+    } else if (action.type == INVENTORY_THROW_STACK || action.type == INVENTORY_THROW_ONE) {
+        if (!ServerDrops_Throw(player, action.type == INVENTORY_THROW_ONE) && player->inventory.cursor.count)
+            ServerPlayer_SendMessage(player, "Cannot drop items here right now.");
+    } else if (action.type == INVENTORY_CLOSE) {
+        if (player->inventory.cursor.count && !ServerDrops_Throw(player, false)) {
+            ServerPlayer_SendMessage(player, "Cannot drop the held stack here right now.");
+        } else {
+            Inventory_Close(&player->inventory);
+        }
     } else {
         Inventory_ApplyAction(&player->inventory, &action);
-        if (action.type == INVENTORY_CLOSE && player->inventory.open) {
-            ServerPlayer_SendMessage(player, "Make room for the cursor stack before closing.");
-        }
     }
     player->inventoryRevision++;
     ServerInventory_UpdateHeldBlock(player);

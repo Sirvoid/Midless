@@ -29,7 +29,9 @@ typedef enum InventoryActionType {
     INVENTORY_RIGHT_CLICK,
     INVENTORY_SELECT,
     INVENTORY_BREAK,
-    INVENTORY_PLACE
+    INVENTORY_PLACE,
+    INVENTORY_THROW_STACK,
+    INVENTORY_THROW_ONE
 } InventoryActionType;
 
 typedef struct InventoryAction {
@@ -45,6 +47,7 @@ int Item_GetMaxStack(uint16_t itemId);
 void Inventory_Init(Inventory *inventory);
 ItemStack *Inventory_GetSelected(Inventory *inventory);
 bool Inventory_Add(Inventory *inventory, uint16_t itemId, int count);
+int Inventory_AddPartial(Inventory *inventory, uint16_t itemId, int count);
 bool Inventory_Close(Inventory *inventory);
 void Inventory_ApplyAction(Inventory *inventory, const InventoryAction *action);
 

@@ -194,6 +194,7 @@ void EntityModel_SetEntityModel(int entityId, int modelId) {
     }
     if (!world.entities || entityId < 0 || entityId >= WORLD_MAX_ENTITIES) return;
     Entity *e = &world.entities[entityId];
+    if (e->type == ENTITY_TYPE_DROPPED_ITEM) return;
     if (!e->type) return;
     EntityModel_Unload(&e->model);
     EntityModel_Destroy(&e->model);

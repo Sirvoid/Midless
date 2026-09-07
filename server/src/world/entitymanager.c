@@ -1,5 +1,6 @@
 #include "world.h"
 #include "../entityphysics.h"
+#include "../droppeditems.h"
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "../scripting/luaentities.h"
@@ -43,7 +44,8 @@ void ServerWorld_RemoveEntity(int id) {
 
 static void Destroy(Entity *e) {
     LuaEntities_Remove(e);
-    if (e->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(e), e->ownerPlayerId);
+    if (e->type == ENTITY_TYPE_DROPPED_ITEM) ServerDrops_Remove(e);
+    else if (e->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(e), e->ownerPlayerId);
     ServerPhysics_InvalidateIndex();
     e->active = false;
     e->type = 0;
@@ -56,10 +58,15 @@ void ServerEntities_Update(float dt) {
         if (e->active && !e->pendingRemoval && e->generation <= cutoff) LuaEntities_Step(e, dt);
     }
     ServerPhysics_Update(dt);
+    ServerDrops_Update(dt);
     for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
         Entity *e = &serverWorld.entities[id];
         if (!e->active) continue;
         if (e->pendingRemoval) { Destroy(e); continue; }
+        if (e->type == ENTITY_TYPE_DROPPED_ITEM) {
+            ServerDrops_Replicate(e);
+            continue;
+        }
         if (!e->announced) {
             ServerWorld_BroadcastExcluding(ServerPacket_CreateSpawnEntity(e), e->ownerPlayerId);
             e->announced = true;
@@ -75,7 +82,8 @@ void ServerEntities_Update(float dt) {
 void ServerEntities_Send(Player *player) {
     for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
         Entity *e = &serverWorld.entities[id];
-        if (!e->active || e->pendingRemoval || e->ownerPlayerId == player->id || !e->announced) continue;
+        if (!e->active || e->pendingRemoval || e->ownerPlayerId == player->id || !e->announced ||
+            e->type == ENTITY_TYPE_DROPPED_ITEM) continue;
         ServerNetwork_Send(player, ServerPacket_CreateSpawnEntity(e));
         ServerNetwork_Send(player, ServerPacket_CreateTeleportEntity(e, e->position, e->rotation));
     }
@@ -88,5 +96,6 @@ void ServerEntities_Shutdown(void) {
         if (e->active) { e->pendingRemoval = true; Destroy(e); }
     }
     ServerPhysics_Reset();
+    ServerDrops_Reset();
     shuttingDown = false;
 }

@@ -49,6 +49,7 @@ void Packet_HandleBlockBatch(void);
 void Packet_HandleWorldTime(void);
 void Packet_HandleEntityAnimation(void);
 void Packet_HandleHeldBlock(void);
+void Packet_HandleDroppedItem(void);
 
 unsigned char* Packet_CreateIdentification(unsigned short version, char* name);
 unsigned char* Packet_CreatePlayerPosition(Vector3 position, Vector3 rotation);

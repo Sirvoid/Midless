@@ -100,7 +100,7 @@ const Inventory *ClientInventory_Get(void) {
 bool ClientInventory_Toggle(void) {
     bool wasOpen = displayedInventory.open;
     bool queued = QueueAction((InventoryAction){.type = wasOpen ? INVENTORY_CLOSE : INVENTORY_OPEN});
-    closeBlocked = queued && wasOpen && displayedInventory.open;
+    closeBlocked = false;
     return queued;
 }
 
@@ -108,6 +108,11 @@ void ClientInventory_Click(int slot, bool rightClick) {
     if (slot < 0 || slot >= INVENTORY_SLOT_COUNT) return;
     closeBlocked = false;
     QueueAction((InventoryAction){.type = rightClick ? INVENTORY_RIGHT_CLICK : INVENTORY_LEFT_CLICK, .slot = slot});
+}
+
+void ClientInventory_Throw(bool oneItem) {
+    if (!displayedInventory.open || !displayedInventory.cursor.count) return;
+    QueueAction((InventoryAction){.type = oneItem ? INVENTORY_THROW_ONE : INVENTORY_THROW_STACK});
 }
 
 void ClientInventory_Select(int hotbarSlot) {
