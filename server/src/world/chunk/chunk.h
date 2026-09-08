@@ -11,6 +11,7 @@
 #include "raylib.h"
 #include "../../player.h"
 #include "chunkdata.h"
+#include "chunkmetadata.h"
 
 #define CHUNK_SIZE_VEC3 CLITERAL(Vector3){ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }
 
@@ -20,8 +21,13 @@ typedef struct Chunk{
     Vector3 position; //Position of the chunk in chunk unit
     Vector3 blockPosition; //Position of the chunk in block unit
     bool fromFile;
-    bool modified;
     Player* *players;
+    BlockMetadata *metadata;
+    int metadataCount;
+    unsigned char *savedEntities; // Pending records; only unavailable types remain after activation.
+    unsigned int savedEntitiesSize;
+    bool entitiesActivated; // Main-thread guard against loading the same records twice.
+    bool loadFailed;
 } Chunk;
 
 //Allocate and initialize a chunk.
@@ -32,7 +38,7 @@ void ServerChunk_Destroy(Chunk *chunk);
 void ServerChunk_Decompress(Chunk *chunk, unsigned short *compressed, int compressedLength);
 //Create compressed chunk data.
 unsigned short* ServerChunk_CreateCompressedData(Chunk *chunk, int *compressedLength);
-void ServerChunk_SaveFile(Chunk *chunk);
+bool ServerChunk_SaveFile(Chunk *chunk);
 bool ServerChunk_LoadFile(Chunk *chunk);
 void ServerChunk_Generate(Chunk *chunk);
 

@@ -12,6 +12,8 @@
 #include "raylib.h"
 #include "luaengine.h"
 #include "luaentities.h"
+#include "luametadata.h"
+#include "luainventory.h"
 #include "luamodels.h"
 #include "luavector.h"
 #include "../networkhandler.h"
@@ -26,6 +28,8 @@ typedef struct LuaMethod {
   const char *name;
   void* func;
 } LuaMethod;
+extern lua_State *L;
+static int blockInteractions[256];
 
 //---System---
 
@@ -193,12 +197,7 @@ static int LuaBindings_SetBlocks(void) {
     return 0;
 }
 
-static int LuaBindings_GetBlock(void) {
-    Vector3 position = LuaBindings_ReadPosition(1, true);
-    int blockId = ServerWorld_GetBlock(position);
-    Lua_PushInt(blockId);
-    return 1;
-}
+
 
 static int LuaBindings_IntField(int table, const char *name, int fallback, int min, int max) {
     int value = fallback;
@@ -264,6 +263,13 @@ static int LuaBindings_DefineBlock(void) {
     if (!serverWorld.players) {
         return Lua_Error("midless.define_block must run after world initialization.");
     }
+    lua_getfield(L, 2, "on_interact");
+    if (!lua_isnil(L, -1)) luaL_checktype(L, -1, LUA_TFUNCTION);
+    lua_pop(L, 1);
+    LuaMetadata_DefineBlock(blockId, 2);
+    luaL_unref(L, LUA_REGISTRYINDEX, blockInteractions[blockId]);
+    lua_getfield(L, 2, "on_interact");
+    blockInteractions[blockId] = luaL_ref(L, LUA_REGISTRYINDEX);
     ServerWorld_DefineBlock(blockId, &definition);
     return 0;
 }
@@ -521,7 +527,24 @@ static int LuaBindings_SetPlayerModel(void) {
     return 0;
 }
 
+static int GetPlayerInventory(void) { return LuaInventory_Get(L, LuaBindings_CheckPlayer()); }
+static int ShowPlayerInventory(void) { return LuaInventory_Show(L, LuaBindings_CheckPlayer()); }
+static int ClosePlayerInventory(void) { return LuaInventory_Close(L, LuaBindings_CheckPlayer()); }
+bool LuaBindings_InteractBlock(Player *player, Vector3 position, int blockId) {
+    if (!luaRunning || blockId < 1 || blockId > 255 || !serverWorld.hasBlockDefinition[blockId] ||
+        blockInteractions[blockId] < 0) return false;
+    int top = lua_gettop(L);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, blockInteractions[blockId]);
+    LuaBindings_PushPlayer(player);
+    LuaMetadata_PushBlock(L, position);
+    if (lua_pcall(L, 2, 0, 0) != LUA_OK) TraceLog(LOG_WARNING, "Block on_interact: %s", lua_tostring(L, -1));
+    lua_settop(L, top);
+    return true; // A registered interaction consumes right-click, including on error.
+}
 static const struct LuaMethod playerLib[] = {
+    {"get_inventory", GetPlayerInventory},
+    {"show_inventory", ShowPlayerInventory},
+    {"close_inventory", ClosePlayerInventory},
     {"get_id", LuaBindings_GetPlayerId},
     {"set_model", LuaBindings_SetPlayerModel},
     {"get_name", LuaBindings_GetPlayerName},
@@ -606,7 +629,7 @@ static const struct LuaMethod midlessLib[] = {
     {"get_player_by_id", LuaBindings_GetPlayerById},
     {"get_player_by_name", LuaBindings_GetPlayerByName},
     {"get_players", LuaBindings_ListPlayers},
-    {"get_block", LuaBindings_GetBlock},
+    {"get_block", LuaMetadata_GetBlock},
     {"set_block", LuaBindings_SetBlock},
     {"set_blocks", LuaBindings_SetBlocks},
     {"define_block", LuaBindings_DefineBlock},
@@ -665,7 +688,10 @@ static void LuaBindings_DefineModelConstants(void) {
 }
 
 void LuaBindings_Init(void) {
+    for (int i = 0; i < 256; i++) blockInteractions[i] = LUA_NOREF;
+    LuaInventory_Init();
     LuaVector_Init();
+    LuaMetadata_Init();
     LuaEntities_Init();
     luaReadyInvoked = false;
     LuaBindings_DefineBlockConstants();
@@ -676,11 +702,13 @@ void LuaBindings_Init(void) {
 }
 
 void LuaBindings_Shutdown(void) {
+    for (int i = 0; i < 256; i++) luaL_unref(L, LUA_REGISTRYINDEX, blockInteractions[i]);
     for (int i = 0; i < arrlen(luaPlayerClickCallbacks); i++)
         Lua_Unref(Lua_GetRegistryIndex(), luaPlayerClickCallbacks[i]);
     arrfree(luaPlayerClickCallbacks);
     luaPlayerClickCallbacks = NULL;
     LuaEntities_Shutdown();
+    LuaMetadata_Shutdown();
     arrfree(luaJoinCallbacks);
     luaJoinCallbacks = NULL;
     arrfree(luaLeaveCallbacks);

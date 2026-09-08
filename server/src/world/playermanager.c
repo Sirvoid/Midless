@@ -3,6 +3,7 @@
 #include "world.h"
 #include "../player.h"
 #include "../droppeditems.h"
+#include "../serverinventory.h"
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "../scripting/luabindings.h"
@@ -53,7 +54,12 @@ void ServerWorld_RemovePlayer(void *player) {
     ServerWorld_RemovePlayerFromChunks(removedPlayer);
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if (serverWorld.players[i] != removedPlayer) continue;
-        LuaBindings_InvokePlayerLeave(i);
+        if (!removedPlayer->leaveInvoked) {
+            LuaBindings_InvokePlayerLeave(i);
+            removedPlayer->leaveInvoked = true;
+        }
+        // Keep the live inventory for retry if the save fails.
+        if (!ServerInventory_Save(removedPlayer)) return;
         ServerDrops_ForgetPlayer(i);
         serverWorld.players[i] = NULL;
         ServerWorld_RemoveEntity(removedPlayer->entityId);

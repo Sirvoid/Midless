@@ -47,6 +47,7 @@ static void Destroy(Entity *e) {
     if (e->type == ENTITY_TYPE_DROPPED_ITEM) ServerDrops_Remove(e);
     else if (e->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(e), e->ownerPlayerId);
     ServerPhysics_InvalidateIndex();
+    Metadata_Free(&e->metadata);
     e->active = false;
     e->type = 0;
 }

@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_TEXTURE_PROTOCOL_H
-#define ISLEFORGE_TEXTURE_PROTOCOL_H
+#ifndef MIDLESS_TEXTURE_PROTOCOL_H
+#define MIDLESS_TEXTURE_PROTOCOL_H
 #include <stdint.h>
 #include <stdbool.h>
 #define TEXTURE_LIMIT 66

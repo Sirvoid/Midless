@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_BLOCK_SHAPE_H
-#define ISLEFORGE_BLOCK_SHAPE_H
+#ifndef MIDLESS_BLOCK_SHAPE_H
+#define MIDLESS_BLOCK_SHAPE_H
 #include "raylib.h"
 #include "blockdefinition.h"
 

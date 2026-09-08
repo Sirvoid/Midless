@@ -9,6 +9,7 @@
 #define MAX_PENDING_ACTIONS 64
 
 static Inventory displayedInventory;
+static InventoryView displayedView;
 static InventoryAction pendingActions[MAX_PENDING_ACTIONS];
 static int pendingCount;
 static uint32_t nextSequence, latestRevision;
@@ -30,6 +31,7 @@ static void ApplyScreenState(void) {
 }
 
 void ClientInventory_Reset(void) {
+    displayedView = (InventoryView){0};
     Inventory_Init(&displayedInventory);
     pendingCount = 0;
     nextSequence = 1;
@@ -50,18 +52,20 @@ static void SendAction(const InventoryAction *action) {
 static bool QueueAction(InventoryAction action) {
     if (!ready || !networkConnectedToServer || pendingCount == MAX_PENDING_ACTIONS || nextSequence == 0) return false;
     action.sequence = nextSequence++;
+    if (action.type != INVENTORY_PLACE && action.type != INVENTORY_BREAK)
+        action.x = (int32_t)displayedView.session;
     if (pendingCount == 0) lastRetryTime = GetTime();
     pendingActions[pendingCount++] = action;
-    Inventory_ApplyAction(&displayedInventory, &action);
+    if (!displayedView.session) Inventory_ApplyAction(&displayedInventory, &action);
     SendAction(&action);
     ApplyScreenState();
     return true;
 }
 
-void ClientInventory_HandleState(void) {
+static void HandleState(const uint8_t *data, int length, const InventoryView *view) {
     Inventory authoritative;
     uint32_t revision, acknowledged;
-    if (!InventoryProtocol_ReadState(packetData, packetDataLength, &authoritative, &revision, &acknowledged)) return;
+    if (!InventoryProtocol_ReadState(data, length, &authoritative, &revision, &acknowledged)) return;
     if (ready && revision < latestRevision) return;
     latestRevision = revision;
     ready = true;
@@ -73,10 +77,30 @@ void ClientInventory_HandleState(void) {
     }
     pendingCount = remaining;
     displayedInventory = authoritative;
-    for (int i = 0; i < pendingCount; i++) Inventory_ApplyAction(&displayedInventory, &pendingActions[i]);
+    displayedView = view ? *view : (InventoryView){0};
+    for (int i = 0; i < pendingCount; i++) {
+        if (!displayedView.session && !pendingActions[i].x)
+            Inventory_ApplyAction(&displayedInventory, &pendingActions[i]);
+    }
     if (acknowledgedClose && displayedInventory.open) closeBlocked = true;
     if (!displayedInventory.cursor.count) closeBlocked = false;
     ApplyScreenState();
+}
+void ClientInventory_HandleState(void) {
+    HandleState(packetData, packetDataLength, NULL);
+}
+void ClientInventory_HandleView(void) {
+    if (packetDataLength <= 1 + INVENTORY_STATE_PACKET_SIZE || packetData[0] != PACKET_INVENTORY_VIEW) return;
+    BinaryReader in = {packetData + 1 + INVENTORY_STATE_PACKET_SIZE, packetDataLength - 1 - INVENTORY_STATE_PACKET_SIZE};
+    InventoryView view;
+    if (!InventoryView_Read(&in, &view) || !Binary_End(&in) || packetData[11] != 1) return;
+    HandleState(packetData + 1, INVENTORY_STATE_PACKET_SIZE, &view);
+}
+const InventoryView *ClientInventory_GetView(void) { return displayedView.session ? &displayedView : NULL; }
+void ClientInventory_ClickView(bool container, int slot, bool right, bool shift) {
+    if (!displayedView.session || slot < 0 || slot >= (container ? displayedView.slotCount : INVENTORY_SLOT_COUNT)) return;
+    QueueAction((InventoryAction){.type = shift ? INVENTORY_VIEW_SHIFT : right ? INVENTORY_VIEW_RIGHT : INVENTORY_VIEW_LEFT,
+        .slot = slot, .y = container});
 }
 
 void ClientInventory_Update(void) {
@@ -126,7 +150,6 @@ void ClientInventory_Scroll(int direction) {
 
 void ClientInventory_Interact(bool place, Vector3 hit, Vector3 normal, int targetBlock) {
     if (targetBlock <= 0 || displayedInventory.open) return;
-    if (place && !Inventory_GetSelected(&displayedInventory)->count) return;
     InventoryAction action = {
         .type = place ? INVENTORY_PLACE : INVENTORY_BREAK,
         .x = (int)floorf(hit.x), .y = (int)floorf(hit.y), .z = (int)floorf(hit.z),

@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_ROTATION_H
-#define ISLEFORGE_ROTATION_H
+#ifndef MIDLESS_ROTATION_H
+#define MIDLESS_ROTATION_H
 #include <math.h>
 #include <stdint.h>
 // Internal rotations are XYZ Euler angles in radians. Only packets use bytes.

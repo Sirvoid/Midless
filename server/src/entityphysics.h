@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_ENTITY_PHYSICS_H
-#define ISLEFORGE_ENTITY_PHYSICS_H
+#ifndef MIDLESS_ENTITY_PHYSICS_H
+#define MIDLESS_ENTITY_PHYSICS_H
 #include "entity.h"
 void ServerPhysics_Update(float dt);
 void ServerPhysics_Reset(void);

@@ -74,6 +74,7 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleHeldBlock, 4}; //20
     packets[packetCount++] = (PacketHandlerEntry) {&ClientInventory_HandleState, INVENTORY_STATE_PACKET_SIZE}; //21
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDroppedItem, DROPPED_ITEM_PACKET_SIZE}; //22
+    packets[packetCount++] = (PacketHandlerEntry) {&ClientInventory_HandleView, 0}; //23
 }
 
 void Network_Connect(void) {

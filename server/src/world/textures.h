@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_SERVER_TEXTURES_H
-#define ISLEFORGE_SERVER_TEXTURES_H
+#ifndef MIDLESS_SERVER_TEXTURES_H
+#define MIDLESS_SERVER_TEXTURES_H
 #include "../player.h"
 int ServerTextures_Find(const char *name);
 bool ServerTextures_Define(const char *name, const char *path);

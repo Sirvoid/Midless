@@ -26,14 +26,14 @@ static void MoveItems(ItemStack *source, ItemStack *destination, int requested) 
     if (!source->count) source->itemId = 0;
 }
 
-int Inventory_AddPartial(Inventory *inventory, uint16_t itemId, int count) {
-    if (!itemId || count <= 0) return 0;
+int Inventory_AddToSlots(ItemStack *slots, int slotCount, int firstSlot, uint16_t itemId, int count) {
+    if (!itemId || count <= 0 || slotCount <= 0) return 0;
     int remaining = count;
     // Fill matching stacks before empty slots, preferring the hotbar for new stacks.
     for (int pass = 0; pass < 2; pass++) {
-        for (int i = 0; i < INVENTORY_SLOT_COUNT && remaining > 0; i++) {
-            int index = (i + INVENTORY_STORAGE_SLOTS) % INVENTORY_SLOT_COUNT;
-            ItemStack *slot = &inventory->slots[index];
+        for (int i = 0; i < slotCount && remaining > 0; i++) {
+            int index = (i + firstSlot) % slotCount;
+            ItemStack *slot = &slots[index];
             if (pass == 0 ? (!slot->count || slot->itemId != itemId) : slot->count != 0) continue;
             int moved = Item_GetMaxStack(itemId) - slot->count;
             if (moved > remaining) moved = remaining;
@@ -43,6 +43,9 @@ int Inventory_AddPartial(Inventory *inventory, uint16_t itemId, int count) {
         }
     }
     return count - remaining;
+}
+int Inventory_AddPartial(Inventory *inventory, uint16_t itemId, int count) {
+    return Inventory_AddToSlots(inventory->slots, INVENTORY_SLOT_COUNT, INVENTORY_STORAGE_SLOTS, itemId, count);
 }
 
 bool Inventory_Add(Inventory *inventory, uint16_t itemId, int count) {

@@ -31,18 +31,19 @@ local pos = vector.new(10, 20, 30)
 ## Get a block
 
 ```lua
-local id = midless.get_block(pos)
-```
-
-Example:
-
-```lua
 local block = midless.get_block({x = 10, y = 20, z = 10})
+if block:is_loaded() then
+    local id = block:get_id() -- 0 is air
+    local position = block:get_position()
+    block:set_id(1)
+end
 ```
 
-Returns the block ID.
-
-`0` represents air. Unloaded chunks also return `0`.
+Returns a block object at the given position. Use `:get_id()` when you need the
+numeric ID. `get_position()` and `is_loaded()` work even when the chunk is
+unloaded; other methods require a loaded chunk. The object also exposes
+`get_metadata`, `set_metadata`, `reset_metadata`, and `get_inventory`.
+See [metadata](#metadata).
 
 ## Set a block
 
@@ -270,6 +271,7 @@ Entities are custom objects controlled by Lua.
 
 ```lua
 midless.define_entity("my_mod:example", {
+    save = true, -- default; false prevents this entity from saving.
     model = "my_mod:cube",
 
     on_spawn = function(self)
@@ -286,7 +288,7 @@ midless.define_entity("my_mod:example", {
 })
 ```
 
-Store entity-specific data on `self`:
+Store temporary entity data on `self`. Declare `metadata` for values that should save; see [saving entities](#saving-entities).
 
 ```lua
 on_spawn = function(self)
@@ -1340,6 +1342,11 @@ midless.define_entity("example:slime", {
         self.timer = 0
     end,
 
+    on_load = function(self)
+        self.direction = vector.new(1, 0, 0)
+        self.timer = 0
+    end,
+
     on_step = function(self, dt)
         self.timer = self.timer + dt
 
@@ -1390,3 +1397,141 @@ end)
 ```
 
 Right-click to spawn a slime. Each slime picks a new direction every few seconds and moves around on its own.
+
+---
+
+# Metadata
+
+Declare metadata on a block or entity to save custom values, including block
+states and inventories.
+
+```lua
+midless.define_block(25, {
+    name = "Chest",
+    textures = {all = 1},
+    metadata = {
+        {name = "facing", type = "uint", bits = 2, default = 0},
+        {name = "open", type = "bool", default = false},
+        {name = "items", type = "inventory", slots = 27},
+        {name = "label", type = "string", max_length = 64},
+    },
+})
+```
+
+Place that block before accessing its metadata:
+
+```lua
+local block = midless.get_block({x = 10, y = 80, z = 20})
+block:set_metadata("facing", 2)
+print(block:get_metadata("facing"))
+block:reset_metadata("facing") -- restore the default
+```
+
+Entities use the same methods through `self.object`.
+
+| Type | Options | Default |
+| --- | --- | --- |
+| `uint` | `bits = 1..32` (default 16) | 0 |
+| `int` | `bits = 1..32` (default 16), signed | 0 |
+| `bool` | true or false | false |
+| `float` | finite number | 0 |
+| `string` | `max_length = 0..4096` (default 256) | empty string |
+| `inventory` | `slots = 1..255` (default 27) | empty inventory |
+
+Use `default` to change a field's default value. Inventory defaults are always
+empty. String defaults allow up to 256 bytes without NUL. Each definition supports
+up to 64 fields, with names up to 64 bytes and a total payload up to 65535 bytes.
+Invalid values raise a Lua error. Tables returned by `get_metadata` are copies;
+use `set_metadata` or inventory methods to change the stored data.
+
+Metadata saves automatically with the chunk. Replacing a block with a different
+ID clears its metadata.
+
+## Saving entities
+
+```lua
+local function initialize(self)
+    self.timer = 0 -- temporary Lua data
+end
+
+midless.define_entity("example:creature", {
+    model = "humanoid",
+    save = true, -- default; false makes the entity temporary
+    metadata = {
+        {name = "health", type = "uint", bits = 7, default = 100},
+    },
+    on_spawn = initialize,
+    on_load = initialize,
+})
+```
+
+Declared metadata, position, rotation, velocity, body settings, model, and held
+block are saved. Ordinary fields on `self` are not saved. Use `on_load` to rebuild
+them after loading; saved metadata is already available then. `on_spawn` only runs
+for new entities, and `on_remove` does not run when a chunk unloads.
+
+Entities receive a new runtime ID when loaded; old handles become invalid.
+`save = false` entities disappear on unload, including any older saved copies.
+
+---
+
+# Inventories
+
+```lua
+local inventory = block:get_inventory("items")
+-- Also available on entities and through player:get_inventory().
+
+inventory:set_stack(1, {id = 1, count = 32})
+local stack = inventory:get_stack(1) -- a copy, or nil if empty
+inventory:set_stack(1, nil) -- empty the slot
+
+if not inventory:add_item({id = 1, count = 100}) then
+    player:send_message("Not enough room.")
+end
+```
+
+Slots start at 1. Player slots 1-27 are storage and 28-36 are the hotbar.
+`add_item` fills matching stacks, then empty slots, splitting large amounts as
+needed. Player inventories prefer empty hotbar slots. It returns `true` if the
+whole amount fits, or `false` without changing anything.
+
+## Inventory screens
+
+Define an inventory field in block metadata, then show it together with the
+player's inventory. The UI accesses the saved inventory directly; there is no
+separate UI copy to save when the screen closes.
+
+```lua
+midless.define_block(200, {
+    name = "Chest",
+    textures = {all = 4},
+    metadata = {{name = "items", type = "inventory", slots = 27}},
+
+    on_interact = function(player, block)
+        player:show_inventory({
+            title = "Chest",
+            block = block,
+            width = 9, height = 8,
+            elements = {
+                {type = "inventory", inventory = block:get_inventory("items"),
+                 x = 0, y = 0, columns = 9, rows = 3},
+                {type = "label", text = "Inventory", x = 0, y = 3.5},
+                {type = "inventory", inventory = player:get_inventory(),
+                 x = 0, y = 4, columns = 9, rows = 4},
+            },
+        })
+    end,
+})
+```
+
+`on_interact(player, block)` runs on a server-validated right-click.
+
+Layouts use slot-sized units and scale with the window:
+
+- Width and height: 1-32.
+- Up to 16 elements, using `label` or `inventory`.
+- Exactly two grids: one block inventory and the player's inventory.
+- Each grid must cover all its slots, fit inside the layout, and not overlap.
+- Titles and labels: up to 64 UTF-8 bytes.
+
+`player:close_inventory()` returns `true` if closed, or `false` if blocked.

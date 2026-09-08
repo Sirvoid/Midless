@@ -7,6 +7,7 @@
 #include "stb_ds.h"
 #include "chunkmanager.h"
 #include "world.h"
+#include "entitypersistence.h"
 #include "chunk/chunk.h"
 #include "../networkhandler.h"
 #include "../packet.h"
@@ -25,8 +26,6 @@ typedef struct GeneratedBlockUpdate {
 typedef struct ChunkLoadResult {
     Vector3 position;
     Chunk *chunk;
-    unsigned short *compressedData;
-    int compressedLength;
 } ChunkLoadResult;
 
 static Vector3 *loadRequests;
@@ -60,7 +59,7 @@ static void WriteGeneratedBlock(Chunk *chunk, Vector3 blockPosition, int blockId
         floorf(blockPosition.z) - chunk->blockPosition.z
     };
     if (!ServerChunk_IsValidPos(localPosition)) return;
-    chunk->data[ServerChunk_PosToIndex(localPosition)] = blockId;
+    ServerChunk_SetBlock(chunk, localPosition, blockId);
 
     if (arrlen(chunk->players) > 0) {
         arrput(serverWorld.generatedBlockUpdates, ((GeneratedBlockUpdate){
@@ -132,10 +131,6 @@ static void *ChunkLoaderRun(void *unused) {
         Chunk *chunk = ServerChunk_Create(position);
         if (chunk != NULL) ServerChunk_Generate(chunk);
         ChunkLoadResult result = {.position = position, .chunk = chunk};
-        if (chunk != NULL) {
-            result.compressedData = ServerChunk_CreateCompressedData(
-                chunk, &result.compressedLength);
-        }
 
         pthread_mutex_lock(&loaderMutex);
         arrput(loadResults, result);
@@ -155,16 +150,20 @@ static void ProcessLoadedChunks(void) {
         Chunk *chunk = result->chunk;
         if (chunk != NULL && ServerWorld_GetChunkAt(result->position) == NULL) {
             hmput(serverWorld.chunks, ServerChunk_GetPackedPos(result->position), chunk);
-            if (ApplyPendingBlocks(chunk)) {
-                MemFree(result->compressedData);
-                result->compressedData = ServerChunk_CreateCompressedData(
-                    chunk, &result->compressedLength);
+            if (!EntityPersistence_Activate(chunk)) {
+                TraceLog(LOG_ERROR, "Chunk entities could not be restored; leaving save untouched");
+                (void)hmdel(serverWorld.chunks, ServerChunk_GetPackedPos(result->position));
+                ServerChunk_Destroy(chunk);
+                chunk = NULL;
             }
+            if (chunk) ApplyPendingBlocks(chunk);
         } else {
             ServerChunk_Destroy(chunk);
             chunk = ServerWorld_GetChunkAt(result->position);
         }
 
+        unsigned short *compressedData = NULL;
+        int compressedLength = 0;
         for (int playerIndex = 0; playerIndex < WORLD_MAX_PLAYERS; playerIndex++) {
             Player *player = serverWorld.players[playerIndex];
             if (player == NULL) continue;
@@ -175,19 +174,13 @@ static void ProcessLoadedChunks(void) {
             if (chunk == NULL || !PositionInLoadRadius(player, result->position) ||
                 ServerChunk_PlayerInChunk(chunk, player)) continue;
 
+            if (!compressedData) compressedData = ServerChunk_CreateCompressedData(chunk, &compressedLength);
+            if (!compressedData) continue;
             ServerChunk_AddPlayer(chunk, player);
-            unsigned short *compressedData = result->compressedData;
-            int compressedLength = result->compressedLength;
-            bool temporaryCompression = false;
-            if (compressedData == NULL) {
-                compressedData = ServerChunk_CreateCompressedData(chunk, &compressedLength);
-                temporaryCompression = true;
-            }
             ServerNetwork_Send(player, ServerPacket_CreateLoadChunk(
-                compressedData, compressedLength, result->position, chunk->skyMask));
-            if (temporaryCompression) MemFree(compressedData);
+                compressedData, compressedLength, chunk->position, chunk->skyMask));
         }
-        MemFree(result->compressedData);
+        MemFree(compressedData);
     }
     arrfree(results);
 }
@@ -212,7 +205,6 @@ void ServerChunkManager_Shutdown(void) {
 
     for (int i = 0; i < arrlen(loadResults); i++) {
         ServerChunk_Destroy(loadResults[i].chunk);
-        MemFree(loadResults[i].compressedData);
     }
     arrfree(loadResults);
     arrfree(loadRequests);
@@ -224,7 +216,15 @@ void ServerChunkManager_Shutdown(void) {
     pthread_mutex_destroy(&loaderMutex);
 
     for (int i = hmlen(serverWorld.chunks) - 1; i >= 0; i--) {
-        ServerWorld_RemoveChunk(serverWorld.chunks[i].value);
+        Chunk *chunk = serverWorld.chunks[i].value;
+        long int key = ServerChunk_GetPackedPos(chunk->position);
+        ServerWorld_RemoveChunk(chunk);
+        // A failed write retains the chunk during play. Shutdown still releases
+        // its memory after the save error has been reported.
+        if (hmgeti(serverWorld.chunks, key) >= 0) {
+            (void)hmdel(serverWorld.chunks, key);
+            ServerChunk_Destroy(chunk);
+        }
     }
     hmfree(serverWorld.chunks);
     serverWorld.chunks = NULL;
@@ -274,15 +274,24 @@ Chunk *ServerWorld_AddChunk(Vector3 position) {
     if (chunk == NULL) return NULL;
     hmput(serverWorld.chunks, packedPosition, chunk);
     ServerChunk_Generate(chunk);
+    if (!EntityPersistence_Activate(chunk)) {
+        (void)hmdel(serverWorld.chunks, packedPosition);
+        ServerChunk_Destroy(chunk);
+        TraceLog(LOG_ERROR, "Chunk entities could not be restored; leaving save untouched");
+        return NULL;
+    }
     ApplyPendingBlocks(chunk);
     return chunk;
 }
 
 void ServerWorld_RemoveChunk(Chunk *chunk) {
     long int packedPosition = ServerChunk_GetPackedPos(chunk->position);
-    if (hmgeti(serverWorld.chunks, packedPosition) < 0) return;
-    hmdel(serverWorld.chunks, packedPosition);
-    if (chunk->modified) ServerChunk_SaveFile(chunk);
+    if (ServerWorld_GetChunkAt(chunk->position) != chunk) return;
+    // Closing may create a dropped cursor stack; include it in this save.
+    InventoryWindow_UnloadChunk(chunk->position);
+    if (!EntityPersistence_Save(chunk)) return;
+    EntityPersistence_Unload(chunk);
+    (void)hmdel(serverWorld.chunks, packedPosition);
     ServerChunk_Destroy(chunk);
 }
 
@@ -369,6 +378,7 @@ void ServerWorld_SetBlock(Vector3 blockPosition, int blockId, bool broadcast, bo
     };
     int previousBlock = ServerChunk_GetBlock(chunk, localPosition);
     if (previousBlock == blockId) return;
+    InventoryWindow_Invalidate((Vector3){floorf(blockPosition.x), floorf(blockPosition.y), floorf(blockPosition.z)});
     ServerChunk_SetBlock(chunk, localPosition, blockId);
     if (broadcast) ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockId, blockPosition, byPlayer));
     if (callCallbacks) LuaBindings_InvokeBlockUpdate(blockPosition, blockId, previousBlock);

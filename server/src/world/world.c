@@ -18,6 +18,7 @@
 #include "stb_ds.h"
 #include "world.h"
 #include "chunkmanager.h"
+#include "entitypersistence.h"
 #include "playermanager.h"
 #include "textures.h"
 #include "../scripting/luabindings.h"
@@ -74,9 +75,10 @@ void ServerWorld_Init(void) {
 
 void ServerWorld_Shutdown(void) {
     ServerPlayerManager_Shutdown();
+    EntityPersistence_EnsureChunks();
+    ServerChunkManager_Shutdown();
     ServerEntities_Shutdown();
     ServerTextures_Shutdown();
-    ServerChunkManager_Shutdown();
     Worldgen_ClearFeatures();
     MemFree(serverWorld.players);
     MemFree(serverWorld.entities);
@@ -89,6 +91,7 @@ void ServerWorld_Shutdown(void) {
 }
 
 void ServerWorld_Update(void) {
+    EntityPersistence_EnsureChunks();
     ServerChunkManager_Update();
 
     long long nowMilliseconds = GetTimeMilliseconds();
@@ -108,6 +111,7 @@ void ServerWorld_Update(void) {
 
     ServerPlayerManager_Update();
     ServerTextures_Update();
+    InventoryWindow_Update();
     float dt = elapsedMilliseconds > 0 ? elapsedMilliseconds / 1000.0f : 0.0f;
     if (dt > 0.25f) dt = 0.25f;
     if (dt > 0) {

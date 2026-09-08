@@ -99,6 +99,7 @@ int ServerDrops_Spawn(ItemStack stack, Vector3 position, Vector3 velocity, float
     return id;
 }
 
+
 bool ServerDrops_Throw(Player *player, bool oneItem) {
     ItemStack *cursor = &player->inventory.cursor;
     if (!player->inventory.open || !cursor->count || player->entityId < 0) return false;

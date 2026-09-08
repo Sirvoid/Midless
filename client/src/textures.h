@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_CLIENT_TEXTURES_H
-#define ISLEFORGE_CLIENT_TEXTURES_H
+#ifndef MIDLESS_CLIENT_TEXTURES_H
+#define MIDLESS_CLIENT_TEXTURES_H
 #include "raylib.h"
 void ClientTextures_Init(Texture2D terrain);
 Texture2D ClientTextures_Get(int id);

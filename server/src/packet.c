@@ -50,7 +50,8 @@ int serverPacketLengths[256] = {
     TEXTURE_BEGIN_SIZE, TEXTURE_DATA_SIZE, 3,
     4, // held block
     INVENTORY_STATE_PACKET_SIZE,
-    DROPPED_ITEM_PACKET_SIZE
+    DROPPED_ITEM_PACKET_SIZE,
+    0 // inventory view (variable length)
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -166,6 +167,12 @@ void ServerPacket_HandleIdentification(void) {
         return;
     }
     serverPacketPlayer->name = ServerPacket_ReadString();
+    if (!ServerInventory_Load(serverPacketPlayer)) {
+        ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMessage("Cannot load inventory, or that name is already connected."));
+        MemFree(serverPacketPlayer->name);
+        serverPacketPlayer->name = NULL;
+        return;
+    }
     ServerLogger_Log(TextFormat("%s connected. Protocol version: %i\n", serverPacketPlayer->name, protocolVersion));
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMapInit());
     ServerTextures_SendTerrain(serverPacketPlayer);
@@ -178,7 +185,7 @@ void ServerPacket_HandleIdentification(void) {
         return;
     }
     ServerWorld_SendBlockDefinitions(serverPacketPlayer);
-    ServerInventory_GiveStartingBlocks(serverPacketPlayer);
+    ServerInventory_UpdateHeldBlock(serverPacketPlayer);
     ServerInventory_Send(serverPacketPlayer);
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateWorldTime(serverWorld.time));
     if (serverWorld.players[serverPacketPlayer->id] == serverPacketPlayer)

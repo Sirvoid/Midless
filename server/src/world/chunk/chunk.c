@@ -13,13 +13,14 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "chunk.h"
+#include "chunkfile.h"
 #include "../worldgenerator.h"
 
 static void ServerChunk_Init(Chunk *chunk, Vector3 pos) {
+    *chunk = (Chunk){0};
     chunk->position = pos;
     chunk->blockPosition = Vector3Multiply(chunk->position, CHUNK_SIZE_VEC3);
     chunk->fromFile = false;
-    chunk->modified = false;
     chunk->players = NULL;
     memset(chunk->data, 0, sizeof(chunk->data));
     memset(chunk->skyMask, 0, sizeof(chunk->skyMask));
@@ -35,6 +36,7 @@ Chunk *ServerChunk_Create(Vector3 pos) {
     if (chunk == NULL) return NULL;
 
     ServerChunk_Init(chunk, pos);
+    if (chunk->loadFailed) { ServerChunk_Destroy(chunk); return NULL; }
     return chunk;
 }
 
@@ -42,29 +44,19 @@ void ServerChunk_Destroy(Chunk *chunk) {
     if (chunk == NULL) return;
 
     arrfree(chunk->players);
+    ChunkMetadata_Free(chunk);
+    free(chunk->savedEntities);
     MemFree(chunk);
 }
 
-void ServerChunk_SaveFile(Chunk *chunk) {
-    char fileName[128];
-    snprintf(fileName, sizeof(fileName), "world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
-    int compressedLength;
-    unsigned short* compressed = ServerChunk_CreateCompressedData(chunk, &compressedLength);
-    SaveFileData(fileName, compressed, compressedLength * 2);
-    MemFree(compressed);
-}
+bool ServerChunk_SaveFile(Chunk *chunk) { return ChunkFile_Save(chunk); }
 
 bool ServerChunk_LoadFile(Chunk *chunk) {
-    char fileName[128];
-    snprintf(fileName, sizeof(fileName), "world/%i.%i.%i.dat", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
-    if (FileExists(fileName)) {
-        unsigned int length = 0;
-        unsigned char *saveFile = LoadFileData(fileName, &length);
-        ServerChunk_Decompress(chunk, (unsigned short*)saveFile, length / 2);
-        UnloadFileData(saveFile);
-        return true;
-    }
-    return false;
+    ChunkFileResult result = ChunkFile_Load(chunk);
+    chunk->loadFailed = result == CHUNK_FILE_CORRUPT || result == CHUNK_FILE_UNSUPPORTED;
+    if (chunk->loadFailed) TraceLog(LOG_ERROR, "Chunk (%g,%g,%g) is corrupt or unsupported; it will not be regenerated",
+        chunk->position.x, chunk->position.y, chunk->position.z);
+    return result == CHUNK_FILE_OK;
 }
 
 void ServerChunk_Generate(Chunk *chunk) {
@@ -102,8 +94,8 @@ void ServerChunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
     if (ServerChunk_IsValidPos(pos)) {
         int index = ServerChunk_PosToIndex(pos);
 
+        if (chunk->data[index] != blockId) ChunkMetadata_Clear(chunk, index);
         chunk->data[index] = blockId;
-        chunk->modified = true;
     }
 }
 

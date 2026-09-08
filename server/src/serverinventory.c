@@ -7,6 +7,8 @@
 #include "world/world.h"
 #include "blockshape.h"
 #include "droppeditems.h"
+#include "scripting/luabindings.h"
+#include "scripting/luametadata.h"
 
 #define BLOCK_INTERACTION_REACH 8.0f
 
@@ -112,10 +114,28 @@ static bool OverlapsPlayer(BoundingBox block) {
 static void TryHarvestBlock(Player *player, const InventoryAction *action) {
     Vector3 target = {(float)action->x, (float)action->y, (float)action->z};
     Vector3 position = {target.x + 0.5f, target.y + 0.5f, target.z + 0.5f};
-    Vector3 velocity = {(rand() % 201 - 100) / 100.0f, 2.5f, (rand() % 201 - 100) / 100.0f};
-    if (ServerDrops_Spawn((ItemStack){action->targetBlock, 1}, position, velocity, 0.5f) < 0) {
-        ServerPlayer_SendMessage(player, "Cannot break this block: no room for another dropped item.");
+    ItemStack stacks[WORLD_MAX_ENTITIES] = {{action->targetBlock, 1}};
+    int contents = LuaMetadata_CollectBlockItems(target, stacks + 1, WORLD_MAX_ENTITIES - 1);
+    if (contents < 0) {
+        ServerPlayer_SendMessage(player, "Cannot break this block: its inventory could not be read.");
         return;
+    }
+    int count = contents + 1, available = 0;
+    for (int i = 0; i < WORLD_MAX_ENTITIES; i++) if (!serverWorld.entities[i].active) available++;
+    if (available < count) {
+        ServerPlayer_SendMessage(player, "Cannot break this block: no room to drop all its items.");
+        return;
+    }
+    int spawned[WORLD_MAX_ENTITIES];
+    for (int i = 0; i < count; i++) {
+        Vector3 velocity = {(rand() % 201 - 100) / 100.0f, 2.5f, (rand() % 201 - 100) / 100.0f};
+        spawned[i] = ServerDrops_Spawn(stacks[i], position, velocity, 0.5f);
+        if (spawned[i] < 0) {
+            // None have been announced or saved yet. Roll back the entire drop.
+            for (int j = 0; j < i; j++) ServerWorld_RemoveEntity(spawned[j]);
+            ServerPlayer_SendMessage(player, "Cannot break this block: an item could not be dropped.");
+            return;
+        }
     }
     ServerWorld_SetBlock(target, 0, true, true, true);
 }
@@ -168,6 +188,7 @@ void ServerInventory_GiveStartingBlocks(Player *player) {
 }
 
 void ServerInventory_Send(Player *player) {
+    if (InventoryWindow_Send(player)) return;
     unsigned char *packet = MemAlloc(INVENTORY_STATE_PACKET_SIZE);
     if (!packet) return;
     InventoryProtocol_WriteState(packet, &player->inventory, player->inventoryRevision, player->inventorySequence);
@@ -188,21 +209,25 @@ void ServerInventory_HandleAction(void) {
     if (action.type == INVENTORY_BREAK || action.type == INVENTORY_PLACE) {
         if (!player->inventory.open && CanReachTarget(player, &action)) {
             if (action.type == INVENTORY_BREAK) TryHarvestBlock(player, &action);
-            else TryPlaceBlock(player, &action);
+            else if (!LuaBindings_InteractBlock(player, (Vector3){action.x, action.y, action.z}, action.targetBlock))
+                TryPlaceBlock(player, &action);
         }
+    } else if (action.type >= INVENTORY_VIEW_LEFT && action.type <= INVENTORY_VIEW_SHIFT) {
+        InventoryWindow_Action(player, &action);
+    } else if ((uint32_t)action.x != player->inventoryWindow.view.session) {
+        // Ignore clicks and closes belonging to an older screen.
     } else if (action.type == INVENTORY_THROW_STACK || action.type == INVENTORY_THROW_ONE) {
         if (!ServerDrops_Throw(player, action.type == INVENTORY_THROW_ONE) && player->inventory.cursor.count)
             ServerPlayer_SendMessage(player, "Cannot drop items here right now.");
     } else if (action.type == INVENTORY_CLOSE) {
-        if (player->inventory.cursor.count && !ServerDrops_Throw(player, false)) {
+        if (!InventoryWindow_Close(player)) {
             ServerPlayer_SendMessage(player, "Cannot drop the held stack here right now.");
-        } else {
-            Inventory_Close(&player->inventory);
         }
-    } else {
+    } else if (!player->inventoryWindow.view.session || action.type == INVENTORY_SELECT) {
         Inventory_ApplyAction(&player->inventory, &action);
     }
     player->inventoryRevision++;
     ServerInventory_UpdateHeldBlock(player);
     ServerInventory_Send(player);
+    InventoryWindow_Update();
 }

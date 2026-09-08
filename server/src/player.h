@@ -12,10 +12,14 @@
 #include "blockdefinition.h"
 #include "textureprotocol.h"
 #include "inventory.h"
+#include "inventorywindow.h"
 
 typedef struct Player {
     Inventory inventory;
     uint32_t inventoryRevision, inventorySequence;
+    InventoryWindow inventoryWindow;
+    uint32_t nextInventorySession;
+    bool inventoryLoaded, leaveInvoked;
     unsigned char id;
     int entityId;
     uint32_t textureSent[TEXTURE_LIMIT], textureRevision, textureOffset;

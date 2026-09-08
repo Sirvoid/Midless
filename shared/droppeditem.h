@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_DROPPED_ITEM_H
-#define ISLEFORGE_DROPPED_ITEM_H
+#ifndef MIDLESS_DROPPED_ITEM_H
+#define MIDLESS_DROPPED_ITEM_H
 
 #include "inventory.h"
 
@@ -7,8 +7,8 @@
 #define PACKET_DROPPED_ITEM 22
 #define DROPPED_ITEM_PACKET_SIZE 18
 
-// Gameplay time in seconds; zero disables expiry. Items remain in memory across
-// chunk unloads, but are not saved across server restarts.
+// Gameplay time in seconds; zero disables expiry. Items are saved with their
+// chunk; age and pickup delay pause while the chunk is unloaded.
 #ifndef DROPPED_ITEM_LIFETIME
 #define DROPPED_ITEM_LIFETIME 300.0f
 #endif

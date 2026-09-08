@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_SERVER_DROPPED_ITEMS_H
-#define ISLEFORGE_SERVER_DROPPED_ITEMS_H
+#ifndef MIDLESS_SERVER_DROPPED_ITEMS_H
+#define MIDLESS_SERVER_DROPPED_ITEMS_H
 
 #include "player.h"
 #include "entity.h"

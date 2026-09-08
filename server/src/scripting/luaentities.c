@@ -3,6 +3,7 @@
 #include <string.h>
 #include "luaentities.h"
 #include "luamodels.h"
+#include "luametadata.h"
 #include "../world/world.h"
 #include "../entityphysics.h"
 
@@ -13,20 +14,22 @@ extern lua_State *L;
 typedef struct Definition {
     EntityBody body;
     char name[65];
-    int model, spawn, step, remove;
+    int model, spawn, step, remove, load, metadata;
+    bool save;
 } Definition;
 typedef struct Handle { int id; uint64_t generation; } Handle;
 static Definition definitions[MAX_DEFINITIONS];
 static int definitionCount;
 
-static Entity *Check(lua_State *state) {
-    Handle *h = luaL_checkudata(state, 1, ENTITY_HANDLE);
+Entity *LuaEntities_Check(lua_State *state, int index) {
+    Handle *h = luaL_checkudata(state, index, ENTITY_HANDLE);
     Entity *e = serverWorld.entities && h->id >= 0 && h->id < WORLD_MAX_ENTITIES
         ? &serverWorld.entities[h->id] : NULL;
     if (!e || !e->active || e->pendingRemoval || e->generation != h->generation)
         luaL_error(state, "entity has been removed");
     return e;
 }
+static Entity *Check(lua_State *state) { return LuaEntities_Check(state, 1); }
 static void PushHandle(Entity *e) {
     Handle *h = lua_newuserdata(L, sizeof(*h));
     *h = (Handle){e->id, e->generation};
@@ -123,6 +126,22 @@ static int Teleport(lua_State *state) {
 }
 static int Remove(lua_State *state) { ServerWorld_RemoveEntity(Check(state)->id); return 0; }
 static int GetId(lua_State *state) { lua_pushinteger(state, Check(state)->id); return 1; }
+static int GetMetadata(lua_State *state) {
+    Entity *e = Check(state);
+    return LuaMetadata_Get(state, definitions[e->definitionId].metadata, &e->metadata, 2);
+}
+static int SetMetadata(lua_State *state) {
+    Entity *e = Check(state);
+    return LuaMetadata_Set(state, definitions[e->definitionId].metadata, &e->metadata, 2, 3);
+}
+static int ResetMetadata(lua_State *state) {
+    Entity *e = Check(state);
+    return LuaMetadata_Set(state, definitions[e->definitionId].metadata, &e->metadata, 2, 0);
+}
+static int GetInventory(lua_State *state) {
+    Entity *e = Check(state);
+    return LuaMetadata_Inventory(state, definitions[e->definitionId].metadata, 1, 2);
+}
 static int SetModel(lua_State *state) {
     Entity *e = Check(state);
     int model = LuaModels_Resolve(2, false);
@@ -160,26 +179,33 @@ int LuaEntities_Register(void) {
     if (model < 0 || model > 255 || (model && !serverWorld.modelDefinitions[model]))
         return luaL_error(L, "model is not defined");
     lua_pop(L, 1);
-    const char *callbacks[] = {"on_spawn", "on_step", "on_remove"};
+    const char *callbacks[] = {"on_spawn", "on_step", "on_remove", "on_load"};
     // Validate all callbacks before taking registry references.
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 4; i++) {
         lua_getfield(L, 2, callbacks[i]);
         if (!lua_isnil(L, -1)) luaL_checktype(L, -1, LUA_TFUNCTION);
         lua_pop(L, 1);
     }
-    Definition d = {.model = model};
+    Definition d = {.model = model, .save = true};
+    lua_getfield(L, 2, "save");
+    if (!lua_isnil(L, -1)) {
+        luaL_checktype(L, -1, LUA_TBOOLEAN);
+        d.save = lua_toboolean(L, -1);
+    }
+    lua_pop(L, 1);
     d.body = EntityBody_Default();
     lua_getfield(L, 2, "body");
     if (!lua_isnil(L, -1)) d.body = ReadBody(L, -1);
     lua_pop(L, 1);
     memcpy(d.name, name, length + 1);
-    int refs[3];
-    for (int i = 0; i < 3; i++) {
+    d.metadata = LuaMetadata_Register(L, 2);
+    int refs[4];
+    for (int i = 0; i < 4; i++) {
         lua_getfield(L, 2, callbacks[i]);
         if (lua_isnil(L, -1)) { lua_pop(L, 1); refs[i] = LUA_NOREF; }
         else refs[i] = luaL_ref(L, LUA_REGISTRYINDEX);
     }
-    d.spawn = refs[0]; d.step = refs[1]; d.remove = refs[2];
+    d.spawn = refs[0]; d.step = refs[1]; d.remove = refs[2]; d.load = refs[3];
     definitions[definitionCount++] = d;
     return 0;
 }
@@ -217,12 +243,47 @@ void LuaEntities_Step(Entity *e, float dt) {
 void LuaEntities_Remove(Entity *e) {
     if (e->definitionId < 0) return;
     Call(e, definitions[e->definitionId].remove, 0, false);
+    LuaEntities_Detach(e);
+}
+void LuaEntities_Detach(Entity *e) {
+    if (e->definitionId < 0) return;
     luaL_unref(L, LUA_REGISTRYINDEX, e->scriptRef);
     e->scriptRef = LUA_NOREF;
+}
+const char *LuaEntities_Name(int definition) {
+    return definition >= 0 && definition < definitionCount ? definitions[definition].name : NULL;
+}
+int LuaEntities_Find(const char *name) {
+    for (int i = 0; i < definitionCount; i++) if (!strcmp(name, definitions[i].name)) return i;
+    return -1;
+}
+int LuaEntities_MetadataSchema(int definition) {
+    return definition >= 0 && definition < definitionCount ? definitions[definition].metadata : -1;
+}
+bool LuaEntities_ShouldSave(int definition) {
+    return definition >= 0 && definition < definitionCount && definitions[definition].save;
+}
+int LuaEntities_Restore(int definition, Vector3 position) {
+    if (definition < 0 || definition >= definitionCount) return -1;
+    int id = ServerWorld_AddEntity(2, definitions[definition].model, position, -1);
+    if (id < 0) return -1;
+    Entity *e = &serverWorld.entities[id];
+    e->definitionId = definition;
+    e->body = definitions[definition].body;
+    lua_newtable(L);
+    PushHandle(e); lua_setfield(L, -2, "object");
+    e->scriptRef = luaL_ref(L, LUA_REGISTRYINDEX);
+    return id;
+}
+void LuaEntities_Loaded(Entity *e) {
+    if (e->definitionId >= 0 && !Call(e, definitions[e->definitionId].load, 0, false))
+        TraceLog(LOG_WARNING, "Entity on_load failed; saved entity retained");
 }
 void LuaEntities_Init(void) {
     static const luaL_Reg methods[] = {
         {"get_id", GetId}, {"is_valid", IsValid}, {"get_position", GetPosition},
+        {"get_metadata", GetMetadata}, {"set_metadata", SetMetadata},
+        {"reset_metadata", ResetMetadata}, {"get_inventory", GetInventory},
         {"set_position", SetPosition}, {"get_rotation", GetRotation},
         {"set_rotation", SetRotation}, {"set_model", SetModel}, {"remove", Remove},
         {"set_body", SetBody}, {"get_velocity", GetVelocity}, {"set_velocity", SetVelocity},
@@ -238,6 +299,7 @@ void LuaEntities_Shutdown(void) {
         luaL_unref(L, LUA_REGISTRYINDEX, definitions[i].spawn);
         luaL_unref(L, LUA_REGISTRYINDEX, definitions[i].step);
         luaL_unref(L, LUA_REGISTRYINDEX, definitions[i].remove);
+        luaL_unref(L, LUA_REGISTRYINDEX, definitions[i].load);
     }
     definitionCount = 0;
 }

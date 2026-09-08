@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_ENTITY_BODY_H
-#define ISLEFORGE_ENTITY_BODY_H
+#ifndef MIDLESS_ENTITY_BODY_H
+#define MIDLESS_ENTITY_BODY_H
 #include "blockshape.h"
 
 typedef struct EntityBody {

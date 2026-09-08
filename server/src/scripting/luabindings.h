@@ -8,6 +8,9 @@
 #ifndef MIDLESS_SERVER_LUA_BINDINGS_H
 #define MIDLESS_SERVER_LUA_BINDINGS_H
 #include <stdbool.h>
+#include "raylib.h"
+struct Player;
+bool LuaBindings_InteractBlock(struct Player *player, Vector3 position, int blockId);
 
 
 void LuaBindings_Init(void);

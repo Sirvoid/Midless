@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include "entitybody.h"
 #include "droppeditem.h"
+#include "world/chunk/chunkmetadata.h"
 
 typedef struct Entity{
     EntityBody body;
@@ -27,6 +28,7 @@ typedef struct Entity{
     unsigned char model;
     Vector3 position;
     Vector3 rotation; // XYZ Euler radians: X pitch, Y yaw, Z roll.
+    Metadata metadata;
 } Entity;
 
 #endif

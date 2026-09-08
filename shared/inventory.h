@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_INVENTORY_H
-#define ISLEFORGE_INVENTORY_H
+#ifndef MIDLESS_INVENTORY_H
+#define MIDLESS_INVENTORY_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -31,7 +31,10 @@ typedef enum InventoryActionType {
     INVENTORY_BREAK,
     INVENTORY_PLACE,
     INVENTORY_THROW_STACK,
-    INVENTORY_THROW_ONE
+    INVENTORY_THROW_ONE,
+    INVENTORY_VIEW_LEFT,
+    INVENTORY_VIEW_RIGHT,
+    INVENTORY_VIEW_SHIFT
 } InventoryActionType;
 
 typedef struct InventoryAction {
@@ -48,6 +51,7 @@ void Inventory_Init(Inventory *inventory);
 ItemStack *Inventory_GetSelected(Inventory *inventory);
 bool Inventory_Add(Inventory *inventory, uint16_t itemId, int count);
 int Inventory_AddPartial(Inventory *inventory, uint16_t itemId, int count);
+int Inventory_AddToSlots(ItemStack *slots, int slotCount, int firstSlot, uint16_t itemId, int count);
 bool Inventory_Close(Inventory *inventory);
 void Inventory_ApplyAction(Inventory *inventory, const InventoryAction *action);
 
