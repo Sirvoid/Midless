@@ -15,6 +15,7 @@
 #include "luametadata.h"
 #include "luainventory.h"
 #include "../crafting.h"
+#include "../items.h"
 #include "luamodels.h"
 #include "luavector.h"
 #include "../networkhandler.h"
@@ -119,15 +120,16 @@ void LuaBindings_InvokeBlockUpdate(Vector3 position, unsigned short blockId, uns
     for(int i = 0; i < arrlen(luaBlockUpdateCallbacks); i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaBlockUpdateCallbacks[i]);
             LuaBindings_PushPosition(position);
-            Lua_PushInt(blockId);
-            Lua_PushInt(previousBlockId);
+            ServerItems_PushId(L, blockId);
+            ServerItems_PushId(L, previousBlockId);
         Lua_CallFunc(3, 0);
     }
 }
 
 static int LuaBindings_SetBlock(void) {
     Vector3 position = LuaBindings_ReadPosition(1, true);
-    int blockId = Lua_GetInt(2);
+    int blockId = ServerItems_Id(L, 2, true, false);
+    if (!ServerWorld_IsBlockDefined(blockId)) return luaL_error(L, "block is not defined");
     ServerWorld_SetBlock(position, blockId, true, false, true);
     return 0;
 }
@@ -143,7 +145,7 @@ static ServerBlockUpdate LuaBindings_ReadBlockUpdate(int table) {
     Lua_Pop();
 
     Lua_PushField(table, "blockId");
-    int blockId = Lua_GetIntRange(-1, 0, 255);
+    int blockId = ServerItems_Id(L, -1, true, false);
     Lua_Pop();
     if (!ServerWorld_IsBlockDefined(blockId)) Lua_Error("blockId is not defined");
 
@@ -254,7 +256,8 @@ static void LuaBindings_ReadBlockTable(BlockDefinition *d) {
 }
 
 static int LuaBindings_DefineBlock(void) {
-    int blockId = Lua_GetIntRange(1, 1, 255);
+    int blockId = ServerItems_Declare(L, true);
+    if (!blockId || serverWorld.hasBlockDefinition[blockId]) return luaL_error(L, "block already defined");
     BlockDefinition definition = {0};
     Lua_CheckTable(2);
     LuaBindings_ReadBlockTable(&definition);
@@ -268,6 +271,12 @@ static int LuaBindings_DefineBlock(void) {
     if (!lua_isnil(L, -1)) luaL_checktype(L, -1, LUA_TFUNCTION);
     lua_pop(L, 1);
     LuaMetadata_DefineBlock(blockId, 2);
+    lua_getfield(L, 2, "item_metadata");
+    if (!lua_isnil(L, -1)) {
+        lua_newtable(L); lua_pushvalue(L, -2); lua_setfield(L, -2, "metadata");
+        LuaMetadata_DefineItem(blockId, lua_gettop(L)); lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
     luaL_unref(L, LUA_REGISTRYINDEX, blockInteractions[blockId]);
     lua_getfield(L, 2, "on_interact");
     blockInteractions[blockId] = luaL_ref(L, LUA_REGISTRYINDEX);
@@ -637,6 +646,7 @@ static const struct LuaMethod midlessLib[] = {
     {"set_block", LuaBindings_SetBlock},
     {"set_blocks", LuaBindings_SetBlocks},
     {"define_block", LuaBindings_DefineBlock},
+    {"define_item", ServerItems_Define},
     {"define_entity_model", LuaBindings_DefineEntityModel},
     {"remove_entity_model", LuaBindings_RemoveEntityModel},
     {"set_entity_model", LuaBindings_SetEntityModel},

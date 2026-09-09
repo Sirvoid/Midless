@@ -7,6 +7,9 @@
 
 // Schema registry IDs are runtime-only. Payloads store the declared version.
 int LuaMetadata_Register(lua_State *state, int definition);
+void LuaMetadata_DefineItem(int id, int definition);
+void LuaMetadata_ReadItem(lua_State *state, int index, ItemStack *stack);
+void LuaMetadata_PushItem(lua_State *state, ItemStack stack);
 void LuaMetadata_DefineBlock(int blockId, int definition);
 void LuaMetadata_Init(void);
 void LuaMetadata_Shutdown(void);

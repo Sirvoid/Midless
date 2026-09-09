@@ -21,6 +21,7 @@
 #include "world/textures.h"
 #include "serverinventory.h"
 #include "inventoryprotocol.h"
+#include "items.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -33,7 +34,7 @@ int serverPacketLengths[256] = {
     3,  //map init (protocol version)
     0, //load chunk
     15,  //setblock
-    18, //spawnEntity
+    19, //spawnEntity
     18, //teleportEntity
     65, //Message
     3, //despawnEntity
@@ -48,10 +49,11 @@ int serverPacketLengths[256] = {
     2, //remove entity model
     4, //set entity model
     TEXTURE_BEGIN_SIZE, TEXTURE_DATA_SIZE, 3,
-    4, // held block
+    5, // held block
     INVENTORY_STATE_PACKET_SIZE,
     DROPPED_ITEM_PACKET_SIZE,
-    0 // inventory view (variable length)
+    0, // inventory view (variable length)
+    ITEM_DEFINITION_PACKET_SIZE
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -167,7 +169,7 @@ void ServerPacket_HandleIdentification(void) {
         return;
     }
     serverPacketPlayer->name = ServerPacket_ReadString();
-    if (!ServerInventory_Load(serverPacketPlayer)) {
+    if (!ServerItems_Ready() || !ServerInventory_Load(serverPacketPlayer)) {
         ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMessage("Cannot load inventory, or that name is already connected."));
         MemFree(serverPacketPlayer->name);
         serverPacketPlayer->name = NULL;
@@ -175,6 +177,7 @@ void ServerPacket_HandleIdentification(void) {
     }
     ServerLogger_Log(TextFormat("%s connected. Protocol version: %i\n", serverPacketPlayer->name, protocolVersion));
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMapInit());
+    ServerItems_Send(serverPacketPlayer);
     ServerTextures_SendTerrain(serverPacketPlayer);
     ServerWorld_SendEntityModels(serverPacketPlayer);
     ServerWorld_AddPlayer(serverPacketPlayer);
@@ -321,7 +324,7 @@ unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity) {
     ServerPacket_WriteInt(packet, (int)(entity->position.x * 64));
     ServerPacket_WriteInt(packet, (int)(entity->position.y * 64));
     ServerPacket_WriteInt(packet, (int)(entity->position.z * 64));
-    ServerPacket_WriteByte(packet, entity->heldBlock);
+    ServerPacket_WriteUShort(packet, entity->heldBlock);
     return packet;
 }
 
@@ -453,10 +456,10 @@ unsigned char *ServerPacket_CreateSetEntityModel(unsigned short entityId, unsign
 
 unsigned char *ServerPacket_CreateHeldBlock(Entity *entity) {
     serverPacketWriterIndex = 0;
-    unsigned char *packet = MemAlloc(4);
+    unsigned char *packet = MemAlloc(5);
     ServerPacket_WriteByte(packet, 20);
     ServerPacket_WriteUShort(packet, entity->id);
-    ServerPacket_WriteByte(packet, entity->heldBlock);
+    ServerPacket_WriteUShort(packet, entity->heldBlock);
     return packet;
 }
 
@@ -471,6 +474,9 @@ unsigned char *ServerPacket_CreateDroppedItem(Entity *entity) {
     ServerPacket_WriteInt(packet, (int)(entity->position.x * 64));
     ServerPacket_WriteInt(packet, (int)(entity->position.y * 64));
     ServerPacket_WriteInt(packet, (int)(entity->position.z * 64));
+    packet[18] = entity->drop.stack.metadataSize;
+    packet[19] = entity->drop.stack.metadataVersion >> 8; packet[20] = entity->drop.stack.metadataVersion;
+    memcpy(packet + 21, entity->drop.stack.metadata, ITEM_METADATA_BYTES);
     return packet;
 }
 

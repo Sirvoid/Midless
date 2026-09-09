@@ -23,7 +23,7 @@ typedef struct Entity{
     int ownerPlayerId;
     int definitionId;
     int scriptRef;
-    unsigned char heldBlock;
+    unsigned short heldBlock;
     char type;
     unsigned char model;
     Vector3 position;

@@ -21,6 +21,7 @@
 #include "textureprotocol.h"
 #include "rotation.h"
 #include "inventoryprotocol.h"
+#include "itemdefinition.h"
 
 #define PACKET_STRING_SIZE 64
 
@@ -228,7 +229,7 @@ void Packet_HandleSpawnEntity(void) {
         return;
     }
     World_AddEntity(id, type, modelId, position, (Vector3) {0, 0, 0});
-    if (world.entities && id < WORLD_MAX_ENTITIES) world.entities[id].heldBlock = Packet_ReadByte();
+    if (world.entities && id < WORLD_MAX_ENTITIES) world.entities[id].heldBlock = Packet_ReadUShort();
 }
 
 void Packet_HandleDespawnEntity(void) {
@@ -396,7 +397,7 @@ void Packet_HandleSetEntityModel(void) {
 
 void Packet_HandleHeldBlock(void) {
     int id = Packet_ReadUShort();
-    unsigned char blockId = Packet_ReadByte();
+    unsigned short blockId = Packet_ReadUShort();
     if (world.entities && id < WORLD_MAX_ENTITIES && world.entities[id].type)
         world.entities[id].heldBlock = blockId;
 }
@@ -405,8 +406,11 @@ void Packet_HandleDroppedItem(void) {
     if (packetDataLength != DROPPED_ITEM_PACKET_SIZE) return;
     int id = Packet_ReadUShort();
     ItemStack stack = {Packet_ReadUShort(), Packet_ReadByte()};
+    stack.metadataSize = packetData[18]; stack.metadataVersion = (packetData[19] << 8) | packetData[20];
+    if (stack.metadataSize > ITEM_METADATA_BYTES || (stack.metadataSize && !stack.metadataVersion)) return;
+    memcpy(stack.metadata, packetData + 21, ITEM_METADATA_BYTES);
     Vector3 position = {Packet_ReadInt() / 64.0f, Packet_ReadInt() / 64.0f, Packet_ReadInt() / 64.0f};
-    if (!world.entities || id >= WORLD_MAX_ENTITIES || !stack.itemId || stack.itemId > 255 ||
+    if (!world.entities || id >= WORLD_MAX_ENTITIES || !stack.itemId || stack.itemId >= ITEM_LIMIT ||
         !stack.count || stack.count > Item_GetMaxStack(stack.itemId) ||
         fabsf(position.x) > 1000000 || fabsf(position.y) > 1000000 || fabsf(position.z) > 1000000) return;
     Entity *entity = &world.entities[id];

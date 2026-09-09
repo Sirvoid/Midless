@@ -6,7 +6,8 @@
 #define PACKET_INVENTORY_ACTION 6
 #define PACKET_INVENTORY_STATE 21
 #define INVENTORY_ACTION_PACKET_SIZE 25
-#define INVENTORY_STATE_PACKET_SIZE 123
+#define ITEM_STACK_PACKET_SIZE 70
+#define INVENTORY_STATE_PACKET_SIZE (12 + 37 * ITEM_STACK_PACKET_SIZE)
 
 void InventoryProtocol_WriteAction(uint8_t *data, const InventoryAction *action);
 bool InventoryProtocol_ReadAction(const uint8_t *data, int length, InventoryAction *action);

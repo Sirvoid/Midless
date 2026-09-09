@@ -3,6 +3,7 @@
 #include "luabindings.h"
 #include "../world/world.h"
 #include "../serverinventory.h"
+#include "../items.h"
 #include <string.h>
 #include <math.h>
 #include <limits.h>
@@ -36,10 +37,7 @@ static ItemStack *Slots(lua_State *state, int index, int *count) {
 static int GetStack(lua_State *state) {
     int count; ItemStack *slots = Slots(state, 1, &count);
     ItemStack stack = slots[Integer(state, 2, 1, count) - 1];
-    if (!stack.count) { lua_pushnil(state); return 1; }
-    lua_createtable(state, 0, 2);
-    lua_pushinteger(state, stack.itemId); lua_setfield(state, -2, "id");
-    lua_pushinteger(state, stack.count); lua_setfield(state, -2, "count");
+    ServerItems_PushStack(state, stack);
     return 1;
 }
 static int SetStack(lua_State *state) {
@@ -47,11 +45,7 @@ static int SetStack(lua_State *state) {
     int count; ItemStack *slots = Slots(state, 1, &count);
     int slot = Integer(state, 2, 1, count) - 1;
     ItemStack stack = {0};
-    if (!lua_isnoneornil(state, 3)) {
-        luaL_checktype(state, 3, LUA_TTABLE);
-        lua_getfield(state, 3, "id"); stack.itemId = Integer(state, -1, 1, 65535); lua_pop(state, 1);
-        lua_getfield(state, 3, "count"); stack.count = Integer(state, -1, 1, Item_GetMaxStack(stack.itemId)); lua_pop(state, 1);
-    }
+    if (!lua_isnoneornil(state, 3)) ServerItems_ReadStack(state, 3, &stack);
     slots[slot] = stack;
     p->inventoryRevision++;
     ServerInventory_UpdateHeldBlock(p);
@@ -61,11 +55,13 @@ static int SetStack(lua_State *state) {
 static int AddItem(lua_State *state) {
     Player *p = Owner(state, 1);
     luaL_checktype(state, 2, LUA_TTABLE);
-    lua_getfield(state, 2, "id"); int id = Integer(state, -1, 1, 65535); lua_pop(state, 1);
+    lua_getfield(state, 2, "id"); int id = ServerItems_Id(state, -1, false, false); lua_pop(state, 1);
+    if (!id) return luaL_error(state, "air is not an item");
     lua_getfield(state, 2, "count"); int count = Integer(state, -1, 1, INT_MAX); lua_pop(state, 1);
+    ItemStack stack = {.itemId=id}; LuaMetadata_ReadItem(state, 2, &stack);
     int slotCount; ItemStack *slots = Slots(state, 1, &slotCount);
     ItemStack next[255]; memcpy(next, slots, slotCount * sizeof(ItemStack));
-    bool added = Inventory_AddToSlots(next, slotCount, slots == p->inventory.slots ? INVENTORY_STORAGE_SLOTS : 0, id, count) == count;
+    bool added = Inventory_AddStackToSlots(next, slotCount, slots == p->inventory.slots ? INVENTORY_STORAGE_SLOTS : 0, stack, count) == count;
     if (added) {
         memcpy(slots, next, slotCount * sizeof(ItemStack));
         p->inventoryRevision++;

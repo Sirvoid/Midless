@@ -28,6 +28,7 @@
 #include "worldgenerator.h"
 #include "worldgen.h"
 #include "../utils.h"
+#include "../items.h"
 
 World serverWorld;
 static long long lastUpdateMilliseconds;
@@ -70,6 +71,7 @@ void ServerWorld_Init(void) {
     lastUpdateMilliseconds = GetTimeMilliseconds();
     lastTimeSyncMilliseconds = lastUpdateMilliseconds;
     CreateWorldDirectory();
+    ServerItems_Init();
     ServerWorldGenerator_Init(LoadWorldSeed());
     ServerChunkManager_Init();
 }
@@ -155,6 +157,7 @@ void ServerWorld_DefineBlock(int id, const BlockDefinition *definition) {
     if (!BlockDefinition_Validate(id, definition)) return;
     serverWorld.blockDefinitions[id] = *definition;
     serverWorld.hasBlockDefinition[id] = true;
+    ServerItems_DefineBlock(id);
     if (!serverWorld.players) return;
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         ServerPlayer_DefineBlock(serverWorld.players[i], id, definition);

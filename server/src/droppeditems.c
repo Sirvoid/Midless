@@ -6,6 +6,7 @@
 #include "networkhandler.h"
 #include "packet.h"
 #include "world/world.h"
+#include "items.h"
 
 #define PICKUP_RADIUS 1.5f
 #define MERGE_RADIUS 0.75f
@@ -78,7 +79,7 @@ static bool ClearSpawn(Vector3 position) {
 }
 
 int ServerDrops_Spawn(ItemStack stack, Vector3 position, Vector3 velocity, float pickupDelay) {
-    if (!stack.count || stack.count > Item_GetMaxStack(stack.itemId) || !ServerWorld_IsBlockDefined(stack.itemId) ||
+    if (!stack.count || stack.count > Item_GetMaxStack(stack.itemId) || !ServerItems_IsDefined(stack.itemId) ||
         !isfinite(position.x) || !isfinite(position.y) || !isfinite(position.z) ||
         fabsf(position.x) > 1000000 || fabsf(position.y) > 1000000 || fabsf(position.z) > 1000000 ||
         !isfinite(pickupDelay) || pickupDelay < 0 || !GetChunk(position)) return -1;
@@ -110,7 +111,8 @@ bool ServerDrops_Throw(Player *player, bool oneItem) {
         fabsf(position.x) > 1000000 || fabsf(position.y) > 1000000 || fabsf(position.z) > 1000000 || !ClearSpawn(position)) return false;
     float pitch = owner->rotation.x, yaw = owner->rotation.y;
     Vector3 velocity = {sinf(yaw) * cosf(pitch) * 4, 2 - sinf(pitch) * 4, cosf(yaw) * cosf(pitch) * 4};
-    ItemStack thrown = {cursor->itemId, oneItem ? 1 : cursor->count};
+    ItemStack thrown = *cursor;
+    if (oneItem) thrown.count = 1;
     // Reserve the entity first; failed spawns leave the inventory untouched.
     if (ServerDrops_Spawn(thrown, position, velocity, 1.0f) < 0) return false;
     cursor->count -= thrown.count;
@@ -132,7 +134,7 @@ static void MergeNearby(Entity *entity) {
         Entity *other = &serverWorld.entities[nearby[i]];
         // Each pair is considered only by the lower entity ID.
         if (other->id <= entity->id || other->type != ENTITY_TYPE_DROPPED_ITEM || other->pendingRemoval ||
-            other->drop.stack.itemId != entity->drop.stack.itemId) continue;
+            !ItemStack_Matches(other->drop.stack, entity->drop.stack)) continue;
         float dx = other->position.x-position.x, dy = other->position.y-position.y, dz = other->position.z-position.z;
         if (dx*dx+dy*dy+dz*dz > MERGE_RADIUS*MERGE_RADIUS || !ClearPath(position, other->position)) continue;
         int moved = Item_GetMaxStack(entity->drop.stack.itemId) - entity->drop.stack.count;
@@ -169,7 +171,7 @@ static void TryPickup(Entity *entity) {
         float dy = position.y - fminf(body.max.y,fmaxf(body.min.y,position.y));
         float dz = position.z - fminf(body.max.z,fmaxf(body.min.z,position.z));
         if (dx*dx+dy*dy+dz*dz > PICKUP_RADIUS*PICKUP_RADIUS || !ClearPath(position, center)) continue;
-        int inserted = Inventory_AddPartial(&player->inventory, entity->drop.stack.itemId, entity->drop.stack.count);
+        int inserted = Inventory_AddStackPartial(&player->inventory, entity->drop.stack);
         if (!inserted) continue;
         entity->drop.stack.count -= inserted;
         entity->dirty = true;

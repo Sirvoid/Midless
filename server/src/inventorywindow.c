@@ -8,6 +8,7 @@
 #include "packet.h"
 #include "droppeditems.h"
 #include "crafting.h"
+#include "items.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,7 +55,7 @@ static bool Write(Player *p, InventoryWindow *w, ItemStack *slots) {
     return true;
 }
 static bool SameSlots(const ItemStack *a, const ItemStack *b, int count) {
-    for (int i = 0; i < count; i++) if (a[i].itemId != b[i].itemId || a[i].count != b[i].count) return false;
+    for (int i = 0; i < count; i++) if (!ItemStack_Matches(a[i], b[i]) || a[i].count != b[i].count) return false;
     return true;
 }
 static bool RefreshPreviews(InventoryWindow *w) {
@@ -70,8 +71,8 @@ static bool RefreshPreviews(InventoryWindow *w) {
         if (!e->crafting) continue;
         CraftingMatch match;
         Crafting_Find(w->recipes[i], w->view.slots + InventoryView_Offset(&w->view, e->binding), e->columns, e->rows, &match);
-        if (match.output.count && !ServerWorld_IsBlockDefined(match.output.itemId)) match.output = (ItemStack){0};
-        if (e->preview.itemId != match.output.itemId || e->preview.count != match.output.count) changed = true;
+        if (match.output.count && !ServerItems_IsDefined(match.output.itemId)) match.output = (ItemStack){0};
+        if (!ItemStack_Matches(e->preview, match.output) || e->preview.count != match.output.count) changed = true;
         e->preview = match.output;
     }
     return changed;
@@ -112,7 +113,7 @@ bool InventoryWindow_Close(Player *p) {
     InventoryWindow *w = &p->inventoryWindow;
     ItemStack *cursor = &p->inventory.cursor;
     if (cursor->count) {
-        int moved = Inventory_AddPartial(&p->inventory, cursor->itemId, cursor->count);
+        int moved = Inventory_AddStackPartial(&p->inventory, *cursor);
         cursor->count -= moved;
         if (!cursor->count) *cursor = (ItemStack){0};
     }
@@ -140,7 +141,7 @@ static void TransferTo(InventoryWindow *w, int binding, ItemStack *source, ItemS
     for (int pass = 0; pass < 2 && source->count; pass++) {
         for (int slot = 0; slot < w->view.bindingSlots[binding] && source->count; slot++) {
             ItemStack *destination = &slots[slot];
-            if (pass == 0 ? (!destination->count || destination->itemId != source->itemId) : destination->count != 0) continue;
+            if (pass == 0 ? (!destination->count || !ItemStack_Matches(*destination, *source)) : destination->count != 0) continue;
             if (CanInsert(w, binding, slot, source->itemId)) Inventory_Transfer(source, destination, 1);
         }
     }
@@ -166,20 +167,20 @@ void InventoryWindow_Action(Player *p, const InventoryAction *a) {
         for (int attempt = 0; attempt < (all ? 64 : 1); attempt++) {
             CraftingMatch match;
             if (!Crafting_Find(w->recipes[a->slot], inputs, e->columns, e->rows, &match) ||
-                !ServerWorld_IsBlockDefined(match.output.itemId)) break;
+                !ServerItems_IsDefined(match.output.itemId)) break;
             if (crafted && match.recipe != recipe) break;
             recipe = match.recipe;
             if (all) {
-                if (!Inventory_Add(&next, match.output.itemId, match.output.count)) break;
+                if (!Inventory_AddStack(&next, match.output)) break;
             } else {
-                if ((next.cursor.count && next.cursor.itemId != match.output.itemId) ||
+                if ((next.cursor.count && !ItemStack_Matches(next.cursor, match.output)) ||
                     next.cursor.count + match.output.count > Item_GetMaxStack(match.output.itemId)) break;
-                next.cursor.itemId = match.output.itemId;
+                if (!next.cursor.count) { next.cursor = match.output; next.cursor.count = 0; }
                 next.cursor.count += match.output.count;
             }
             for (int i = 0; i < e->columns * e->rows; i++) {
                 inputs[i].count -= match.consume[i];
-                if (!inputs[i].count) inputs[i].itemId = 0;
+                if (!inputs[i].count) inputs[i] = (ItemStack){0};
             }
             crafted++;
         }

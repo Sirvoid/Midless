@@ -1,4 +1,5 @@
 #include "textures.h"
+#include "items.h"
 #include "textureprotocol.h"
 #include "networking/packet.h"
 #include "networking/networkhandler.h"
@@ -117,6 +118,7 @@ void ClientTextures_HandleTerrain(void) {
     desiredTerrain=id; ApplyTerrain();
 }
 void ClientTextures_Reset(void) {
+    ClientItems_Reset();
     ClearTransfer();
     desiredTerrain=1; ApplyTerrain();
     for(int id=2;id<TEXTURE_LIMIT;id++) {

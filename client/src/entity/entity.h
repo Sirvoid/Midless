@@ -27,7 +27,7 @@ typedef struct EntityAnimation {
 
 typedef struct Entity{
     ItemStack droppedStack;
-    unsigned char heldBlock;
+    unsigned short heldBlock;
     char type;
     unsigned char modelId;
     Vector3 position;

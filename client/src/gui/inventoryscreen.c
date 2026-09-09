@@ -1,5 +1,6 @@
 #include <math.h>
 #include "inventoryscreen.h"
+#include "../items.h"
 #include "inventoryclient.h"
 #include "blockitemrenderer.h"
 #include "block.h"
@@ -79,7 +80,7 @@ static void DrawView(const InventoryView *view, const Inventory *inventory) {
             else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) ClientInventory_Throw(true);
         }
     } else if (hovered.count) {
-        const char *name = Block_GetDefinition(hovered.itemId)->name;
+        const char *name = ClientItems_Name(hovered.itemId);
         int width = MeasureText(name, 16);
         float x = fminf(mouse.x + 14, GetScreenWidth() - width - 12);
         DrawRectangle(x - 4, mouse.y - 26, width + 8, 24, (Color){0, 0, 0, 220});
@@ -136,7 +137,7 @@ void ClientInventory_Draw(bool showStorage) {
     if (inventory->cursor.count) {
         DrawStack(inventory->cursor, (Rectangle){mouse.x - size / 2, mouse.y - size / 2, size, size});
     } else if (hoveredSlot >= 0 && inventory->slots[hoveredSlot].count) {
-        const char *name = Block_GetDefinition(inventory->slots[hoveredSlot].itemId)->name;
+        const char *name = ClientItems_Name(inventory->slots[hoveredSlot].itemId);
         int width = MeasureText(name, 16);
         float x = fminf(mouse.x + 14, GetScreenWidth() - width - 12);
         DrawRectangle((int)x - 4, (int)mouse.y - 26, width + 8, 24, (Color){0, 0, 0, 220});

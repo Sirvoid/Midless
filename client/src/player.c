@@ -111,7 +111,7 @@ void Player_Draw(void) {
     localEntity.rotation = (Vector3){0, -playerCameraAngle.x + PI / 2.0f, 0};
     localEntity.model = player.entityModel;
     localEntity.animation = player.animation;
-    localEntity.heldBlock = Block_IsSelectable(player.blockSelected) ? player.blockSelected : 0;
+    localEntity.heldBlock = player.blockSelected;
     if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) {
         float swingProgress = EntityAnimation_GetSwingProgress(
             &player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);

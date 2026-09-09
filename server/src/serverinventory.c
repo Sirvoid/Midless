@@ -7,6 +7,7 @@
 #include "world/world.h"
 #include "blockshape.h"
 #include "droppeditems.h"
+#include "items.h"
 #include "scripting/luabindings.h"
 #include "scripting/luametadata.h"
 #include "scripting/luainventory.h"
@@ -164,7 +165,7 @@ static void TryPlaceBlock(Player *player, const InventoryAction *action) {
     BlockPhysics physics = GetBlockPhysics(blockId, position);
     if (physics.solid && OverlapsPlayer(physics.bounds)) return;
     stack->count--;
-    if (!stack->count) stack->itemId = 0;
+    if (!stack->count) *stack = (ItemStack){0};
     ServerWorld_SetBlock(position, blockId, true, true, true);
 }
 
@@ -172,7 +173,7 @@ void ServerInventory_UpdateHeldBlock(Player *player) {
     if (player->entityId < 0 || player->entityId >= WORLD_MAX_ENTITIES) return;
     Entity *entity = &serverWorld.entities[player->entityId];
     ItemStack *stack = Inventory_GetSelected(&player->inventory);
-    int heldBlock = stack->count && ServerWorld_IsBlockDefined(stack->itemId) ? stack->itemId : 0;
+    int heldBlock = stack->count && ServerItems_IsDefined(stack->itemId) ? stack->itemId : 0;
     if (entity->heldBlock == heldBlock) return;
     entity->heldBlock = heldBlock;
     if (entity->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateHeldBlock(entity), player->id);

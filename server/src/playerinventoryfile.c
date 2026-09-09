@@ -2,6 +2,7 @@
 #include "world/world.h"
 #include "binarydata.h"
 #include "savefile.h"
+#include "items.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,19 +27,12 @@ static bool Filename(const Player *player, char path[160]) {
     strcpy(path + 14 + 2*length, ".dat");
     return true;
 }
-static void WriteStack(BinaryWriter *out, ItemStack stack) {
-    Binary_U16(out, stack.itemId); Binary_U8(out, stack.count);
-}
-static ItemStack ReadStack(BinaryReader *in) {
-    ItemStack stack = {0};
-    stack.itemId = Binary_ReadU16(in); stack.count = Binary_ReadU8(in);
-    if ((!stack.itemId != !stack.count) || stack.count > Item_GetMaxStack(stack.itemId)) in->failed = true;
-    return stack;
-}
+static void WriteStack(BinaryWriter *out, ItemStack stack) { ItemStack_Write(out, stack); }
+static ItemStack ReadStack(BinaryReader *in) { return ItemStack_Read(in); }
 bool ServerInventory_Save(Player *player) {
     if (!player->inventoryLoaded) return true;
     char path[160];
-    if (!Filename(player, path)) return false;
+    if (!ServerItems_Ready() || !Filename(player, path)) return false;
     BinaryWriter out = {0};
     Binary_Write(&out, "MDPI", 4); Binary_U8(&out, player->namedInventoryCount ? 2 : 1);
     Binary_U8(&out, player->inventory.selectedHotbar);
@@ -72,7 +66,7 @@ bool ServerInventory_Save(Player *player) {
 bool ServerInventory_Load(Player *player) {
     player->inventoryLoaded = false;
     char path[160];
-    if (!Filename(player, path)) return false;
+    if (!ServerItems_Ready() || !Filename(player, path)) return false;
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         Player *other = serverWorld.players[i];
         if (other && other != player && other->name && !strcmp(other->name, player->name)) return false;
@@ -94,7 +88,7 @@ bool ServerInventory_Load(Player *player) {
         player->inventoryLoaded = false;
         return false;
     }
-    uint8_t data[18000]; // Main inventory plus at most 16 named inventories.
+    uint8_t data[300000]; // Main inventory plus at most 16 named inventories.
     size_t size = fread(data, 1, sizeof(data), file);
     bool ok = !ferror(file);
     fclose(file);

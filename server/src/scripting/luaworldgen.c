@@ -1,4 +1,5 @@
 #include "minilua.h"
+#include "../items.h"
 #include "../world/worldgen.h"
 #include <math.h>
 #include <string.h>
@@ -32,6 +33,15 @@ static double ReadNumber(lua_State *luaState, int tableIndex, const char *key, d
 
 static int ReadInteger(lua_State *luaState, int tableIndex, const char *key, int fallback, int min,
                        int max) {
+    if (max == 255) {
+        lua_getfield(luaState, tableIndex, key);
+        if (lua_type(luaState, -1) == LUA_TSTRING) {
+            int id = ServerItems_Id(luaState, -1, true, false); lua_pop(luaState, 1);
+            if (id < min || id > max) return luaL_error(luaState, "block ID out of range");
+            return id;
+        }
+        lua_pop(luaState, 1);
+    }
     double value = ReadNumber(luaState, tableIndex, key, fallback, min, max);
     if (value != floor(value))
         luaL_error(luaState, "%s must be an integer", key);

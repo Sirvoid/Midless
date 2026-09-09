@@ -2,6 +2,7 @@
 #include "world.h"
 #include "../packet.h"
 #include "../networkhandler.h"
+#include "../items.h"
 #include "textureprotocol.h"
 #include <stdio.h>
 #include <string.h>
@@ -24,6 +25,9 @@ int ServerTextures_Find(const char *name) {
     return -1;
 }
 
+bool ServerTextures_ItemSize(int id) {
+    return id >= 2 && id < TEXTURE_LIMIT && textures[id].data && textures[id].width <= 64 && textures[id].height <= 64;
+}
 bool ServerTextures_Define(const char *name, const char *path) {
     int id=ServerTextures_Find(name);
     if (id==0 || id==1 || !name[0] || strlen(name)>64) return false;
@@ -43,7 +47,12 @@ bool ServerTextures_Define(const char *name, const char *path) {
     if (!read || !Texture_ValidatePNG(data,size,&width,&height) ||
         totalPixels-textures[id].width*textures[id].height+width*height>TEXTURE_TOTAL_PIXELS ||
         (terrainId==id && (width!=256 || height!=256))) { MemFree(data); return false; }
-    // Preserve compatibility with all models already using this texture.
+    // Preserve compatibility with items and models already using this texture.
+    if (width > 64 || height > 64) {
+        for (int item=256; item<ITEM_LIMIT; item++) {
+            if (serverItems[item].defined && serverItems[item].texture==id) { MemFree(data); return false; }
+        }
+    }
     for (int m=1;m<256;m++) {
         ModelDefinition *d=serverWorld.modelDefinitions[m];
         if (!d || d->texture!=id) continue;

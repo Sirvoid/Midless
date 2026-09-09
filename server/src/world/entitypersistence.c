@@ -5,6 +5,7 @@
 #include "../entityphysics.h"
 #include "../droppeditems.h"
 #include "../packet.h"
+#include "../items.h"
 #include "binarydata.h"
 #include <math.h>
 #include <stdlib.h>
@@ -19,7 +20,7 @@ typedef struct SavedEntity {
     float age, pickupDelay;
     Metadata metadata;
     char model[65];
-    uint8_t heldBlock;
+    uint16_t heldBlock;
 } SavedEntity;
 
 static bool ChunkEntity(const Entity *entity) {
@@ -107,11 +108,12 @@ static bool ReadRecords(const Chunk *chunk, SavedEntity **records, int *count) {
         Metadata value = {(uint8_t *)payload, size, e->metadata.version};
         if (!Metadata_Copy(&e->metadata, &value)) return false;
         if (!e->name[0]) {
-            e->stack.itemId = Binary_ReadU16(&record); e->stack.count = Binary_ReadU8(&record);
+            e->stack = ItemStack_Read(&record);
             e->age = Binary_ReadFloat(&record); e->pickupDelay = Binary_ReadFloat(&record);
             if (!e->stack.itemId || !e->stack.count || e->stack.count > Item_GetMaxStack(e->stack.itemId) ||
                 !isfinite(e->age) || e->age < 0 || !isfinite(e->pickupDelay) || e->pickupDelay < 0) return false;
         }
+        if (record.offset + 2 == record.size) e->heldBlock = Binary_ReadU16(&record);
         if (!Binary_End(&record) || !SamePosition(ChunkPosition(e->position), chunk->position) ||
             !EntityBody_Validate(&e->body)) return false;
     }
@@ -127,9 +129,10 @@ static void WriteRecord(BinaryWriter *out, int type, const SavedEntity *e) {
     Binary_U16(&record, e->metadata.version); Binary_VarUInt(&record, e->metadata.size);
     Binary_Write(&record, e->metadata.data, e->metadata.size);
     if (!e->name[0]) {
-        Binary_U16(&record, e->stack.itemId); Binary_U8(&record, e->stack.count);
+        ItemStack_Write(&record, e->stack);
         Binary_Float(&record, e->age); Binary_Float(&record, e->pickupDelay);
     }
+    if (e->heldBlock > 255) Binary_U16(&record, e->heldBlock);
     if (record.failed) out->failed = true;
     Binary_VarUInt(out, type); Binary_VarUInt(out, record.size); Binary_Write(out, record.data, record.size);
     free(record.data);
@@ -160,7 +163,7 @@ static int ModelId(const char *name) {
 }
 static bool Available(const SavedEntity *e) {
     int definition = LuaEntities_Find(e->name);
-    return (!e->name[0] ? ServerWorld_IsBlockDefined(e->stack.itemId) :
+    return (!e->name[0] ? ServerItems_IsDefined(e->stack.itemId) :
         definition >= 0 && LuaMetadata_CanRead(LuaEntities_MetadataSchema(definition), &e->metadata)) && ModelId(e->model) >= 0;
 }
 static bool SaveDisabled(const SavedEntity *entity) {

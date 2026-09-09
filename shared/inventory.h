@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "binarydata.h"
+#define ITEM_METADATA_BYTES 64
 
 #define INVENTORY_STORAGE_SLOTS 27
 #define INVENTORY_HOTBAR_SLOTS 9
@@ -12,6 +14,9 @@
 typedef struct ItemStack {
     uint16_t itemId;
     uint8_t count;
+    uint8_t metadataSize;
+    uint16_t metadataVersion;
+    uint8_t metadata[ITEM_METADATA_BYTES];
 } ItemStack;
 
 typedef struct Inventory {
@@ -49,6 +54,12 @@ typedef struct InventoryAction {
 } InventoryAction;
 
 int Item_GetMaxStack(uint16_t itemId);
+bool ItemStack_Matches(ItemStack a, ItemStack b);
+void ItemStack_Write(BinaryWriter *out, ItemStack stack);
+ItemStack ItemStack_Read(BinaryReader *in);
+int Inventory_AddStackToSlots(ItemStack *slots, int slotCount, int firstSlot, ItemStack stack, int count);
+int Inventory_AddStackPartial(Inventory *inventory, ItemStack stack);
+bool Inventory_AddStack(Inventory *inventory, ItemStack stack);
 void Inventory_Init(Inventory *inventory);
 ItemStack *Inventory_GetSelected(Inventory *inventory);
 bool Inventory_Add(Inventory *inventory, uint16_t itemId, int count);

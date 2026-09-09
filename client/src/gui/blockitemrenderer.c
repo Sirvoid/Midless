@@ -11,6 +11,7 @@
 #include "block.h"
 #include "blockmeshgeneration.h"
 #include "blockitemrenderer.h"
+#include "../items.h"
 
 #define BLOCK_ITEM_COUNT 256
 #define BLOCK_ITEM_TEXTURE_SIZE 256
@@ -151,6 +152,7 @@ void BlockItemRenderer_Refresh(int blockId) {
 }
 
 void BlockItemRenderer_Draw(int blockId, Rectangle bounds) {
+    if (blockId >= 256) { ClientItems_Draw(blockId, bounds); return; }
     if (blockId < 0 || blockId >= BLOCK_ITEM_COUNT || !icons[blockId].loaded) return;
 
     Texture2D texture = icons[blockId].target.texture;
@@ -164,6 +166,7 @@ void BlockItemRenderer_SetTexture(Texture2D texture) {
 }
 
 bool BlockItemRenderer_Draw3D(int blockId, Matrix transform, float brightness) {
+    if (blockId >= 256) return ClientItems_Draw3D(blockId, transform, brightness);
     if (blockId < 1 || blockId >= BLOCK_ITEM_COUNT || !icons[blockId].loaded) return false;
     unsigned char light = (unsigned char)(Clamp(brightness, 0.0f, 1.0f) * 255);
     heldMaterial.maps[MATERIAL_MAP_DIFFUSE].texture = iconTerrain;

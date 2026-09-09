@@ -82,13 +82,13 @@ void InventoryView_Write(BinaryWriter *out, const InventoryView *v) {
         Binary_U8(out, e->first); Binary_U8(out, e->progress);
         Binary_Float(out, e->width); Binary_Float(out, e->height);
         Binary_Float(out, e->value); Binary_Float(out, e->maximum);
-        Binary_U16(out, e->preview.itemId); Binary_U8(out, e->preview.count);
+        ItemStack_Write(out, e->preview);
         Binary_Float(out, e->x); Binary_Float(out, e->y);
         Binary_U8(out, e->columns); Binary_U8(out, e->rows);
         WriteText(out, e->text);
     }
     for (int i = 0; i < v->slotCount; i++) {
-        Binary_U16(out, v->slots[i].itemId); Binary_U8(out, v->slots[i].count);
+        ItemStack_Write(out, v->slots[i]);
     }
 }
 bool InventoryView_Read(BinaryReader *in, InventoryView *v) {
@@ -116,7 +116,7 @@ bool InventoryView_Read(BinaryReader *in, InventoryView *v) {
         e->progress = progress;
         e->width = Binary_ReadFloat(in); e->height = Binary_ReadFloat(in);
         e->value = Binary_ReadFloat(in); e->maximum = Binary_ReadFloat(in);
-        e->preview.itemId = Binary_ReadU16(in); e->preview.count = Binary_ReadU8(in);
+        e->preview = ItemStack_Read(in);
         if ((!e->preview.itemId != !e->preview.count) || e->preview.count > Item_GetMaxStack(e->preview.itemId) ||
             (!e->crafting && e->preview.count)) return false;
         e->x = Binary_ReadFloat(in); e->y = Binary_ReadFloat(in);
@@ -125,7 +125,7 @@ bool InventoryView_Read(BinaryReader *in, InventoryView *v) {
     }
     for (int i = 0; i < v->slotCount; i++) {
         ItemStack *s = &v->slots[i];
-        s->itemId = Binary_ReadU16(in); s->count = Binary_ReadU8(in);
+        *s = ItemStack_Read(in);
         if ((!s->itemId != !s->count) || s->count > Item_GetMaxStack(s->itemId)) return false;
     }
     return !in->failed && InventoryView_Validate(v);
@@ -142,11 +142,13 @@ void Inventory_ClickStack(ItemStack *slot, ItemStack *cursor, bool right) {
 void Inventory_Transfer(ItemStack *source, ItemStack *slots, int count) {
     for (int pass = 0; pass < 2 && source->count; pass++) for (int i = 0; i < count && source->count; i++) {
         ItemStack *slot = &slots[i];
-        if (pass == 0 ? (!slot->count || slot->itemId != source->itemId) : slot->count != 0) continue;
+        if (pass == 0 ? (!slot->count || !ItemStack_Matches(*slot, *source)) : slot->count != 0) continue;
         int amount = Item_GetMaxStack(source->itemId) - slot->count;
+        if (amount <= 0) continue;
         if (amount > source->count) amount = source->count;
-        slot->itemId = source->itemId; slot->count += amount;
+        if (!slot->count) { *slot = *source; slot->count = 0; }
+        slot->count += amount;
         source->count -= amount;
-        if (!source->count) source->itemId = 0;
+        if (!source->count) *source = (ItemStack){0};
     }
 }

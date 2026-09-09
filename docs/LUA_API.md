@@ -33,14 +33,14 @@ local pos = vector.new(10, 20, 30)
 ```lua
 local block = midless.get_block({x = 10, y = 20, z = 10})
 if block:is_loaded() then
-    local id = block:get_id() -- 0 is air
+    local id = block:get_id() -- "midless:air" is air
     local position = block:get_position()
-    block:set_id(1)
+    block:set_id("midless:stone")
 end
 ```
 
 Returns a block object at the given position. Use `:get_id()` when you need the
-numeric ID. `get_position()` and `is_loaded()` work even when the chunk is
+identifier. `get_position()` and `is_loaded()` work even when the chunk is
 unloaded; other methods require a loaded chunk. The object also exposes
 `get_metadata`, `set_metadata`, `reset_metadata`, and `get_inventory`.
 See [metadata](#metadata).
@@ -54,10 +54,10 @@ midless.set_block(pos, blockId)
 Example:
 
 ```lua
-midless.set_block({x = 10, y = 20, z = 10}, 1)
+midless.set_block({x = 10, y = 20, z = 10}, "midless:stone")
 ```
 
-Use block ID `0` to place air.
+Use `"midless:air"` (or `0`) to place air.
 
 ## Set multiple blocks
 
@@ -518,10 +518,10 @@ entity:set_model(modelName)
 
 ## Define a block
 
-Custom block IDs can use IDs `19` through `255`.
+Use a unique identifier prefixed with your mod's name:
 
 ```lua
-midless.define_block(19, {
+midless.define_block("example:stone", {
     name = "Example Block",
 
     textures = {
@@ -1472,6 +1472,63 @@ Entities receive a new runtime ID when loaded; old handles become invalid.
 `save = false` entities disappear on unload, including any older saved copies.
 
 ---
+
+# Items
+
+Blocks automatically have a placeable item with the same identifier. Use
+`define_item` for an item that does not place a block:
+
+```lua
+midless.define_texture("example:gem", "textures/gem.png")
+
+midless.define_item("example:gem", {
+    name = "Gem",
+    texture = "example:gem",
+    max_stack = 16, -- 1..64; default 64
+    metadata = {
+        {name = "quality", type = "uint", bits = 4, default = 1},
+        {name = "label", type = "string", max_length = 32},
+    },
+})
+```
+
+Set `texture` to a name registered with `define_texture`. Multiple items can use
+the same texture. Use a PNG up to 64 by 64 pixels with a transparent background. It becomes the
+inventory icon and a sprite with one pixel of thickness when held or dropped.
+`held_model = "sprite"` is optional; it is the default for ordinary items.
+
+## Item metadata
+
+Set metadata when creating a stack:
+
+```lua
+local inventory = player:get_inventory()
+inventory:set_stack(1, {
+    id = "example:gem", count = 3,
+    metadata = {quality = 2, label = "Found in a cave"},
+})
+
+local stack = inventory:get_stack(1)
+stack.metadata.quality = 4
+inventory:set_stack(1, stack)
+```
+
+`get_stack` returns a copy, or `nil` for an empty slot. Omitted metadata uses its
+declared defaults. Items only stack together when their IDs and metadata match.
+Metadata stays with items when moved, dropped, or saved.
+
+Recipe outputs can include metadata. To match a specific ingredient's metadata,
+use a table instead of its identifier:
+
+```lua
+midless.define_recipe({
+    ingredients = {
+        {id = "example:gem", metadata = {quality = 2}},
+        "midless:stone",
+    },
+    output = {id = "example:gem", count = 1, metadata = {quality = 3}},
+})
+```
 
 # Inventories
 

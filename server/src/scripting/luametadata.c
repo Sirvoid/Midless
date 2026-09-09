@@ -1,6 +1,7 @@
 #include "luametadata.h"
 #include "binarydata.h"
 #include "luaentities.h"
+#include "../items.h"
 #include "../world/world.h"
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +33,7 @@ typedef struct Schema {
 static bool BuildDefaults(Schema *schema);
 static Schema *schemas[MAX_SCHEMAS];
 static int schemaCount, blockSchemas[256];
+static int itemSchemas[ITEM_LIMIT];
 static int timerCallbacks[256], inventoryCallbacks[256];
 static bool notifying;
 
@@ -146,7 +148,7 @@ int LuaMetadata_Register(lua_State *state, int definition) {
                         lua_newtable(state);
                         for (int j = 1; j <= lua_rawlen(state, items); j++) {
                             lua_rawgeti(state, items, j);
-                            int id = Integer(state, -1, 1, 65535); lua_pop(state, 1);
+                            int id = ServerItems_Id(state, -1, false, false); lua_pop(state, 1);
                             lua_pushboolean(state, true); lua_rawseti(state, -2, id);
                         }
                     } else lua_pushboolean(state, true);
@@ -243,13 +245,11 @@ static bool ReadField(lua_State *state, const Field *field, BinaryReader *in, Bi
             if (state) lua_newtable(state);
             for (int slot = 0; slot < count; slot++) {
                 int index = Binary_ReadU8(in);
-                int id = Binary_ReadU16(in), amount = Binary_ReadU8(in);
-                if (index <= previous || index >= field->limit || !id || !amount || amount > Item_GetMaxStack(id)) return false;
+                ItemStack stack = ItemStack_Read(in);
+                if (in->failed || index <= previous || index >= field->limit || !stack.count) return false;
                 previous = index;
                 if (state) {
-                    lua_newtable(state);
-                    lua_pushinteger(state, id); lua_setfield(state, -2, "id");
-                    lua_pushinteger(state, amount); lua_setfield(state, -2, "count");
+                    ServerItems_PushStack(state, stack);
                     lua_rawseti(state, -2, index + 1);
                 }
             }
@@ -310,14 +310,12 @@ static void WriteField(lua_State *state, const Field *field, int input, BinaryWr
         while (lua_next(state, input)) {
             int slot = Integer(state, -2, 1, field->limit) - 1;
             luaL_checktype(state, -1, LUA_TTABLE);
-            lua_getfield(state, -1, "id"); int id = Integer(state, -1, 1, 65535); lua_pop(state, 1);
-            lua_getfield(state, -1, "count"); int amount = Integer(state, -1, 1, Item_GetMaxStack(id)); lua_pop(state, 1);
-            stacks[slot] = (ItemStack){id, amount}; count++;
+            ServerItems_ReadStack(state, -1, &stacks[slot]); count++;
             lua_pop(state, 1);
         }
         Binary_U8(out, count);
         for (int slot = 0; slot < field->limit; slot++) if (stacks[slot].count) {
-            Binary_U8(out, slot); Binary_U16(out, stacks[slot].itemId); Binary_U8(out, stacks[slot].count);
+            Binary_U8(out, slot); ItemStack_Write(out, stacks[slot]);
         }
     }
 }
@@ -376,9 +374,7 @@ int LuaMetadata_CollectBlockItems(Vector3 position, ItemStack *stacks, int capac
         if (count > capacity - total) return -1;
         for (int slot = 0; slot < count; slot++) {
             Binary_ReadU8(&inventory);
-            uint16_t itemId = Binary_ReadU16(&inventory);
-            uint8_t amount = Binary_ReadU8(&inventory);
-            stacks[total++] = (ItemStack){itemId, amount};
+            stacks[total++] = ItemStack_Read(&inventory);
         }
     }
     return Binary_End(&in) && !bits.byte ? total : -1;
@@ -392,7 +388,8 @@ static bool SkipField(const Field *field, BinaryReader *in, Bits *bits) {
         else if (field->type == FIELD_STRING) {
             uint32_t length = Binary_ReadVarUInt(in); Binary_Read(in, length);
         } else {
-            unsigned count = Binary_ReadU8(in); Binary_Read(in, count * 4);
+            unsigned count = Binary_ReadU8(in);
+            for (unsigned i = 0; i < count; i++) { Binary_ReadU8(in); ItemStack_Read(in); }
         }
     }
     return !in->failed;
@@ -514,7 +511,7 @@ static int BlockTimerStarted(lua_State *state) {
 }
 static int BlockSet(lua_State *state) { return BlockWrite(state, false); }
 static int BlockReset(lua_State *state) { return BlockWrite(state, true); }
-static int BlockId(lua_State *state) { int index; Chunk *chunk = ResolveBlock(state, &index); lua_pushinteger(state, chunk->data[index]); return 1; }
+static int BlockId(lua_State *state) { int index; Chunk *chunk = ResolveBlock(state, &index); ServerItems_PushId(state, chunk->data[index]); return 1; }
 static int BlockPosition(lua_State *state) {
     Vector3 *position = luaL_checkudata(state, 1, BLOCK_OBJECT);
     lua_createtable(state, 0, 3);
@@ -532,7 +529,7 @@ static int BlockLoaded(lua_State *state) {
 static int BlockSetId(lua_State *state) {
     int index;
     ResolveBlock(state, &index);
-    int id = Integer(state, 2, 0, 255);
+    int id = ServerItems_Id(state, 2, true, false);
     if (!ServerWorld_IsBlockDefined(id)) return luaL_error(state, "block ID is not defined");
     Vector3 *position = luaL_checkudata(state, 1, BLOCK_OBJECT);
     ServerWorld_SetBlock(*position, id, true, false, true);
@@ -582,14 +579,16 @@ static int BlockTransaction(lua_State *state) {
             for (int i = 1; i <= lua_rawlen(state, list); i++) {
                 lua_rawgeti(state, list, i); luaL_checktype(state, -1, LUA_TTABLE);
                 lua_getfield(state, -1, "slot"); int slot = Integer(state, -1, 1, field->limit) - 1; lua_pop(state, 1);
-                lua_getfield(state, -1, "id"); int id = Integer(state, -1, 1, 65535); lua_pop(state, 1);
-                lua_getfield(state, -1, "count"); int count = Integer(state, -1, 1, Item_GetMaxStack(id)); lua_pop(state, 1);
+                ItemStack requested; ServerItems_ReadStack(state, -1, &requested);
+                int id = requested.itemId, count = requested.count;
+                lua_getfield(state, -1, "metadata"); bool exact = !lua_isnil(state, -1); lua_pop(state, 1);
                 ItemStack *stack = &slots[slot];
-                bool fits = op == 0 ? stack->itemId == id && stack->count >= count :
-                    (!stack->count || stack->itemId == id) && stack->count + count <= Item_GetMaxStack(id);
+                bool fits = op == 0 ? stack->itemId == id && stack->count >= count && (!exact || ItemStack_Matches(*stack, requested)) :
+                    (!stack->count || ItemStack_Matches(*stack, requested)) && stack->count + count <= Item_GetMaxStack(id);
                 if (!fits) { lua_pushboolean(state, false); return 1; }
+                if (op && !stack->count) { *stack = requested; stack->count = 0; }
                 stack->count += op == 0 ? -count : count;
-                stack->itemId = stack->count ? id : 0;
+                if (!stack->count) *stack = (ItemStack){0};
                 lua_pop(state, 1);
             }
         }
@@ -645,7 +644,8 @@ static int InventorySet(lua_State *state) {
 static int InventoryAdd(lua_State *state) {
     luaL_checkudata(state, 1, INVENTORY_REF);
     luaL_checktype(state, 2, LUA_TTABLE);
-    lua_getfield(state, 2, "id"); int id = Integer(state, -1, 1, 65535); lua_pop(state, 1);
+    lua_getfield(state, 2, "id"); int id = ServerItems_Id(state, -1, false, false); lua_pop(state, 1);
+    if (!id) return luaL_error(state, "air is not an item");
     lua_getfield(state, 2, "count"); int count = Integer(state, -1, 1, INT_MAX); lua_pop(state, 1);
     lua_getuservalue(state, 1); lua_getfield(state, -1, "slots");
     int slots = lua_tointeger(state, -1); lua_pop(state, 2);
@@ -656,16 +656,14 @@ static int InventoryAdd(lua_State *state) {
     for (int i = 0; i < slots; i++) {
         lua_rawgeti(state, values, i + 1);
         if (!lua_isnil(state, -1)) {
-            lua_getfield(state, -1, "id"); items[i].itemId = lua_tointeger(state, -1); lua_pop(state, 1);
-            lua_getfield(state, -1, "count"); items[i].count = lua_tointeger(state, -1); lua_pop(state, 1);
+            ServerItems_ReadStack(state, -1, &items[i]);
         }
         lua_pop(state, 1);
     }
-    if (Inventory_AddToSlots(items, slots, 0, id, count) != count) { lua_pushboolean(state, false); return 1; }
+    ItemStack added = {.itemId=id}; LuaMetadata_ReadItem(state, 2, &added);
+    if (Inventory_AddStackToSlots(items, slots, 0, added, count) != count) { lua_pushboolean(state, false); return 1; }
     for (int i = 0; i < slots; i++) if (items[i].count) {
-        lua_createtable(state, 0, 2);
-        lua_pushinteger(state, items[i].itemId); lua_setfield(state, -2, "id");
-        lua_pushinteger(state, items[i].count); lua_setfield(state, -2, "count");
+        ServerItems_PushStack(state, items[i]);
         lua_rawseti(state, values, i + 1);
     }
     if (luaL_testudata(state, 1, BLOCK_OBJECT)) {
@@ -737,8 +735,7 @@ static int AccessBlockInventory(lua_State *state) {
             *slot = (ItemStack){0};
             lua_rawgeti(state, -1, i + 1);
             if (!lua_isnil(state, -1)) {
-                lua_getfield(state, -1, "id"); slot->itemId = lua_tointeger(state, -1); lua_pop(state, 1);
-                lua_getfield(state, -1, "count"); slot->count = lua_tointeger(state, -1); lua_pop(state, 1);
+                ServerItems_ReadStack(state, -1, slot);
             }
             lua_pop(state, 1);
         }
@@ -747,9 +744,7 @@ static int AccessBlockInventory(lua_State *state) {
         for (int i = 0; i < request->count; i++) {
             ItemStack slot = request->slots[i];
             if (!slot.count) continue;
-            lua_createtable(state, 0, 2);
-            lua_pushinteger(state, slot.itemId); lua_setfield(state, -2, "id");
-            lua_pushinteger(state, slot.count); lua_setfield(state, -2, "count");
+            ServerItems_PushStack(state, slot);
             lua_rawseti(state, -2, i + 1);
         }
         BlockWrite(state, false);
@@ -832,6 +827,64 @@ bool LuaMetadata_Progress(Vector3 position, const char *field, float *value) {
     if (ok) *value = lua_tonumber(L, -1);
     lua_settop(L, top); return ok;
 }
+void LuaMetadata_DefineItem(int id, int definition) {
+    int schema = LuaMetadata_Register(L, definition);
+    if (schema >= 0) {
+        for (int i = 0; i < schemas[schema]->count; i++) if (schemas[schema]->fields[i].type == FIELD_INVENTORY)
+            luaL_error(L, "item metadata cannot contain an inventory");
+        if (schemas[schema]->defaults.size > ITEM_METADATA_BYTES) luaL_error(L, "item metadata supports up to 64 encoded bytes");
+    }
+    itemSchemas[id] = schema;
+}
+void LuaMetadata_ReadItem(lua_State *state, int index, ItemStack *stack) {
+    index = lua_absindex(state, index);
+    int schema = stack->itemId < ITEM_LIMIT ? itemSchemas[stack->itemId] : -1;
+    lua_getfield(state, index, "_metadata_version"); int version = lua_tointeger(state, -1); lua_pop(state, 1);
+    if (schema < 0 || (version && version != schemas[schema]->version)) {
+        lua_getfield(state, index, "_metadata");
+        if (!lua_isnil(state, -1)) {
+            size_t size; const char *raw = luaL_checklstring(state, -1, &size);
+            if (size > ITEM_METADATA_BYTES || version < 1 || version > 65535) luaL_error(state, "invalid opaque item metadata");
+            memcpy(stack->metadata, raw, size); stack->metadataSize = size; stack->metadataVersion = version;
+        }
+        lua_pop(state, 1);
+        if (!stack->metadataSize) {
+            lua_getfield(state, index, "metadata");
+            if (lua_istable(state, -1)) {
+                lua_pushnil(state);
+                if (lua_next(state, -2)) luaL_error(state, "item has no metadata schema");
+            } else if (!lua_isnil(state, -1)) luaL_error(state, "metadata must be a table");
+            lua_pop(state, 1);
+        }
+        return;
+    }
+    lua_getfield(state, index, "metadata");
+    if (lua_isnil(state, -1)) { lua_pop(state, 1); return; }
+    luaL_checktype(state, -1, LUA_TTABLE);
+    int input = lua_gettop(state);
+    Metadata *value = lua_newuserdata(state, sizeof(*value)); *value = (Metadata){0};
+    luaL_setmetatable(state, "midless.MetadataValue");
+    lua_pushnil(state);
+    while (lua_next(state, input)) {
+        LuaMetadata_Set(state, schema, value, -2, -1);
+        lua_pop(state, 1);
+    }
+    if (value->size > ITEM_METADATA_BYTES) luaL_error(state, "item metadata supports up to 64 encoded bytes");
+    stack->metadataSize = value->size; stack->metadataVersion = value->version;
+    if (value->size) memcpy(stack->metadata, value->data, value->size);
+    Metadata_Free(value); lua_pop(state, 2);
+}
+void LuaMetadata_PushItem(lua_State *state, ItemStack stack) {
+    lua_newtable(state);
+    int schema = stack.itemId < ITEM_LIMIT ? itemSchemas[stack.itemId] : -1;
+    if (schema < 0 || (stack.metadataSize && stack.metadataVersion != schemas[schema]->version)) return;
+    Metadata value = {stack.metadata, stack.metadataSize, stack.metadataVersion};
+    for (int i = 0; i < schemas[schema]->count; i++) {
+        const char *name = schemas[schema]->fields[i].name;
+        lua_pushstring(state, name); LuaMetadata_Get(state, schema, &value, -1);
+        lua_setfield(state, -3, name); lua_pop(state, 1);
+    }
+}
 static int FreeWriter(lua_State *state) { BinaryWriter *out = lua_touserdata(state, 1); free(out->data); out->data = NULL; return 0; }
 static int FreeValue(lua_State *state) { Metadata_Free(lua_touserdata(state, 1)); return 0; }
 static void Metatable(const char *name, const luaL_Reg *methods) {
@@ -841,6 +894,7 @@ static void Metatable(const char *name, const luaL_Reg *methods) {
     lua_pop(L, 1);
 }
 void LuaMetadata_Init(void) {
+    for (int i = 0; i < ITEM_LIMIT; i++) itemSchemas[i] = -1;
     changeCount = 0; notifying = false;
     for (int i = 0; i < 256; i++) {
         blockSchemas[i] = -1;

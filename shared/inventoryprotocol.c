@@ -1,4 +1,5 @@
 #include "inventoryprotocol.h"
+#include <string.h>
 
 static void WriteU32(uint8_t *data, uint32_t value) {
     for (int i = 0; i < 4; i++) data[i] = (uint8_t)(value >> (24 - i * 8));
@@ -44,10 +45,14 @@ void InventoryProtocol_WriteState(uint8_t *data, const Inventory *inventory, uin
     data[11] = inventory->cursorOrigin;
     for (int i = 0; i <= INVENTORY_SLOT_COUNT; i++) {
         const ItemStack *stack = i == INVENTORY_SLOT_COUNT ? &inventory->cursor : &inventory->slots[i];
-        int offset = 12 + i * 3;
+        int offset = 12 + i * ITEM_STACK_PACKET_SIZE;
         data[offset] = (uint8_t)(stack->itemId >> 8);
         data[offset + 1] = (uint8_t)stack->itemId;
         data[offset + 2] = stack->count;
+        data[offset + 3] = stack->metadataSize;
+        data[offset + 4] = stack->metadataVersion >> 8;
+        data[offset + 5] = stack->metadataVersion;
+        memcpy(data + offset + 6, stack->metadata, ITEM_METADATA_BYTES);
     }
 }
 
@@ -61,9 +66,13 @@ bool InventoryProtocol_ReadState(const uint8_t *data, int length, Inventory *inv
     result.cursorOrigin = data[11];
     for (int i = 0; i <= INVENTORY_SLOT_COUNT; i++) {
         ItemStack *stack = i == INVENTORY_SLOT_COUNT ? &result.cursor : &result.slots[i];
-        int offset = 12 + i * 3;
+        int offset = 12 + i * ITEM_STACK_PACKET_SIZE;
         stack->itemId = (uint16_t)((data[offset] << 8) | data[offset + 1]);
         stack->count = data[offset + 2];
+        stack->metadataSize = data[offset + 3];
+        stack->metadataVersion = (data[offset + 4] << 8) | data[offset + 5];
+        if (stack->metadataSize > ITEM_METADATA_BYTES || (stack->metadataSize && (!stack->count || !stack->metadataVersion))) return false;
+        memcpy(stack->metadata, data + offset + 6, ITEM_METADATA_BYTES);
         if ((stack->count == 0) != (stack->itemId == 0) || stack->count > Item_GetMaxStack(stack->itemId)) return false;
     }
     if (!result.open && result.cursor.count) return false;
