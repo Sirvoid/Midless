@@ -305,16 +305,6 @@ void ServerInventory_UpdateHeldBlock(Player *player) {
     if (entity->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateHeldBlock(entity), player->id);
 }
 
-void ServerInventory_GiveStartingBlocks(Player *player) {
-    for (int blockId = 1; blockId < 256; blockId++) {
-        if (!ServerWorld_IsBlockDefined(blockId)) continue;
-        if (serverWorld.hasBlockDefinition[blockId] &&
-            serverWorld.blockDefinitions[blockId].modelType == BLOCK_MODEL_GAS) continue;
-        if (!Inventory_Add(&player->inventory, blockId, Item_GetMaxStack(blockId))) break;
-    }
-    ServerInventory_UpdateHeldBlock(player);
-}
-
 void ServerInventory_Send(Player *player) {
     if (InventoryWindow_Send(player)) return;
     unsigned char *packet = MemAlloc(INVENTORY_STATE_PACKET_SIZE);

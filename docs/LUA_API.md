@@ -1433,6 +1433,23 @@ midless.define_block("example:stone", {
 
 `hardness = 0` breaks instantly. Hardness can range from 0 to 86400.
 
+Built-in blocks have defaults.
+
+| Built-in blocks | Dig group | Hardness |
+| --- | --- | --- |
+| Stone | `stone` | 3 |
+| Stone slab | `stone` | 2 |
+| Iron ore, coal ore, gold ore | `stone` | 4 |
+| Wood, log, wood slab | `wood` | 2 |
+| Leaves | `wood` | 0.2 |
+| Dirt, sand | `soil` | 0.5 |
+| Grass | `soil` | 0.6 |
+| Glass | `glass` | 0.3 |
+| Rose, dandelion | `plant` | 0 |
+| Air | `gas` | 0 |
+| Water, lava | `liquid` | 0 |
+| Fire | `fire` | 0 |
+
 Set speeds by group on an item (or a block's placeable item):
 
 ```lua

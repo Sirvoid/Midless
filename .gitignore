@@ -1,7 +1,5 @@
 midless.code-workspace
 .vscode/
-bin/
-build/
 tests/*
 examples/*
 *.o
@@ -10,3 +8,17 @@ libs/*.h
 libs/*.a
 *.html
 *.bat
+
+bin/
+
+build/*
+!build/client/
+
+build/client/*
+!build/client/mods/
+
+build/client/mods/*
+!build/client/mods/base_game/
+
+build/client/mods/base_game/*
+!build/client/mods/base_game/**

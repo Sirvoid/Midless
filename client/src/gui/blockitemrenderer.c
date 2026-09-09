@@ -165,8 +165,8 @@ void BlockItemRenderer_SetTexture(Texture2D texture) {
     for(int i=1;i<BLOCK_ITEM_COUNT;i++) BlockItemRenderer_Refresh(i);
 }
 
-bool BlockItemRenderer_Draw3D(int blockId, Matrix transform, float brightness) {
-    if (blockId >= 256) return ClientItems_Draw3D(blockId, transform, brightness);
+bool BlockItemRenderer_Draw3D(int blockId, Matrix transform, float brightness, bool thirdPerson) {
+    if (blockId >= 256) return ClientItems_Draw3D(blockId, transform, brightness, thirdPerson);
     if (blockId < 1 || blockId >= BLOCK_ITEM_COUNT || !icons[blockId].loaded) return false;
     unsigned char light = (unsigned char)(Clamp(brightness, 0.0f, 1.0f) * 255);
     heldMaterial.maps[MATERIAL_MAP_DIFFUSE].texture = iconTerrain;

@@ -11,6 +11,10 @@ static ItemDefinition definitions[ITEM_LIMIT];
 static struct { Mesh mesh; unsigned texture; } models[ITEM_LIMIT];
 static Material material;
 
+static const Vector3 spriteRotationDegrees = {-25.0f, 270.0f, 0.0f};
+static const Vector3 thirdPersonSpriteRotationDegrees = {180.0f, 90.0f, 0.0f};
+static const float spriteScale = 2.0f;
+
 // Transparent sprite pixels must not hide geometry drawn behind them.
 static const char *spriteFragmentShader =
 #if defined(PLATFORM_WEB)
@@ -68,7 +72,7 @@ void ClientItems_Draw(int id, Rectangle bounds) {
         texture.width*scale,texture.height*scale};
     DrawTexturePro(texture,(Rectangle){0,0,texture.width,texture.height},target,(Vector2){0},0,WHITE);
 }
-bool ClientItems_Draw3D(int id, Matrix transform, float brightness) {
+bool ClientItems_Draw3D(int id, Matrix transform, float brightness, bool thirdPerson) {
     if (id<256 || id>=ITEM_LIMIT) return false;
     Texture2D texture=definitions[id].texture ? ClientTextures_Get(definitions[id].texture) : (Texture2D){0};
     if (!texture.id) return false;
@@ -87,6 +91,10 @@ bool ClientItems_Draw3D(int id, Matrix transform, float brightness) {
     unsigned char light=Clamp(brightness,0,1)*255;
     material.maps[MATERIAL_MAP_DIFFUSE].texture=texture;
     material.maps[MATERIAL_MAP_DIFFUSE].color=(Color){light,light,light,255};
+    Vector3 rotation = thirdPerson ? thirdPersonSpriteRotationDegrees : spriteRotationDegrees;
+    Matrix orientation = MatrixRotateXYZ(Vector3Scale(rotation, DEG2RAD));
+    Matrix localTransform = MatrixMultiply(MatrixScale(spriteScale, spriteScale, spriteScale), orientation);
+    transform = MatrixMultiply(localTransform, transform);
     rlDisableBackfaceCulling(); DrawMesh(models[id].mesh,material,transform); rlEnableBackfaceCulling();
     return true;
 }

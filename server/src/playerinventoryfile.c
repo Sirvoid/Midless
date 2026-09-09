@@ -161,7 +161,6 @@ bool ServerInventory_Load(Player *player) {
         player->namedInventoryCount = 0;
         for (int i=0;i<player->metadataCount;i++) Metadata_Free(&player->metadata[i].value);
         memset(player->metadata,0,sizeof(player->metadata)); player->metadataCount=0;
-        ServerInventory_GiveStartingBlocks(player);
         player->inventoryLoaded = true;
         // Create even an empty save, so future joins never refill it.
         if (ServerInventory_Save(player)) return true;

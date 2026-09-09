@@ -147,7 +147,7 @@ static void Entity_DrawFiltered(Entity *entity, bool firstPersonOnly) {
             item.m13 = part->grip.y;
             item.m14 = part->grip.z;
             BlockItemRenderer_Draw3D(entity->heldBlock, MatrixMultiply(item, drawMatrix),
-                                     Entity_GetBrightness(entity->position));
+                                     Entity_GetBrightness(entity->position), true);
             heldDrawn = true;
         }
     }
@@ -164,7 +164,7 @@ void Entity_Draw(Entity *entity) {
         transform.m12 = position.x;
         transform.m13 = position.y + 0.06f + sinf(phase * 1.5f) * 0.04f;
         transform.m14 = position.z;
-        BlockItemRenderer_Draw3D(entity->droppedStack.itemId, transform, Entity_GetBrightness(position));
+        BlockItemRenderer_Draw3D(entity->droppedStack.itemId, transform, Entity_GetBrightness(position), false);
         return;
     }
     Entity_ApplyThirdPersonAnimation(entity);
@@ -187,7 +187,7 @@ void Entity_DrawFirstPerson(Entity *entity, Camera camera, float swingProgress) 
     item.m13 = -0.30f + swing.arc * 0.08f;
     item.m14 = -0.65f - swing.arc * 0.12f;
     if (BlockItemRenderer_Draw3D(entity->heldBlock, MatrixMultiply(item, cameraTransform),
-                                Entity_GetBrightness(entity->position))) return;
+                                Entity_GetBrightness(entity->position), false)) return;
 
     EntityModel *model = &entity->model;
     Entity_ApplyBrightness(entity);
