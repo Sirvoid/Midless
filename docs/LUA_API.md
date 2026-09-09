@@ -1439,9 +1439,7 @@ Entities use the same methods through `self.object`.
 | `inventory` | `slots = 1..255` (default 27) | empty inventory |
 
 Use `default` to change a field's default value. Inventory defaults are always
-empty. String defaults allow up to 256 bytes without NUL. Each definition supports
-up to 64 fields, with names up to 64 bytes and a total payload up to 65535 bytes.
-Invalid values raise a Lua error. Tables returned by `get_metadata` are copies;
+empty. Tables returned by `get_metadata` are copies;
 use `set_metadata` or inventory methods to change the stored data.
 
 Metadata saves automatically with the chunk. Replacing a block with a different
@@ -1492,14 +1490,42 @@ end
 
 Slots start at 1. Player slots 1-27 are storage and 28-36 are the hotbar.
 `add_item` fills matching stacks, then empty slots, splitting large amounts as
-needed. Player inventories prefer empty hotbar slots. It returns `true` if the
+needed. The main player inventory prefers empty hotbar slots. It returns `true` if the
 whole amount fits, or `false` without changing anything.
+
+## Player inventory screen
+
+Define named inventories for each player, then return the layout to show when
+they press E. Put this in a mod file such as `mods/player_inventory.lua`:
+
+```lua
+midless.define_player_inventory("crafting", {slots = 4})
+
+midless.define_player_inventory_screen(function(player)
+    local crafting = player:get_inventory("crafting")
+    return {
+        title = "Inventory", width = 9, height = 8,
+        elements = {
+            {type = "inventory", inventory = crafting,
+             x = 0, y = 0, columns = 2, rows = 2},
+            {type = "crafting_output", inventory = crafting, recipes = "crafting",
+             x = 4, y = 0.5, columns = 2, rows = 2},
+            {type = "inventory", inventory = player:get_inventory(),
+             x = 0, y = 4, columns = 9, rows = 4},
+        },
+    }
+end)
+```
+
+The callback returns the layout each time the player presses E. Register one screen for your mods.
+
+`player:get_inventory()` still returns the main inventory. Named inventories use
+the same `get_stack`, `set_stack`, and `add_item` methods and start empty.
 
 ## Inventory screens
 
 Define an inventory field in block metadata, then show it together with the
-player's inventory. The UI accesses the saved inventory directly; there is no
-separate UI copy to save when the screen closes.
+player's inventory:
 
 ```lua
 midless.define_block(200, {
@@ -1524,14 +1550,74 @@ midless.define_block(200, {
 })
 ```
 
-`on_interact(player, block)` runs on a server-validated right-click.
+`on_interact(player, block)` runs when the player right-clicks the block.
 
 Layouts use slot-sized units and scale with the window:
 
-- Width and height: 1-32.
-- Up to 16 elements, using `label` or `inventory`.
-- Exactly two grids: one block inventory and the player's inventory.
-- Each grid must cover all its slots, fit inside the layout, and not overlap.
-- Titles and labels: up to 64 UTF-8 bytes.
+- Set `width` and `height` for the screen size, and `x` and `y` for each element.
+- Use `label` for text, `inventory` for a slot grid, and `crafting_output` for a result.
+- Include the main player inventory and one grid for each additional inventory.
+- Set `columns * rows` to the inventory's slot count. Keep grids inside the screen without overlapping.
+- Set `block` when displaying a block inventory. A screen can show one block inventory.
 
 `player:close_inventory()` returns `true` if closed, or `false` if blocked.
+
+## Crafting recipes
+
+```lua
+midless.define_recipe({
+    group = "crafting", -- default when omitted
+    pattern = {
+        {4, 4},
+        {4, 4},
+    },
+    output = {id = 202, count = 1},
+})
+```
+
+Patterns support up to 3 rows and 3 columns. Rows must have the same width;
+use `0` for empty cells. The pattern can appear anywhere in the input grid,
+but is not automatically rotated or mirrored. Other cells must be empty.
+Each occupied recipe cell consumes one item from its slot.
+
+For a shapeless recipe, use `ingredients` instead of `pattern`:
+
+```lua
+midless.define_recipe({
+    group = "crafting",
+    ingredients = {10}, -- one log, in any input slot
+    output = {id = 4, count = 4},
+})
+```
+
+Shapeless recipes support up to 9 entries. Each entry needs a separate occupied
+slot, including repeated IDs. Stack sizes determine how many times you can craft.
+The result must fit in one stack. If several recipes match, the first registered
+recipe in the selected group is used.
+
+## Crafting output
+
+Store the ingredients in block metadata:
+
+```lua
+metadata = {
+    {name = "ingredients", type = "inventory", slots = 9},
+}
+```
+
+Display that inventory as a 3-by-3 grid, then add this element to the same screen:
+
+```lua
+{
+    type = "crafting_output",
+    recipes = "crafting",
+    inventory = block:get_inventory("ingredients"),
+    columns = 3, rows = 3,
+    x = 5, y = 1,
+}
+```
+
+`recipes` selects the recipe group. Other mods can add recipes to the same group.
+`columns` and `rows` describe the input grid, which must match a displayed block
+or named player inventory and be no larger than 3-by-3. The output itself occupies
+one UI slot.

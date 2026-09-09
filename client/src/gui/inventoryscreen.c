@@ -28,11 +28,25 @@ static void DrawView(const InventoryView *view, const Inventory *inventory) {
     ItemStack hovered = {0};
     for (int i = 0; i < view->count; i++) {
         const InventoryElement *e = &view->elements[i];
+        if (e->crafting) {
+            Rectangle bounds = {left + e->x * size, top + e->y * size, size - 3, size - 3};
+            bool over = CheckCollisionPointRec(mouse, bounds);
+            DrawRectangleRec(bounds, over ? (Color){100, 100, 100, 180} : (Color){0, 0, 0, 130});
+            DrawRectangleLinesEx(bounds, 2, over ? WHITE : (Color){190, 170, 100, 220});
+            DrawStack(e->preview, bounds);
+            if (over) {
+                hovered = e->preview;
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+                    ClientInventory_Craft(i, IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT));
+                else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) ClientInventory_Craft(i, false);
+            }
+            continue;
+        }
         if (!e->grid) {
             DrawText(e->text, left + e->x * size, top + e->y * size, fmaxf(10, size * 0.35f), WHITE);
             continue;
         }
-        const ItemStack *slots = e->container ? view->slots : inventory->slots;
+        const ItemStack *slots = e->binding ? view->slots + InventoryView_Offset(view, e->binding) : inventory->slots;
         for (int slot = 0; slot < e->columns * e->rows; slot++) {
             Rectangle bounds = {left + (e->x + slot % e->columns) * size,
                 top + (e->y + slot / e->columns) * size, size - 3, size - 3};
@@ -43,8 +57,8 @@ static void DrawView(const InventoryView *view, const Inventory *inventory) {
             if (over) {
                 hovered = slots[slot];
                 bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
-                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) ClientInventory_ClickView(e->container, slot, false, shift);
-                else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) ClientInventory_ClickView(e->container, slot, true, false);
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) ClientInventory_ClickView(e->binding, slot, false, shift);
+                else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) ClientInventory_ClickView(e->binding, slot, true, false);
             }
         }
     }
@@ -61,7 +75,7 @@ static void DrawView(const InventoryView *view, const Inventory *inventory) {
         DrawRectangle(x - 4, mouse.y - 26, width + 8, 24, (Color){0, 0, 0, 220});
         DrawText(name, x, mouse.y - 22, 16, WHITE);
     }
-    const char *hint = ClientInventory_CloseBlocked() ? "Make room for the held stack, or try dropping it again." : "Shift-click to transfer a stack";
+    const char *hint = ClientInventory_CloseBlocked() ? "Make room for the held stack, or try dropping it again." : "";
     DrawText(hint, left, top + view->height * size + 18, 14, WHITE);
 }
 

@@ -34,7 +34,9 @@ typedef enum InventoryActionType {
     INVENTORY_THROW_ONE,
     INVENTORY_VIEW_LEFT,
     INVENTORY_VIEW_RIGHT,
-    INVENTORY_VIEW_SHIFT
+    INVENTORY_VIEW_SHIFT,
+    INVENTORY_CRAFT,
+    INVENTORY_CRAFT_ALL
 } InventoryActionType;
 
 typedef struct InventoryAction {

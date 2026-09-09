@@ -40,7 +40,7 @@ bool ServerInventory_Save(Player *player) {
     char path[160];
     if (!Filename(player, path)) return false;
     BinaryWriter out = {0};
-    Binary_Write(&out, "MDPI", 4); Binary_U8(&out, 1);
+    Binary_Write(&out, "MDPI", 4); Binary_U8(&out, player->namedInventoryCount ? 2 : 1);
     Binary_U8(&out, player->inventory.selectedHotbar);
     int occupied = 0;
     for (int i = 0; i < INVENTORY_SLOT_COUNT; i++) if (player->inventory.slots[i].count) occupied++;
@@ -49,6 +49,21 @@ bool ServerInventory_Save(Player *player) {
         Binary_U8(&out, i); WriteStack(&out, player->inventory.slots[i]);
     }
     WriteStack(&out, player->inventory.cursor);
+    if (player->namedInventoryCount) {
+        Binary_U8(&out, player->namedInventoryCount);
+        for (int n = 0; n < player->namedInventoryCount; n++) {
+            NamedInventory *inventory = &player->namedInventories[n];
+            size_t length = strlen(inventory->name);
+            Binary_U8(&out, length); Binary_Write(&out, inventory->name, length);
+            Binary_U8(&out, inventory->count);
+            int occupied = 0;
+            for (int i = 0; i < inventory->count; i++) if (inventory->slots[i].count) occupied++;
+            Binary_U8(&out, occupied);
+            for (int i = 0; i < inventory->count; i++) if (inventory->slots[i].count) {
+                Binary_U8(&out, i); WriteStack(&out, inventory->slots[i]);
+            }
+        }
+    }
     bool ok = !out.failed && SaveFile_WriteAtomic(path, out.data, out.size);
     free(out.data);
     if (!ok) TraceLog(LOG_ERROR, "Could not save player inventory %s; original file retained", path);
@@ -71,6 +86,7 @@ bool ServerInventory_Load(Player *player) {
     if (!file) {
         if (errno != ENOENT) return false;
         Inventory_Init(&player->inventory);
+        player->namedInventoryCount = 0;
         ServerInventory_GiveStartingBlocks(player);
         player->inventoryLoaded = true;
         // Create even an empty save, so future joins never refill it.
@@ -78,13 +94,15 @@ bool ServerInventory_Load(Player *player) {
         player->inventoryLoaded = false;
         return false;
     }
-    uint8_t data[155]; // At most 154 bytes; one extra byte detects oversized files.
+    uint8_t data[18000]; // Main inventory plus at most 16 named inventories.
     size_t size = fread(data, 1, sizeof(data), file);
     bool ok = !ferror(file);
     fclose(file);
     BinaryReader in = {data, size};
     const uint8_t *magic = Binary_Read(&in, 4);
-    if (!ok || !magic || memcmp(magic, "MDPI", 4) || Binary_ReadU8(&in) != 1) return false;
+    if (!ok || !magic || memcmp(magic, "MDPI", 4)) return false;
+    int version = Binary_ReadU8(&in);
+    if (version != 1 && version != 2) return false;
     Inventory inventory; Inventory_Init(&inventory);
     inventory.selectedHotbar = Binary_ReadU8(&in);
     int count = Binary_ReadU8(&in), previous = -1;
@@ -97,9 +115,31 @@ bool ServerInventory_Load(Player *player) {
         previous = slot;
     }
     inventory.cursor = ReadStack(&in);
+    NamedInventory named[PLAYER_INVENTORIES] = {0};
+    int namedCount = version == 2 ? Binary_ReadU8(&in) : 0;
+    if (namedCount > PLAYER_INVENTORIES) return false;
+    for (int n = 0; n < namedCount; n++) {
+        int length = Binary_ReadU8(&in);
+        const uint8_t *name = Binary_Read(&in, length);
+        if (!name || !length || length > 64 || memchr(name, 0, length)) return false;
+        memcpy(named[n].name, name, length);
+        for (int j = 0; j < n; j++) if (!strcmp(named[j].name, named[n].name)) return false;
+        named[n].count = Binary_ReadU8(&in);
+        int occupied = Binary_ReadU8(&in), previousSlot = -1;
+        if (!named[n].count || occupied > named[n].count) return false;
+        for (int i = 0; i < occupied; i++) {
+            int slot = Binary_ReadU8(&in);
+            if (slot <= previousSlot || slot >= named[n].count) return false;
+            named[n].slots[slot] = ReadStack(&in);
+            if (!named[n].slots[slot].count) return false;
+            previousSlot = slot;
+        }
+    }
     if (!Binary_End(&in)) return false;
     inventory.open = inventory.cursor.count != 0;
     player->inventory = inventory;
+    memcpy(player->namedInventories, named, sizeof(named));
+    player->namedInventoryCount = namedCount;
     player->inventoryLoaded = true;
     return true;
 }

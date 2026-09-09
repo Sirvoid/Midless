@@ -7,7 +7,9 @@ typedef struct InventoryWindow {
     InventoryView view;
     Vector3 position;
     uint16_t blockId;
-    char field[65];
+    bool block;
+    struct { bool block; char name[65]; } bindings[INVENTORY_VIEW_BINDINGS];
+    char recipes[INVENTORY_VIEW_ELEMENTS][65];
 } InventoryWindow;
 
 struct Player;

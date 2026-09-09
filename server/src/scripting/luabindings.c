@@ -14,6 +14,7 @@
 #include "luaentities.h"
 #include "luametadata.h"
 #include "luainventory.h"
+#include "../crafting.h"
 #include "luamodels.h"
 #include "luavector.h"
 #include "../networkhandler.h"
@@ -365,7 +366,7 @@ typedef struct LuaPlayerHandle {
     uint64_t connectionId;
 } LuaPlayerHandle;
 
-static void LuaBindings_PushPlayer(Player *player) {
+void LuaBindings_PushPlayer(Player *player) {
     if (!player || (player->disconnected && player != luaLeavingPlayer)) {
         Lua_PushString(NULL);
         return;
@@ -622,6 +623,9 @@ static int LuaBindings_SetTerrainTexture(void) {
     return 0;
 }
 static const struct LuaMethod midlessLib[] = {
+    {"define_player_inventory", LuaInventory_Define},
+    {"define_player_inventory_screen", LuaInventory_DefineScreen},
+    {"define_recipe", Crafting_Register},
     {"define_texture", LuaBindings_DefineTexture},
     {"set_terrain_texture", LuaBindings_SetTerrainTexture},
     {"define_entity", LuaEntities_Register},
@@ -688,6 +692,7 @@ static void LuaBindings_DefineModelConstants(void) {
 }
 
 void LuaBindings_Init(void) {
+    Crafting_Reset();
     for (int i = 0; i < 256; i++) blockInteractions[i] = LUA_NOREF;
     LuaInventory_Init();
     LuaVector_Init();
@@ -702,6 +707,8 @@ void LuaBindings_Init(void) {
 }
 
 void LuaBindings_Shutdown(void) {
+    LuaInventory_Shutdown();
+    Crafting_Reset();
     for (int i = 0; i < 256; i++) luaL_unref(L, LUA_REGISTRYINDEX, blockInteractions[i]);
     for (int i = 0; i < arrlen(luaPlayerClickCallbacks); i++)
         Lua_Unref(Lua_GetRegistryIndex(), luaPlayerClickCallbacks[i]);

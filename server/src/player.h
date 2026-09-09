@@ -13,9 +13,12 @@
 #include "textureprotocol.h"
 #include "inventory.h"
 #include "inventorywindow.h"
+#include "playerinventories.h"
 
 typedef struct Player {
     Inventory inventory;
+    NamedInventory namedInventories[PLAYER_INVENTORIES];
+    uint8_t namedInventoryCount;
     uint32_t inventoryRevision, inventorySequence;
     InventoryWindow inventoryWindow;
     uint32_t nextInventorySession;

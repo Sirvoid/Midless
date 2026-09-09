@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include "raylib.h"
 struct Player;
+void LuaBindings_PushPlayer(struct Player *player);
 bool LuaBindings_InteractBlock(struct Player *player, Vector3 position, int blockId);
 
 

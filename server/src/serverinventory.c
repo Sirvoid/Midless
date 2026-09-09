@@ -9,6 +9,7 @@
 #include "droppeditems.h"
 #include "scripting/luabindings.h"
 #include "scripting/luametadata.h"
+#include "scripting/luainventory.h"
 
 #define BLOCK_INTERACTION_REACH 8.0f
 
@@ -212,7 +213,7 @@ void ServerInventory_HandleAction(void) {
             else if (!LuaBindings_InteractBlock(player, (Vector3){action.x, action.y, action.z}, action.targetBlock))
                 TryPlaceBlock(player, &action);
         }
-    } else if (action.type >= INVENTORY_VIEW_LEFT && action.type <= INVENTORY_VIEW_SHIFT) {
+    } else if (action.type >= INVENTORY_VIEW_LEFT && action.type <= INVENTORY_CRAFT_ALL) {
         InventoryWindow_Action(player, &action);
     } else if ((uint32_t)action.x != player->inventoryWindow.view.session) {
         // Ignore clicks and closes belonging to an older screen.
@@ -223,6 +224,8 @@ void ServerInventory_HandleAction(void) {
         if (!InventoryWindow_Close(player)) {
             ServerPlayer_SendMessage(player, "Cannot drop the held stack here right now.");
         }
+    } else if (action.type == INVENTORY_OPEN && !player->inventoryWindow.view.session) {
+        if (!LuaInventory_OpenPlayer(player)) Inventory_ApplyAction(&player->inventory, &action);
     } else if (!player->inventoryWindow.view.session || action.type == INVENTORY_SELECT) {
         Inventory_ApplyAction(&player->inventory, &action);
     }

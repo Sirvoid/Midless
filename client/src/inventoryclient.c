@@ -97,10 +97,16 @@ void ClientInventory_HandleView(void) {
     HandleState(packetData + 1, INVENTORY_STATE_PACKET_SIZE, &view);
 }
 const InventoryView *ClientInventory_GetView(void) { return displayedView.session ? &displayedView : NULL; }
-void ClientInventory_ClickView(bool container, int slot, bool right, bool shift) {
-    if (!displayedView.session || slot < 0 || slot >= (container ? displayedView.slotCount : INVENTORY_SLOT_COUNT)) return;
+void ClientInventory_ClickView(int binding, int slot, bool right, bool shift) {
+    if (!displayedView.session || binding < 0 || binding >= displayedView.bindingCount ||
+        slot < 0 || slot >= displayedView.bindingSlots[binding]) return;
     QueueAction((InventoryAction){.type = shift ? INVENTORY_VIEW_SHIFT : right ? INVENTORY_VIEW_RIGHT : INVENTORY_VIEW_LEFT,
-        .slot = slot, .y = container});
+        .slot = slot, .y = binding});
+}
+void ClientInventory_Craft(int element, bool all) {
+    if (!displayedView.session || element < 0 || element >= displayedView.count ||
+        !displayedView.elements[element].crafting) return;
+    QueueAction((InventoryAction){.type = all ? INVENTORY_CRAFT_ALL : INVENTORY_CRAFT, .slot = element});
 }
 
 void ClientInventory_Update(void) {
