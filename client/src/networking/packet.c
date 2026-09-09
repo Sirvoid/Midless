@@ -1,3 +1,4 @@
+#include "version.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  * 

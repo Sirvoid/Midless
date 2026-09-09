@@ -248,9 +248,6 @@ void Player_CheckInputs() {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Break Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
             Network_Send(Packet_CreatePlayerClick(0));
-            if (player.rayResult.hitblockId != -1) {
-                ClientInventory_Interact(false, player.rayResult.hitPos, player.rayResult.normal, player.rayResult.hitblockId);
-            }
         } else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
             Network_Send(Packet_CreatePlayerClick(1));
@@ -258,6 +255,13 @@ void Player_CheckInputs() {
         }
     }
 
+    static double nextDigSwing;
+    if (!screenCursorEnabled && IsMouseButtonDown(MOUSE_LEFT_BUTTON) && player.rayResult.hitblockId>0 && GetTime()>=nextDigSwing) {
+        EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
+        nextDigSwing=GetTime()+0.3;
+    }
+    ClientInventory_Dig(!screenCursorEnabled && IsMouseButtonDown(MOUSE_LEFT_BUTTON),
+        player.rayResult.hitPos, player.rayResult.normal, player.rayResult.hitblockId);
     player.camera.position = eyePosition;
     if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) {
         Vector3 cameraDirection = player.cameraMode == PLAYER_CAMERA_THIRD_PERSON_BEHIND

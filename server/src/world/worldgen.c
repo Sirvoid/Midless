@@ -1,3 +1,4 @@
+#include "version.h"
 #include "worldgen.h"
 #include "worldgenerator.h"
 #include "world.h"
@@ -48,7 +49,7 @@ void Worldgen_Reset(int seed) {
     worldgen.maxY = 256;
     worldgen.density = worldgen.caves = worldgen.temperature = worldgen.moisture = -1;
     strcpy(worldgen.id, "builtin:flat");
-    worldgen.version = 1;
+    worldgen.version = WORLDGEN_DEFAULT_VERSION;
     worldgen.biomeCount = 1;
     worldgen.biomes[0] = (WGBiome){.name = "builtin:plains",
                                    .spread = 1,

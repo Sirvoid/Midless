@@ -1,3 +1,6 @@
+#include "luaitemactions.h"
+#include "../serverinventory.h"
+#include "luadigging.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  * 
@@ -270,6 +273,8 @@ static int LuaBindings_DefineBlock(void) {
     lua_getfield(L, 2, "on_interact");
     if (!lua_isnil(L, -1)) luaL_checktype(L, -1, LUA_TFUNCTION);
     lua_pop(L, 1);
+    LuaDigging_Define(blockId, 2, true);
+    LuaItemActions_Define(blockId, 2, true);
     LuaMetadata_DefineBlock(blockId, 2);
     lua_getfield(L, 2, "item_metadata");
     if (!lua_isnil(L, -1)) {
@@ -551,7 +556,47 @@ bool LuaBindings_InteractBlock(Player *player, Vector3 position, int blockId) {
     lua_settop(L, top);
     return true; // A registered interaction consumes right-click, including on error.
 }
+static int GetSelectedStack(void) {
+    ServerItems_PushStack(L,*Inventory_GetSelected(&LuaBindings_CheckPlayer()->inventory)); return 1;
+}
+static int GetSelectedSlot(void) {
+    Player *player=LuaBindings_CheckPlayer();
+    lua_pushinteger(L,Inventory_GetSelected(&player->inventory)-player->inventory.slots+1); return 1;
+}
+static int SetSelectedStack(void) {
+    Player *player=LuaBindings_CheckPlayer();
+    if (player->disconnected || player==luaLeavingPlayer) return Lua_Error("player is leaving");
+    ItemStack stack; ServerItems_ReadStack(L,2,&stack);
+    if (stack.count && !ServerItems_IsDefined(stack.itemId)) return Lua_Error("item is not defined");
+    *Inventory_GetSelected(&player->inventory)=stack;
+    player->inventoryRevision++;
+    ServerInventory_UpdateHeldBlock(player); ServerInventory_Send(player);
+    return 0;
+}
+static int GetPlayerMetadata(void) { return LuaMetadata_Player(L,LuaBindings_CheckPlayer(),false,false); }
+static int SetPlayerMetadata(void) { return LuaMetadata_Player(L,LuaBindings_CheckPlayer(),true,false); }
+static int ResetPlayerMetadata(void) { return LuaMetadata_Player(L,LuaBindings_CheckPlayer(),true,true); }
+static int GetPlayerHP(void) {
+    Player *player=LuaBindings_CheckPlayer();
+    lua_settop(L,1); lua_pushliteral(L,"midless:hp");
+    return LuaMetadata_Player(L,player,false,false);
+}
+static int SetPlayerHP(void) {
+    Player *player=LuaBindings_CheckPlayer();
+    lua_Integer hp=luaL_checkinteger(L,2);
+    if (hp<0 || hp>65535) return luaL_error(L,"hp must be 0..65535");
+    lua_settop(L,1); lua_pushliteral(L,"midless:hp"); lua_pushinteger(L,hp);
+    return LuaMetadata_Player(L,player,true,false);
+}
 static const struct LuaMethod playerLib[] = {
+    {"get_hp", GetPlayerHP},
+    {"set_hp", SetPlayerHP},
+    {"get_metadata", GetPlayerMetadata},
+    {"set_metadata", SetPlayerMetadata},
+    {"reset_metadata", ResetPlayerMetadata},
+    {"get_selected_stack", GetSelectedStack},
+    {"set_selected_stack", SetSelectedStack},
+    {"get_selected_slot", GetSelectedSlot},
     {"get_inventory", GetPlayerInventory},
     {"show_inventory", ShowPlayerInventory},
     {"close_inventory", ClosePlayerInventory},
@@ -636,6 +681,11 @@ static const struct LuaMethod midlessLib[] = {
     {"define_player_inventory_screen", LuaInventory_DefineScreen},
     {"define_recipe", Crafting_Register},
     {"define_texture", LuaBindings_DefineTexture},
+    {"define_player_metadata", LuaMetadata_DefinePlayer},
+    {"register_on_player_metadata_change", LuaMetadata_RegisterPlayerChange},
+    {"register_on_hp_change", LuaMetadata_RegisterHPChange},
+    {"register_on_dig_time", LuaDigging_Register},
+    {"set_breaking_texture", ServerTextures_SetBreaking},
     {"set_terrain_texture", LuaBindings_SetTerrainTexture},
     {"define_entity", LuaEntities_Register},
     {"spawn_entity", LuaEntities_Spawn},
@@ -702,6 +752,8 @@ static void LuaBindings_DefineModelConstants(void) {
 }
 
 void LuaBindings_Init(void) {
+    LuaDigging_Init();
+    LuaItemActions_Init();
     Crafting_Reset();
     for (int i = 0; i < 256; i++) blockInteractions[i] = LUA_NOREF;
     LuaInventory_Init();
@@ -717,6 +769,8 @@ void LuaBindings_Init(void) {
 }
 
 void LuaBindings_Shutdown(void) {
+    LuaDigging_Shutdown();
+    LuaItemActions_Shutdown();
     LuaInventory_Shutdown();
     Crafting_Reset();
     for (int i = 0; i < 256; i++) luaL_unref(L, LUA_REGISTRYINDEX, blockInteractions[i]);

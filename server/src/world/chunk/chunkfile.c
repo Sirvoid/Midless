@@ -1,3 +1,4 @@
+#include "version.h"
 #include "chunkfile.h"
 #include "../../savefile.h"
 #include <stdio.h>
@@ -11,7 +12,7 @@ enum { SECTION_BLOCKS = 1, SECTION_METADATA = 2, SECTION_ENTITIES = 3, SECTION_T
 static void Section(BinaryWriter *out, int type, BinaryWriter *payload) {
     if (payload->failed) out->failed = true;
     Binary_U16(out, type);
-    Binary_U16(out, 1);
+    Binary_U16(out, CHUNK_SECTION_VERSION);
     Binary_U32(out, payload->size);
     Binary_Write(out, payload->data, payload->size);
     free(payload->data);
@@ -20,7 +21,7 @@ static void Section(BinaryWriter *out, int type, BinaryWriter *payload) {
 
 bool ChunkFile_Encode(const Chunk *chunk, BinaryWriter *out) {
     Binary_Write(out, "MDCH", 4);
-    Binary_U16(out, 1);
+    Binary_U16(out, CHUNK_FILE_VERSION);
     Binary_U16(out, 1 + (chunk->metadataCount > 0) + (chunk->savedEntitiesSize > 0) + (chunk->timerCount > 0));
     BinaryWriter section = {0};
     int count = 0;
@@ -111,7 +112,7 @@ ChunkFileResult ChunkFile_Decode(Chunk *chunk, const void *data, size_t size) {
         if (!ReadBlocks(&parsed, &in)) goto done;
     } else {
         Binary_Read(&in, 4);
-        if (Binary_ReadU16(&in) != 1) { result = CHUNK_FILE_UNSUPPORTED; goto done; }
+        if (Binary_ReadU16(&in) != CHUNK_FILE_VERSION) { result = CHUNK_FILE_UNSUPPORTED; goto done; }
         int sections = Binary_ReadU16(&in);
         bool seen[5] = {0};
         for (int i = 0; i < sections; i++) {
@@ -120,7 +121,7 @@ ChunkFileResult ChunkFile_Decode(Chunk *chunk, const void *data, size_t size) {
             const uint8_t *payload = Binary_Read(&in, length);
             if (in.failed) goto done;
             // Refuse unknown sections: an older writer must never discard newer data.
-            if (type < 1 || type > 4 || version != 1) {
+            if (type < 1 || type > 4 || version != CHUNK_SECTION_VERSION) {
                 result = CHUNK_FILE_UNSUPPORTED; goto done;
             }
             if (seen[type]) goto done;

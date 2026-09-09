@@ -1,9 +1,61 @@
+﻿
+
 # Midless Lua API
 
-Put `.lua` files inside:
+This document is a practical Lua API reference for quick lookup and mod
+development.
+
+## Quick start
+
+1. [Getting started with mod files](#getting-started)
+2. [World APIs](#world)
+3. [Messages and chat](#messages)
+4. [Events](#events)
+5. [Players](#players)
+6. [Entities](#entities)
+7. [Blocks](#blocks)
+8. [Textures](#textures)
+9. [World Generation](#world-generation)
+10. [Vectors](#vectors)
+11. [Items and inventories](#items)
+12. [Block breaking](#block-breaking)
+13. [Player HP and metadata](#player-hp)
+14. [Examples](#example-mod)
+
+## Getting started
+
+Put standalone `.lua` files or mod folders inside `mods/`:
 
 ```text
 mods/
+    commands.lua
+    base_game/
+        init.lua
+        items.lua
+        blocks.lua
+        recipes.lua
+        mobs/
+            init.lua
+```
+
+A mod folder must have `init.lua`. It receives its folder path as `...`:
+
+```lua
+-- mods/base_game/init.lua
+local path = ...
+dofile(path .. "/items.lua")
+dofile(path .. "/blocks.lua")
+dofile(path .. "/recipes.lua")
+dofile(path .. "/mobs/init.lua")
+```
+
+Only the folder's `init.lua` loads automatically. Load the other scripts in the
+order you need. Top-level files and folders load alphabetically by name; use
+`register_on_ready` for setup that depends on other mods. Texture paths still
+start from the server's working directory:
+
+```lua
+midless.define_texture("base_game:pickaxe", path .. "/textures/pickaxe.png")
 ```
 
 The API is available through the global `midless` table.
@@ -25,6 +77,8 @@ local pos = vector.new(10, 20, 30)
 ```
 
 ---
+
+
 
 # World
 
@@ -79,6 +133,8 @@ midless.set_blocks({
 
 ---
 
+
+
 # Messages
 
 ## Broadcast
@@ -96,6 +152,8 @@ player:send_message("Hello!")
 ```
 
 ---
+
+
 
 # Events
 
@@ -177,6 +235,126 @@ end)
 
 ---
 
+
+
+# Vectors
+
+Create a vector:
+
+```lua
+local v = vector.new(1, 2, 3)
+```
+
+Zero vector:
+
+```lua
+local v = vector.new()
+```
+
+Copy:
+
+```lua
+local copy = vector.new(v)
+```
+
+## Add
+
+```lua
+vector.add(a, b)
+```
+
+## Subtract
+
+```lua
+vector.subtract(a, b)
+```
+
+## Multiply
+
+```lua
+vector.multiply(v, 5)
+```
+
+## Length
+
+```lua
+vector.length(v)
+```
+
+## Distance
+
+```lua
+vector.distance(a, b)
+```
+
+## Normalize
+
+```lua
+vector.normalize(v)
+```
+
+## Direction
+
+```lua
+vector.direction(from, to)
+```
+
+## Dot product
+
+```lua
+vector.dot(a, b)
+```
+
+## Cross product
+
+```lua
+vector.cross(a, b)
+```
+
+Example:
+
+```lua
+local spawnPos = vector.add(
+    player:get_eye_position(),
+    vector.multiply(player:get_look_direction(), 3)
+)
+```
+
+This gets a position three blocks in front of the player.
+
+---
+
+
+
+# Timers
+
+`midless.sleep()` exists:
+
+```lua
+midless.sleep(1000)
+```
+
+However, it blocks the server.
+
+For gameplay timers, use `register_on_step` instead:
+
+```lua
+local timer = 0
+
+midless.register_on_step(function(dt)
+    timer = timer + dt
+
+    if timer >= 5 then
+        timer = 0
+        print("Five seconds!")
+    end
+end)
+```
+
+---
+
+
+
 # Players
 
 ## Get all players
@@ -210,6 +388,8 @@ local player = midless.get_player_by_id(id)
 ```
 
 ---
+
+
 
 # Player Methods
 
@@ -263,6 +443,212 @@ player:send_message("Hello!")
 
 ---
 
+
+
+# Player HP
+
+Players start with 20 HP. HP saves automatically between sessions.
+
+```lua
+local hp = player:get_hp()
+player:set_hp(math.max(0, hp - 3))
+player:set_hp(20)
+```
+
+HP must be a whole number from 0 to 65535. Setting it to 0 does not automatically
+kill or respawn the player; your mod controls that behavior. You do not need to
+declare a metadata field for HP.
+
+
+
+# Player metadata
+
+Declare your mod's player fields once, before players join:
+
+```lua
+midless.define_player_metadata("base_game", {
+    {name = "air", type = "uint", bits = 5, default = 20},
+    {name = "spawned", type = "bool", default = false},
+})
+```
+
+Use `namespace:field` to read, change, or reset a value:
+
+```lua
+local air = player:get_metadata("base_game:air")
+player:set_metadata("base_game:air", math.max(0, air - 1))
+player:reset_metadata("base_game:air") -- back to 20
+```
+
+Values save automatically with the player's inventories and survive rejoining.
+The `midless` namespace is reserved for built-in player fields.
+
+## Player metadata changes
+
+Listen for changes to any player metadata field:
+
+```lua
+midless.register_on_player_metadata_change("base_game:air", function(player, old_value, new_value)
+    if new_value == 0 then
+        player:set_hp(math.max(0, player:get_hp() - 1))
+    end
+end)
+```
+
+For HP, use the shortcut:
+
+```lua
+midless.register_on_hp_change(function(player, old_hp, new_hp)
+    if old_hp > 0 and new_hp == 0 then
+        -- Handle death here.
+    end
+end)
+```
+
+The HP shortcut listens to `midless:hp`. Both `set_hp` and `set_metadata` trigger
+it, as does resetting HP when that changes its value.
+
+You can also attach `on_change` when declaring a player metadata field:
+
+```lua
+midless.define_player_metadata("example", {
+    {
+        name = "level", type = "uint", bits = 8, default = 1,
+        on_change = function(player, old_level, new_level)
+            player:send_message("Level: " .. new_level)
+        end,
+    },
+})
+```
+
+Callbacks run after a successful value change, in registration order. Setting
+the same value, reading defaults, and loading saves do not trigger them.
+
+# Selected item
+
+```lua
+local stack = player:get_selected_stack() -- nil when empty
+local slot = player:get_selected_slot()   -- slot in player:get_inventory(), 1-based
+
+player:set_selected_stack({id = "midless:stone", count = 10})
+player:set_selected_stack(nil) -- empty the selected slot
+```
+
+Stacks are copies. Write the stack back after changing its count or metadata:
+
+```lua
+local stack = player:get_selected_stack()
+if stack then
+    stack.count = stack.count - 1
+    player:set_selected_stack(stack.count > 0 and stack or nil)
+end
+```
+
+## Item use
+
+Add `on_use` to `define_item` or `define_block` to handle right-clicking with its item:
+
+```lua
+on_use = function(player, stack, target)
+    if target.type == "block" then
+        local block = target.block
+        local normal = target.normal -- clicked face: {x, y, z}
+        player:send_message("Used on " .. block:get_id())
+    elseif target.type == "entity" then
+        local entity = target.entity
+        player:send_message("Used on entity " .. entity:get_id())
+    else -- target.type == "nothing"
+        player:send_message("Used in the air")
+    end
+    return true
+end,
+```
+
+Return `true` to consume the action, or `false`/`nil` to allow normal placement.
+
+## Harvest requirements
+
+A block's `harvest_level` specifies the required tool level for its `dig_group`:
+
+```lua
+midless.define_block("example:ore", {
+    name = "Ore",
+    textures = {all = 7},
+    hardness = 3,
+    dig_group = "stone",
+    harvest_level = 2,
+    drops = {{id = "example:gem", count = 1}},
+})
+```
+
+Set `harvest_levels` on a tool, alongside its digging speeds:
+
+```lua
+-- Fields in define_item:
+dig_speed = {stone = 6},
+harvest_levels = {stone = 2},
+```
+
+Levels range from 0 to 255. The default is 0; empty hands and missing tool groups
+also have level 0. A weaker tool can still break the block, but receives no block
+loot.
+
+## Custom block drops
+
+Without `drops`, a block drops one of its own items. Use an empty list for no loot,
+or a list of item names and stacks:
+
+```lua
+drops = {},
+
+-- Or:
+drops = {
+    "midless:stone", -- one item
+    {id = "example:gem", count = 2, metadata = {quality = 3}},
+},
+```
+
+For random drops or metadata-dependent loot, use a function:
+
+```lua
+drops = function(player, block, stack)
+    -- stack is the tool, or nil for empty hands.
+    -- The block and its metadata still exist here.
+    if math.random(10) == 1 then
+        return {{id = "example:gem", count = 1}}
+    end
+    return {"midless:stone"}
+end,
+```
+
+The function runs when digging finishes, after the harvest requirement passes.
+Return a list, including `{}` for nothing. Each stack must fit its item's stack
+limit; use multiple entries for larger quantities.
+
+## Tool durability example
+
+These fields belong in the tool's `define_item`:
+
+```lua
+max_stack = 1,
+metadata = {
+    {name = "durability", type = "uint", bits = 8, default = 100},
+},
+on_dig = function(player, block, stack)
+    stack.metadata.durability = stack.metadata.durability - 1
+    if stack.metadata.durability <= 0 then
+        player:set_selected_stack(nil)
+    else
+        player:set_selected_stack(stack)
+    end
+end,
+```
+
+`on_dig` runs after a successful break, including when the tool was too weak to
+receive block loot.
+
+
+
 # Entities
 
 Entities are custom objects controlled by Lua.
@@ -312,6 +698,8 @@ local entity = midless.spawn_entity(
 ```
 
 ---
+
+
 
 # Entity Methods
 
@@ -369,70 +757,7 @@ entity:remove()
 
 ---
 
-# Textures
 
-## Define a texture
-
-Load a PNG texture:
-
-```lua
-midless.define_texture(modelName, filePath)
-```
-
-The texture file is loaded from the server's working directory.
-
-Use a unique namespaced name for your texture.
-
-## Use a texture on an entity model
-
-Set the model's `texture` to the texture name:
-
-```lua
-midless.define_texture("my_mod:slime", "slime.png")
-
-midless.define_entity_model("my_mod:slime", {
-    texture = "my_mod:slime",
-
-    parts = {
-        ...
-    }
-})
-```
-
-## Replace the terrain texture
-
-The terrain texture must be a `256x256` atlas:
-
-```lua
-midless.define_texture("my_mod:terrain", "terrain.png")
-midless.set_terrain_texture("my_mod:terrain")
-```
-
-Restore the default terrain:
-
-```lua
-midless.set_terrain_texture("terrain")
-```
-
-## Update a texture
-
-Define the same texture name again:
-
-```lua
-midless.define_texture("my_mod:slime", "new_slime.png")
-```
-
-Models using that texture update automatically.
-
-## Limits
-
-* PNG only
-* Maximum 64 custom textures
-* Maximum texture size: `1024x1024`
-* Terrain textures must be `256x256`
-* `"terrain"` and `"humanoid"` are built-in texture names
-
----
 
 # Entity Models
 
@@ -513,6 +838,75 @@ entity:set_model(modelName)
 ```
 
 ---
+
+
+
+# Textures
+
+## Define a texture
+
+Load a PNG texture:
+
+```lua
+midless.define_texture(modelName, filePath)
+```
+
+The texture file is loaded from the server's working directory.
+
+Use a unique namespaced name for your texture.
+
+## Use a texture on an entity model
+
+Set the model's `texture` to the texture name:
+
+```lua
+midless.define_texture("my_mod:slime", "slime.png")
+
+midless.define_entity_model("my_mod:slime", {
+    texture = "my_mod:slime",
+
+    parts = {
+        ...
+    }
+})
+```
+
+## Replace the terrain texture
+
+The terrain texture must be a `256x256` atlas:
+
+```lua
+midless.define_texture("my_mod:terrain", "terrain.png")
+midless.set_terrain_texture("my_mod:terrain")
+```
+
+Restore the default terrain:
+
+```lua
+midless.set_terrain_texture("terrain")
+```
+
+## Update a texture
+
+Define the same texture name again:
+
+```lua
+midless.define_texture("my_mod:slime", "new_slime.png")
+```
+
+Models using that texture update automatically.
+
+## Limits
+
+* PNG only
+* Maximum 64 custom textures
+* Maximum texture size: `1024x1024`
+* Terrain textures must be `256x256`
+* `"terrain"` and `"humanoid"` are built-in texture names
+
+---
+
+
 
 # Blocks
 
@@ -595,6 +989,8 @@ midless.define_block(19, {
 
 ---
 
+
+
 # Block Constants
 
 ## Model
@@ -644,6 +1040,455 @@ midless.define_block(19, {
     light = block.light.NONE
 })
 ```
+
+
+
+# Metadata
+
+Declare metadata on a block or entity to save custom values, including block
+states and inventories.
+
+```lua
+midless.define_block(25, {
+    name = "Chest",
+    textures = {all = 1},
+    metadata = {
+        {name = "facing", type = "uint", bits = 2, default = 0},
+        {name = "open", type = "bool", default = false},
+        {name = "items", type = "inventory", slots = 27},
+        {name = "label", type = "string", max_length = 64},
+    },
+})
+```
+
+Place that block before accessing its metadata:
+
+```lua
+local block = midless.get_block({x = 10, y = 80, z = 20})
+block:set_metadata("facing", 2)
+print(block:get_metadata("facing"))
+block:reset_metadata("facing") -- restore the default
+```
+
+Entities use the same methods through `self.object`.
+
+| Type | Options | Default |
+| --- | --- | --- |
+| `uint` | `bits = 1..32` (default 16) | 0 |
+| `int` | `bits = 1..32` (default 16), signed | 0 |
+| `bool` | true or false | false |
+| `float` | finite number | 0 |
+| `string` | `max_length = 0..4096` (default 256) | empty string |
+| `inventory` | `slots = 1..255` (default 27) | empty inventory |
+
+Use `default` to change a field's default value. Inventory defaults are always
+empty. Tables returned by `get_metadata` are copies;
+use `set_metadata` or inventory methods to change the stored data.
+
+Metadata saves automatically with the chunk. Replacing a block with a different
+ID clears its metadata.
+
+## Saving entities
+
+```lua
+local function initialize(self)
+    self.timer = 0 -- temporary Lua data
+end
+
+midless.define_entity("example:creature", {
+    model = "humanoid",
+    save = true, -- default; false makes the entity temporary
+    metadata = {
+        {name = "health", type = "uint", bits = 7, default = 100},
+    },
+    on_spawn = initialize,
+    on_load = initialize,
+})
+```
+
+Declared metadata, position, rotation, velocity, body settings, model, and held
+block are saved. Ordinary fields on `self` are not saved. Use `on_load` to rebuild
+them after loading; saved metadata is already available then. `on_spawn` only runs
+for new entities, and `on_remove` does not run when a chunk unloads.
+
+Entities receive a new runtime ID when loaded; old handles become invalid.
+`save = false` entities disappear on unload, including any older saved copies.
+
+---
+
+
+
+# Items
+
+Blocks automatically have a placeable item with the same identifier. Use
+`define_item` for an item that does not place a block:
+
+```lua
+midless.define_texture("example:gem", "textures/gem.png")
+
+midless.define_item("example:gem", {
+    name = "Gem",
+    texture = "example:gem",
+    max_stack = 16, -- 1..64; default 64
+    metadata = {
+        {name = "quality", type = "uint", bits = 4, default = 1},
+        {name = "label", type = "string", max_length = 32},
+    },
+})
+```
+
+Set `texture` to a name registered with `define_texture`. Multiple items can use
+the same texture. Use a PNG up to 64 by 64 pixels with a transparent background. It becomes the
+inventory icon and a sprite with one pixel of thickness when held or dropped.
+`held_model = "sprite"` is optional; it is the default for ordinary items.
+
+## Item metadata
+
+Set metadata when creating a stack:
+
+```lua
+local inventory = player:get_inventory()
+inventory:set_stack(1, {
+    id = "example:gem", count = 3,
+    metadata = {quality = 2, label = "Found in a cave"},
+})
+
+local stack = inventory:get_stack(1)
+stack.metadata.quality = 4
+inventory:set_stack(1, stack)
+```
+
+`get_stack` returns a copy, or `nil` for an empty slot. Omitted metadata uses its
+declared defaults. Items only stack together when their IDs and metadata match.
+Metadata stays with items when moved, dropped, or saved.
+
+Recipe outputs can include metadata. To match a specific ingredient's metadata,
+use a table instead of its identifier:
+
+```lua
+midless.define_recipe({
+    ingredients = {
+        {id = "example:gem", metadata = {quality = 2}},
+        "midless:stone",
+    },
+    output = {id = "example:gem", count = 1, metadata = {quality = 3}},
+})
+```
+
+
+
+# Inventories
+
+```lua
+local inventory = block:get_inventory("items")
+-- Also available on entities and through player:get_inventory().
+
+inventory:set_stack(1, {id = 1, count = 32})
+local stack = inventory:get_stack(1) -- a copy, or nil if empty
+inventory:set_stack(1, nil) -- empty the slot
+
+if not inventory:add_item({id = 1, count = 100}) then
+    player:send_message("Not enough room.")
+end
+```
+
+Slots start at 1. Player slots 1-27 are storage and 28-36 are the hotbar.
+`add_item` fills matching stacks, then empty slots, splitting large amounts as
+needed. The main player inventory prefers empty hotbar slots. It returns `true` if the
+whole amount fits, or `false` without changing anything.
+
+## Player inventory screen
+
+Define named inventories for each player, then return the layout to show when
+they press E. Put this in a mod file such as `mods/player_inventory.lua`:
+
+```lua
+midless.define_player_inventory("crafting", {slots = 4})
+
+midless.define_player_inventory_screen(function(player)
+    local crafting = player:get_inventory("crafting")
+    return {
+        title = "Inventory", width = 9, height = 8,
+        elements = {
+            {type = "inventory", inventory = crafting,
+             x = 0, y = 0, columns = 2, rows = 2},
+            {type = "crafting_output", inventory = crafting, recipes = "crafting",
+             x = 4, y = 0.5, columns = 2, rows = 2},
+            {type = "inventory", inventory = player:get_inventory(),
+             x = 0, y = 4, columns = 9, rows = 4},
+        },
+    }
+end)
+```
+
+The callback returns the layout each time the player presses E. Register one screen for your mods.
+
+`player:get_inventory()` still returns the main inventory. Named inventories use
+the same `get_stack`, `set_stack`, and `add_item` methods and start empty.
+
+## Inventory screens
+
+Define an inventory field in block metadata, then show it together with the
+player's inventory:
+
+```lua
+midless.define_block(200, {
+    name = "Chest",
+    textures = {all = 4},
+    metadata = {{name = "items", type = "inventory", slots = 27}},
+
+    on_interact = function(player, block)
+        player:show_inventory({
+            title = "Chest",
+            block = block,
+            width = 9, height = 8,
+            elements = {
+                {type = "inventory", inventory = block:get_inventory("items"),
+                 x = 0, y = 0, columns = 9, rows = 3},
+                {type = "label", text = "Inventory", x = 0, y = 3.5},
+                {type = "inventory", inventory = player:get_inventory(),
+                 x = 0, y = 4, columns = 9, rows = 4},
+            },
+        })
+    end,
+})
+```
+
+`on_interact(player, block)` runs when the player right-clicks the block.
+
+Layouts use slot-sized units and scale with the window:
+
+- Set `width` and `height` for the screen size, and `x` and `y` for each element.
+- Use `label` for text, `inventory` for slots, `crafting_output` for a result, and `progress` for a bar.
+- Include the main player inventory and each additional inventory.
+- Use `slot` to choose a grid's first slot (default 1), then `columns` and `rows` for its size.
+- Display every inventory slot once. Keep grids inside the screen without overlapping.
+- Set `block` when displaying a block inventory. A screen can show one block inventory.
+
+`player:close_inventory()` returns `true` if closed, or `false` if blocked.
+
+## Crafting recipes
+
+```lua
+midless.define_recipe({
+    group = "crafting", -- default when omitted
+    pattern = {
+        {4, 4},
+        {4, 4},
+    },
+    output = {id = 202, count = 1},
+})
+```
+
+Patterns support up to 3 rows and 3 columns. Rows must have the same width;
+use `0` for empty cells. The pattern can appear anywhere in the input grid,
+but is not automatically rotated or mirrored. Other cells must be empty.
+Each occupied recipe cell consumes one item from its slot.
+
+For a shapeless recipe, use `ingredients` instead of `pattern`:
+
+```lua
+midless.define_recipe({
+    group = "crafting",
+    ingredients = {10}, -- one log, in any input slot
+    output = {id = 4, count = 4},
+})
+```
+
+Shapeless recipes support up to 9 entries. Each entry needs a separate occupied
+slot, including repeated IDs. Stack sizes determine how many times you can craft.
+The result must fit in one stack. If several recipes match, the first registered
+recipe in the selected group is used.
+
+## Crafting output
+
+Store the ingredients in block metadata:
+
+```lua
+metadata = {
+    {name = "ingredients", type = "inventory", slots = 9},
+}
+```
+
+Display that inventory as a 3-by-3 grid, then add this element to the same screen:
+
+```lua
+{
+    type = "crafting_output",
+    recipes = "crafting",
+    inventory = block:get_inventory("ingredients"),
+    columns = 3, rows = 3,
+    x = 5, y = 1,
+}
+```
+
+`recipes` selects the recipe group. Other mods can add recipes to the same group.
+`columns` and `rows` describe the input grid, which must match a displayed block
+or named player inventory and be no larger than 3-by-3. The output itself occupies
+one UI slot.
+
+## Rules
+
+Use one inventory for a furnace, with a rule for each slot:
+
+```lua
+metadata = {
+    {name = "items", type = "inventory", slots = 3, rules = {
+        [1] = {items = {6}},       -- input: sand
+        [2] = {items = {4, 10}},   -- fuel: planks or logs
+        [3] = {insert = false},   -- output: players can only take items
+    }},
+}
+```
+
+Rules apply to player clicks and shift-clicks. Slots without a rule accept any
+item.
+
+Position the slots separately in the screen's `elements`:
+
+```lua
+local items = block:get_inventory("items")
+local elements = {
+    {type = "inventory", inventory = items, slot = 1,
+     x = 2, y = 0, columns = 1, rows = 1},
+    {type = "inventory", inventory = items, slot = 2,
+     x = 2, y = 2, columns = 1, rows = 1},
+    {type = "inventory", inventory = items, slot = 3,
+     x = 6, y = 1, columns = 1, rows = 1},
+    {type = "inventory", inventory = player:get_inventory(),
+     x = 0, y = 4, columns = 9, rows = 4},
+}
+```
+
+## Block timers
+
+Add these callbacks to the block definition:
+
+```lua
+on_inventory_changed = function(block, field)
+    if field == "items" and not block:timer_started() then
+        block:start_timer(1) -- seconds
+    end
+end,
+
+on_timer = function(block, dt)
+    -- Use dt (seconds) to burn fuel and advance cooking.
+    return true -- repeat; return false or nil to stop
+end,
+```
+
+`block:start_timer(seconds)` starts or restarts the timer. Use
+`block:timer_started()` to check it and `block:stop_timer()` to stop it.
+Timers pause while the chunk is unloaded and resume when it loads.
+
+`on_inventory_changed(block, field)` runs after inventory changes, including Lua
+changes. Several changes may share one call. Changes inside this callback do not
+trigger another call.
+
+## Inventory transactions
+
+Use `block:inventory_transaction(name, changes)` to consume ingredients and add
+their result together:
+
+```lua
+local cooked = block:inventory_transaction("items", {
+    take = {{slot = 1, id = 6, count = 1}},
+    give = {{slot = 3, id = 14, count = 1}},
+})
+```
+
+It returns `true` on success, or `false` without changing anything if the items
+are missing or the result does not fit. Each entry specifies a slot, item ID,
+and count. Omit `take` or `give` when you only need the other operation.
+
+## Progress bars
+
+Declare a numeric metadata field such as `cook_progress`, then add this element
+to a block screen:
+
+```lua
+{type = "progress", value = "cook_progress", max = 10,
+ x = 3.5, y = 1.25, width = 2, height = 0.5},
+```
+
+The bar updates automatically when that metadata changes. `max` is the value
+for a full bar. You can also use a number for a fixed `value`.
+
+
+
+
+# Block breaking
+
+Set a block's breaking rules in `define_block`:
+
+```lua
+midless.define_block("example:stone", {
+    name = "Stone",
+    textures = {all = 1},
+    hardness = 3,         -- seconds with hand speed 1; default 1
+    dig_group = "stone",
+    unbreakable = false, -- true prevents breaking
+})
+```
+
+`hardness = 0` breaks instantly. Hardness can range from 0 to 86400.
+
+Set speeds by group on an item (or a block's placeable item):
+
+```lua
+midless.define_texture("example:pickaxe", "textures/pickaxe.png")
+midless.define_item("example:pickaxe", {
+    name = "Pickaxe",
+    texture = "example:pickaxe",
+    max_stack = 1,
+    dig_speed = {stone = 6, soil = 1},
+})
+```
+
+Breaking takes `hardness / speed` seconds. Missing groups and empty hands use
+speed 1. The stone above takes three seconds by hand, or half a second with the
+pickaxe. Speeds must be positive.
+
+## Breaking texture
+
+Register a PNG with ten square frames in a horizontal strip, from least to most
+cracked. For 16-pixel frames, use a `160x16` PNG with a transparent background:
+
+```lua
+midless.define_texture("example:breaking", "textures/breaking.png")
+midless.set_breaking_texture("example:breaking")
+```
+
+Each frame can be up to 64 pixels wide. A default crack texture is used until you
+set your own. Redefining the texture updates the animation.
+
+## Custom breaking time
+
+```lua
+midless.register_on_dig_time(function(player, block, stack, seconds)
+    -- stack is nil for empty hands. Metadata fields come from the item's schema.
+    if stack and stack.metadata.blunt then
+        return seconds * 2
+    end
+    return seconds
+end)
+```
+
+Callbacks run in registration order when breaking starts. Return a number of
+seconds to change the duration, `nil` to keep it, or `false` to prevent breaking.
+An unbreakable block cannot be enabled by this callback.
+
+## After an item breaks a block
+
+Add `on_dig` to the item's definition:
+
+```lua
+on_dig = function(player, block, stack)
+    -- Called after a successful break. block refers to the now-empty position.
+    -- stack is a copy of the item used, including its metadata.
+end,
+```
+
 
 # World Generation
 
@@ -1191,119 +2036,7 @@ wg.define_structure("example:tree", {
 
 ---
 
-# Vectors
 
-Create a vector:
-
-```lua
-local v = vector.new(1, 2, 3)
-```
-
-Zero vector:
-
-```lua
-local v = vector.new()
-```
-
-Copy:
-
-```lua
-local copy = vector.new(v)
-```
-
-## Add
-
-```lua
-vector.add(a, b)
-```
-
-## Subtract
-
-```lua
-vector.subtract(a, b)
-```
-
-## Multiply
-
-```lua
-vector.multiply(v, 5)
-```
-
-## Length
-
-```lua
-vector.length(v)
-```
-
-## Distance
-
-```lua
-vector.distance(a, b)
-```
-
-## Normalize
-
-```lua
-vector.normalize(v)
-```
-
-## Direction
-
-```lua
-vector.direction(from, to)
-```
-
-## Dot product
-
-```lua
-vector.dot(a, b)
-```
-
-## Cross product
-
-```lua
-vector.cross(a, b)
-```
-
-Example:
-
-```lua
-local spawnPos = vector.add(
-    player:get_eye_position(),
-    vector.multiply(player:get_look_direction(), 3)
-)
-```
-
-This gets a position three blocks in front of the player.
-
----
-
-# Timers
-
-`midless.sleep()` exists:
-
-```lua
-midless.sleep(1000)
-```
-
-However, it blocks the server.
-
-For gameplay timers, use `register_on_step` instead:
-
-```lua
-local timer = 0
-
-midless.register_on_step(function(dt)
-    timer = timer + dt
-
-    if timer >= 5 then
-        timer = 0
-        print("Five seconds!")
-    end
-end)
-```
-
----
 
 # Example Mod
 
@@ -1400,369 +2133,3 @@ Right-click to spawn a slime. Each slime picks a new direction every few seconds
 
 ---
 
-# Metadata
-
-Declare metadata on a block or entity to save custom values, including block
-states and inventories.
-
-```lua
-midless.define_block(25, {
-    name = "Chest",
-    textures = {all = 1},
-    metadata = {
-        {name = "facing", type = "uint", bits = 2, default = 0},
-        {name = "open", type = "bool", default = false},
-        {name = "items", type = "inventory", slots = 27},
-        {name = "label", type = "string", max_length = 64},
-    },
-})
-```
-
-Place that block before accessing its metadata:
-
-```lua
-local block = midless.get_block({x = 10, y = 80, z = 20})
-block:set_metadata("facing", 2)
-print(block:get_metadata("facing"))
-block:reset_metadata("facing") -- restore the default
-```
-
-Entities use the same methods through `self.object`.
-
-| Type | Options | Default |
-| --- | --- | --- |
-| `uint` | `bits = 1..32` (default 16) | 0 |
-| `int` | `bits = 1..32` (default 16), signed | 0 |
-| `bool` | true or false | false |
-| `float` | finite number | 0 |
-| `string` | `max_length = 0..4096` (default 256) | empty string |
-| `inventory` | `slots = 1..255` (default 27) | empty inventory |
-
-Use `default` to change a field's default value. Inventory defaults are always
-empty. Tables returned by `get_metadata` are copies;
-use `set_metadata` or inventory methods to change the stored data.
-
-Metadata saves automatically with the chunk. Replacing a block with a different
-ID clears its metadata.
-
-## Saving entities
-
-```lua
-local function initialize(self)
-    self.timer = 0 -- temporary Lua data
-end
-
-midless.define_entity("example:creature", {
-    model = "humanoid",
-    save = true, -- default; false makes the entity temporary
-    metadata = {
-        {name = "health", type = "uint", bits = 7, default = 100},
-    },
-    on_spawn = initialize,
-    on_load = initialize,
-})
-```
-
-Declared metadata, position, rotation, velocity, body settings, model, and held
-block are saved. Ordinary fields on `self` are not saved. Use `on_load` to rebuild
-them after loading; saved metadata is already available then. `on_spawn` only runs
-for new entities, and `on_remove` does not run when a chunk unloads.
-
-Entities receive a new runtime ID when loaded; old handles become invalid.
-`save = false` entities disappear on unload, including any older saved copies.
-
----
-
-# Items
-
-Blocks automatically have a placeable item with the same identifier. Use
-`define_item` for an item that does not place a block:
-
-```lua
-midless.define_texture("example:gem", "textures/gem.png")
-
-midless.define_item("example:gem", {
-    name = "Gem",
-    texture = "example:gem",
-    max_stack = 16, -- 1..64; default 64
-    metadata = {
-        {name = "quality", type = "uint", bits = 4, default = 1},
-        {name = "label", type = "string", max_length = 32},
-    },
-})
-```
-
-Set `texture` to a name registered with `define_texture`. Multiple items can use
-the same texture. Use a PNG up to 64 by 64 pixels with a transparent background. It becomes the
-inventory icon and a sprite with one pixel of thickness when held or dropped.
-`held_model = "sprite"` is optional; it is the default for ordinary items.
-
-## Item metadata
-
-Set metadata when creating a stack:
-
-```lua
-local inventory = player:get_inventory()
-inventory:set_stack(1, {
-    id = "example:gem", count = 3,
-    metadata = {quality = 2, label = "Found in a cave"},
-})
-
-local stack = inventory:get_stack(1)
-stack.metadata.quality = 4
-inventory:set_stack(1, stack)
-```
-
-`get_stack` returns a copy, or `nil` for an empty slot. Omitted metadata uses its
-declared defaults. Items only stack together when their IDs and metadata match.
-Metadata stays with items when moved, dropped, or saved.
-
-Recipe outputs can include metadata. To match a specific ingredient's metadata,
-use a table instead of its identifier:
-
-```lua
-midless.define_recipe({
-    ingredients = {
-        {id = "example:gem", metadata = {quality = 2}},
-        "midless:stone",
-    },
-    output = {id = "example:gem", count = 1, metadata = {quality = 3}},
-})
-```
-
-# Inventories
-
-```lua
-local inventory = block:get_inventory("items")
--- Also available on entities and through player:get_inventory().
-
-inventory:set_stack(1, {id = 1, count = 32})
-local stack = inventory:get_stack(1) -- a copy, or nil if empty
-inventory:set_stack(1, nil) -- empty the slot
-
-if not inventory:add_item({id = 1, count = 100}) then
-    player:send_message("Not enough room.")
-end
-```
-
-Slots start at 1. Player slots 1-27 are storage and 28-36 are the hotbar.
-`add_item` fills matching stacks, then empty slots, splitting large amounts as
-needed. The main player inventory prefers empty hotbar slots. It returns `true` if the
-whole amount fits, or `false` without changing anything.
-
-## Player inventory screen
-
-Define named inventories for each player, then return the layout to show when
-they press E. Put this in a mod file such as `mods/player_inventory.lua`:
-
-```lua
-midless.define_player_inventory("crafting", {slots = 4})
-
-midless.define_player_inventory_screen(function(player)
-    local crafting = player:get_inventory("crafting")
-    return {
-        title = "Inventory", width = 9, height = 8,
-        elements = {
-            {type = "inventory", inventory = crafting,
-             x = 0, y = 0, columns = 2, rows = 2},
-            {type = "crafting_output", inventory = crafting, recipes = "crafting",
-             x = 4, y = 0.5, columns = 2, rows = 2},
-            {type = "inventory", inventory = player:get_inventory(),
-             x = 0, y = 4, columns = 9, rows = 4},
-        },
-    }
-end)
-```
-
-The callback returns the layout each time the player presses E. Register one screen for your mods.
-
-`player:get_inventory()` still returns the main inventory. Named inventories use
-the same `get_stack`, `set_stack`, and `add_item` methods and start empty.
-
-## Inventory screens
-
-Define an inventory field in block metadata, then show it together with the
-player's inventory:
-
-```lua
-midless.define_block(200, {
-    name = "Chest",
-    textures = {all = 4},
-    metadata = {{name = "items", type = "inventory", slots = 27}},
-
-    on_interact = function(player, block)
-        player:show_inventory({
-            title = "Chest",
-            block = block,
-            width = 9, height = 8,
-            elements = {
-                {type = "inventory", inventory = block:get_inventory("items"),
-                 x = 0, y = 0, columns = 9, rows = 3},
-                {type = "label", text = "Inventory", x = 0, y = 3.5},
-                {type = "inventory", inventory = player:get_inventory(),
-                 x = 0, y = 4, columns = 9, rows = 4},
-            },
-        })
-    end,
-})
-```
-
-`on_interact(player, block)` runs when the player right-clicks the block.
-
-Layouts use slot-sized units and scale with the window:
-
-- Set `width` and `height` for the screen size, and `x` and `y` for each element.
-- Use `label` for text, `inventory` for slots, `crafting_output` for a result, and `progress` for a bar.
-- Include the main player inventory and each additional inventory.
-- Use `slot` to choose a grid's first slot (default 1), then `columns` and `rows` for its size.
-- Display every inventory slot once. Keep grids inside the screen without overlapping.
-- Set `block` when displaying a block inventory. A screen can show one block inventory.
-
-`player:close_inventory()` returns `true` if closed, or `false` if blocked.
-
-## Crafting recipes
-
-```lua
-midless.define_recipe({
-    group = "crafting", -- default when omitted
-    pattern = {
-        {4, 4},
-        {4, 4},
-    },
-    output = {id = 202, count = 1},
-})
-```
-
-Patterns support up to 3 rows and 3 columns. Rows must have the same width;
-use `0` for empty cells. The pattern can appear anywhere in the input grid,
-but is not automatically rotated or mirrored. Other cells must be empty.
-Each occupied recipe cell consumes one item from its slot.
-
-For a shapeless recipe, use `ingredients` instead of `pattern`:
-
-```lua
-midless.define_recipe({
-    group = "crafting",
-    ingredients = {10}, -- one log, in any input slot
-    output = {id = 4, count = 4},
-})
-```
-
-Shapeless recipes support up to 9 entries. Each entry needs a separate occupied
-slot, including repeated IDs. Stack sizes determine how many times you can craft.
-The result must fit in one stack. If several recipes match, the first registered
-recipe in the selected group is used.
-
-## Crafting output
-
-Store the ingredients in block metadata:
-
-```lua
-metadata = {
-    {name = "ingredients", type = "inventory", slots = 9},
-}
-```
-
-Display that inventory as a 3-by-3 grid, then add this element to the same screen:
-
-```lua
-{
-    type = "crafting_output",
-    recipes = "crafting",
-    inventory = block:get_inventory("ingredients"),
-    columns = 3, rows = 3,
-    x = 5, y = 1,
-}
-```
-
-`recipes` selects the recipe group. Other mods can add recipes to the same group.
-`columns` and `rows` describe the input grid, which must match a displayed block
-or named player inventory and be no larger than 3-by-3. The output itself occupies
-one UI slot.
-
-## Rules
-
-Use one inventory for a furnace, with a rule for each slot:
-
-```lua
-metadata = {
-    {name = "items", type = "inventory", slots = 3, rules = {
-        [1] = {items = {6}},       -- input: sand
-        [2] = {items = {4, 10}},   -- fuel: planks or logs
-        [3] = {insert = false},   -- output: players can only take items
-    }},
-}
-```
-
-Rules apply to player clicks and shift-clicks. Slots without a rule accept any
-item.
-
-Position the slots separately in the screen's `elements`:
-
-```lua
-local items = block:get_inventory("items")
-local elements = {
-    {type = "inventory", inventory = items, slot = 1,
-     x = 2, y = 0, columns = 1, rows = 1},
-    {type = "inventory", inventory = items, slot = 2,
-     x = 2, y = 2, columns = 1, rows = 1},
-    {type = "inventory", inventory = items, slot = 3,
-     x = 6, y = 1, columns = 1, rows = 1},
-    {type = "inventory", inventory = player:get_inventory(),
-     x = 0, y = 4, columns = 9, rows = 4},
-}
-```
-
-## Block timers
-
-Add these callbacks to the block definition:
-
-```lua
-on_inventory_changed = function(block, field)
-    if field == "items" and not block:timer_started() then
-        block:start_timer(1) -- seconds
-    end
-end,
-
-on_timer = function(block, dt)
-    -- Use dt (seconds) to burn fuel and advance cooking.
-    return true -- repeat; return false or nil to stop
-end,
-```
-
-`block:start_timer(seconds)` starts or restarts the timer. Use
-`block:timer_started()` to check it and `block:stop_timer()` to stop it.
-Timers pause while the chunk is unloaded and resume when it loads.
-
-`on_inventory_changed(block, field)` runs after inventory changes, including Lua
-changes. Several changes may share one call. Changes inside this callback do not
-trigger another call.
-
-## Inventory transactions
-
-Use `block:inventory_transaction(name, changes)` to consume ingredients and add
-their result together:
-
-```lua
-local cooked = block:inventory_transaction("items", {
-    take = {{slot = 1, id = 6, count = 1}},
-    give = {{slot = 3, id = 14, count = 1}},
-})
-```
-
-It returns `true` on success, or `false` without changing anything if the items
-are missing or the result does not fit. Each entry specifies a slot, item ID,
-and count. Omit `take` or `give` when you only need the other operation.
-
-## Progress bars
-
-Declare a numeric metadata field such as `cook_progress`, then add this element
-to a block screen:
-
-```lua
-{type = "progress", value = "cook_progress", max = 10,
- x = 3.5, y = 1.25, width = 2, height = 0.5},
-```
-
-The bar updates automatically when that metadata changes. `max` is the value
-for a full bar. You can also use a number for a fixed `value`.

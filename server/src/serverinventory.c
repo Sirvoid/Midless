@@ -1,3 +1,6 @@
+#include "scripting/luaitemactions.h"
+#include "raymath.h"
+#include "scripting/luadigging.h"
 #include <math.h>
 #include <stdlib.h>
 #include "serverinventory.h"
@@ -113,20 +116,26 @@ static bool OverlapsPlayer(BoundingBox block) {
     return false;
 }
 
-static void TryHarvestBlock(Player *player, const InventoryAction *action) {
+static bool TryHarvestBlock(Player *player, const InventoryAction *action) {
     Vector3 target = {(float)action->x, (float)action->y, (float)action->z};
     Vector3 position = {target.x + 0.5f, target.y + 0.5f, target.z + 0.5f};
-    ItemStack stacks[WORLD_MAX_ENTITIES] = {{action->targetBlock, 1}};
-    int contents = LuaMetadata_CollectBlockItems(target, stacks + 1, WORLD_MAX_ENTITIES - 1);
+    ItemStack stacks[WORLD_MAX_ENTITIES] = {0};
+    ItemStack tool=*Inventory_GetSelected(&player->inventory);
+    int loot=LuaItemActions_Drops(player,target,action->targetBlock,tool,stacks,WORLD_MAX_ENTITIES);
+    if (loot<0) { ServerPlayer_SendMessage(player,"Cannot break this block: invalid drops."); return false; }
+    // Lua callbacks can change the world or the held item. Check again before awarding loot.
+    ItemStack held=*Inventory_GetSelected(&player->inventory);
+    if (!CanReachTarget(player,action) || held.count!=tool.count || !ItemStack_Matches(held,tool)) return false;
+    int contents = LuaMetadata_CollectBlockItems(target, stacks + loot, WORLD_MAX_ENTITIES - loot);
     if (contents < 0) {
         ServerPlayer_SendMessage(player, "Cannot break this block: its inventory could not be read.");
-        return;
+        return false;
     }
-    int count = contents + 1, available = 0;
+    int count = contents + loot, available = 0;
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) if (!serverWorld.entities[i].active) available++;
     if (available < count) {
         ServerPlayer_SendMessage(player, "Cannot break this block: no room to drop all its items.");
-        return;
+        return false;
     }
     int spawned[WORLD_MAX_ENTITIES];
     for (int i = 0; i < count; i++) {
@@ -136,10 +145,63 @@ static void TryHarvestBlock(Player *player, const InventoryAction *action) {
             // None have been announced or saved yet. Roll back the entire drop.
             for (int j = 0; j < i; j++) ServerWorld_RemoveEntity(spawned[j]);
             ServerPlayer_SendMessage(player, "Cannot break this block: an item could not be dropped.");
-            return;
+            return false;
         }
     }
     ServerWorld_SetBlock(target, 0, true, true, true);
+    return true;
+}
+
+static void SendDigState(Player *player, int milliseconds) {
+    unsigned char *packet=MemAlloc(21);
+    if (!packet) return;
+    packet[0]=25;
+    int values[]={player->digAction.x,player->digAction.y,player->digAction.z,
+        (int)player->digAction.sequence,milliseconds};
+    for (int i=0;i<5;i++) for (int b=0;b<4;b++) packet[1+i*4+b]=(uint32_t)values[i]>>(24-b*8);
+    ServerNetwork_Send(player,packet);
+}
+static void CancelDig(Player *player) {
+    if (!player->digging) return;
+    player->digging=false; SendDigState(player,-1);
+}
+void ServerInventory_InvalidateDig(Vector3 position) {
+    for (int i=0;i<WORLD_MAX_PLAYERS;i++) {
+        Player *p=serverWorld.players[i];
+        if (p && p->digging && p->digAction.x==floorf(position.x) &&
+            p->digAction.y==floorf(position.y) && p->digAction.z==floorf(position.z)) CancelDig(p);
+    }
+}
+static bool ValidDig(Player *p) {
+    ItemStack held=*Inventory_GetSelected(&p->inventory);
+    return !p->disconnected && !p->inventory.open && p->inventory.selectedHotbar==p->digSlot &&
+        held.count==p->digStack.count && ItemStack_Matches(held,p->digStack) && CanReachTarget(p,&p->digAction);
+}
+void ServerInventory_UpdateDigging(void) {
+    for (int i=0;i<WORLD_MAX_PLAYERS;i++) {
+        Player *p=serverWorld.players[i];
+        if (!p || !p->digging) continue;
+        if (!ValidDig(p)) { CancelDig(p); continue; }
+        if (GetTime()<p->digEnd) continue;
+        InventoryAction action=p->digAction;
+        ItemStack stack=p->digStack;
+        CancelDig(p);
+        if (TryHarvestBlock(p,&action)) {
+            LuaDigging_Finished(p,(Vector3){action.x,action.y,action.z},stack);
+            p->inventoryRevision++; ServerInventory_UpdateHeldBlock(p); ServerInventory_Send(p);
+        }
+    }
+}
+static void StartDig(Player *p, const InventoryAction *action) {
+    CancelDig(p);
+    p->digAction=*action;
+    p->digStack=*Inventory_GetSelected(&p->inventory);
+    p->digSlot=p->inventory.selectedHotbar;
+    double seconds=LuaDigging_Time(p,(Vector3){action->x,action->y,action->z},action->targetBlock,p->digStack);
+    if (seconds<0 || !ValidDig(p)) { SendDigState(p,-1); return; }
+    p->digging=true; p->digEnd=GetTime()+seconds;
+    SendDigState(p,(int)ceil(seconds*1000));
+    if (seconds==0) ServerInventory_UpdateDigging();
 }
 
 static void TryPlaceBlock(Player *player, const InventoryAction *action) {
@@ -167,6 +229,70 @@ static void TryPlaceBlock(Player *player, const InventoryAction *action) {
     stack->count--;
     if (!stack->count) *stack = (ItemStack){0};
     ServerWorld_SetBlock(position, blockId, true, true, true);
+}
+
+// Resolve entity and empty-space uses on the server; walls and unloaded chunks stop the ray.
+static Entity *FindUseTarget(Player *player, InventoryAction *block) {
+    *block=(InventoryAction){0};
+    Entity *owner=&serverWorld.entities[player->entityId];
+    Vector3 eye=owner->position; eye.y+=1.5f;
+    Vector3 rotation=owner->rotation;
+    Vector3 direction={sinf(rotation.y)*cosf(rotation.x),-sinf(rotation.x),cosf(rotation.y)*cosf(rotation.x)};
+    if (!isfinite(eye.x) || !isfinite(eye.y) || !isfinite(eye.z) ||
+        fabsf(eye.x)>1000000 || fabsf(eye.y)>1000000 || fabsf(eye.z)>1000000 ||
+        !isfinite(direction.x) || !isfinite(direction.y) || !isfinite(direction.z)) return NULL;
+    Vector3 end=Vector3Add(eye,Vector3Scale(direction,BLOCK_INTERACTION_REACH));
+    float closest=BLOCK_INTERACTION_REACH;
+    for (int x=floorf(fminf(eye.x,end.x));x<=floorf(fmaxf(eye.x,end.x));x++)
+    for (int y=floorf(fminf(eye.y,end.y));y<=floorf(fmaxf(eye.y,end.y));y++)
+    for (int z=floorf(fminf(eye.z,end.z));z<=floorf(fmaxf(eye.z,end.z));z++) {
+        Vector3 cell={x,y,z}; bool loaded=IsLoaded(cell);
+        int id=loaded?ServerWorld_GetBlock(cell):0;
+        BlockPhysics shape=GetBlockPhysics(id,cell);
+        if (loaded && !shape.targetable) continue;
+        BoundingBox bounds=loaded?shape.bounds:(BoundingBox){cell,{x+1,y+1,z+1}};
+        float entry;
+        if (!SegmentHitsBox(eye,end,bounds,&entry) || entry*BLOCK_INTERACTION_REACH>=closest) continue;
+        closest=entry*BLOCK_INTERACTION_REACH;
+        Vector3 hit=Vector3Add(eye,Vector3Scale(direction,closest));
+        *block=(InventoryAction){.targetBlock=id,.x=x,.y=y,.z=z};
+        float distances[]={fabsf(hit.x-bounds.min.x),fabsf(hit.x-bounds.max.x),
+            fabsf(hit.y-bounds.min.y),fabsf(hit.y-bounds.max.y),fabsf(hit.z-bounds.min.z),fabsf(hit.z-bounds.max.z)};
+        for (int face=1;face<6;face++) if (distances[face]<distances[block->face]) block->face=face;
+        block->hit[0]=Clamp((hit.x-x)*255,0,255);
+        block->hit[1]=Clamp((hit.y-y)*255,0,255);
+        block->hit[2]=Clamp((hit.z-z)*255,0,255);
+    }
+    Entity *target=NULL;
+    for (int i=0;i<WORLD_MAX_ENTITIES;i++) {
+        Entity *entity=&serverWorld.entities[i];
+        if (i==player->entityId || !entity->active || entity->pendingRemoval || entity->type==ENTITY_TYPE_DROPPED_ITEM) continue;
+        BoundingBox bounds=EntityBody_Bounds(&entity->body,entity->position);
+        float entry;
+        if (SegmentHitsBox(eye,end,bounds,&entry) && entry*BLOCK_INTERACTION_REACH<closest) {
+            closest=entry*BLOCK_INTERACTION_REACH; target=entity;
+        }
+    }
+    return target;
+}
+static void TryUseItem(Player *player, const InventoryAction *requested) {
+    if (player->inventory.open) return;
+    InventoryAction rayBlock;
+    Entity *entity=FindUseTarget(player,&rayBlock);
+    // A block request must still be valid even when an entity is in front of it.
+    bool blockRequest=requested->type==INVENTORY_PLACE;
+    if (blockRequest && !CanReachTarget(player,requested)) return;
+    if (entity) { LuaItemActions_Use(player,NULL,entity); return; }
+    const InventoryAction *block=blockRequest?requested:rayBlock.targetBlock?&rayBlock:NULL;
+    if (!block) { LuaItemActions_Use(player,NULL,NULL); return; }
+    if (!CanReachTarget(player,block)) return;
+    Vector3 position={block->x,block->y,block->z};
+    if (LuaBindings_InteractBlock(player,position,block->targetBlock)) return;
+    ItemStack held=*Inventory_GetSelected(&player->inventory);
+    if (LuaItemActions_Use(player,block,NULL)) return;
+    ItemStack after=*Inventory_GetSelected(&player->inventory);
+    if (!player->inventory.open && after.count==held.count && ItemStack_Matches(after,held) && CanReachTarget(player,block))
+        TryPlaceBlock(player,block);
 }
 
 void ServerInventory_UpdateHeldBlock(Player *player) {
@@ -208,12 +334,11 @@ void ServerInventory_HandleAction(void) {
         return;
     }
     player->inventorySequence = action.sequence;
-    if (action.type == INVENTORY_BREAK || action.type == INVENTORY_PLACE) {
-        if (!player->inventory.open && CanReachTarget(player, &action)) {
-            if (action.type == INVENTORY_BREAK) TryHarvestBlock(player, &action);
-            else if (!LuaBindings_InteractBlock(player, (Vector3){action.x, action.y, action.z}, action.targetBlock))
-                TryPlaceBlock(player, &action);
-        }
+    if (action.type != INVENTORY_BREAK) CancelDig(player);
+    if (action.type == INVENTORY_PLACE || action.type == INVENTORY_USE) {
+        TryUseItem(player,&action);
+    } else if (action.type == INVENTORY_BREAK) {
+        if (!player->inventory.open && CanReachTarget(player, &action)) StartDig(player, &action);
     } else if (action.type >= INVENTORY_VIEW_LEFT && action.type <= INVENTORY_CRAFT_ALL) {
         InventoryWindow_Action(player, &action);
     } else if ((uint32_t)action.x != player->inventoryWindow.view.session) {

@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define GAME_PROTOCOL_VERSION 14
 #define PACKET_DEFINE_BLOCK 12
 #define PACKET_REMOVE_BLOCK_DEFINITION 13
 #define DEFINE_BLOCK_PACKET_SIZE 82

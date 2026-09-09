@@ -1,3 +1,5 @@
+#include "version.h"
+#include "../digging.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  * 
@@ -77,6 +79,8 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDroppedItem, DROPPED_ITEM_PACKET_SIZE}; //22
     packets[packetCount++] = (PacketHandlerEntry) {&ClientInventory_HandleView, 0}; //23
     packets[packetCount++] = (PacketHandlerEntry) {&ClientItems_HandleDefinition, ITEM_DEFINITION_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&ClientInventory_HandleDig, 21};
+    packets[packetCount++] = (PacketHandlerEntry) {&Digging_HandleTexture, 2};
 }
 
 void Network_Connect(void) {

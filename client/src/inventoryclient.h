@@ -23,4 +23,7 @@ void ClientInventory_Interact(bool place, Vector3 hit, Vector3 normal, int targe
 
 bool ClientInventory_CloseBlocked(void);
 
+void ClientInventory_Dig(bool held, Vector3 hit, Vector3 normal, int block);
+void ClientInventory_HandleDig(void);
+float ClientInventory_DigProgress(Vector3 *position);
 #endif

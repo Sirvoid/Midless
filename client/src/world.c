@@ -1,3 +1,4 @@
+#include "digging.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  * 
@@ -373,6 +374,7 @@ void World_Draw(Vector3 camPosition) {
         Entity_Draw(&world.entities[i]);
     }
     if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
+    Digging_Draw();
     Cloud_Draw(camPosition, World_GetSunlightStrength());
     Particle_Draw(player.camera, world.material.maps[MATERIAL_MAP_DIFFUSE].texture);
     rlDrawRenderBatchActive();

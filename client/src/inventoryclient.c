@@ -16,6 +16,13 @@ static uint32_t nextSequence, latestRevision;
 static bool ready;
 static bool closeBlocked;
 static double lastRetryTime;
+static bool digging, digApproved;
+static Vector3 digPosition;
+static ItemStack digStack;
+static int digBlock, digSlot;
+static uint32_t digSequence;
+static double digStart, digDuration;
+
 
 static void ApplyScreenState(void) {
     player.blockSelected = Inventory_GetSelected(&displayedInventory)->itemId;
@@ -31,6 +38,7 @@ static void ApplyScreenState(void) {
 }
 
 void ClientInventory_Reset(void) {
+    digging=digApproved=false;
     displayedView = (InventoryView){0};
     Inventory_Init(&displayedInventory);
     pendingCount = 0;
@@ -155,7 +163,11 @@ void ClientInventory_Scroll(int direction) {
 }
 
 void ClientInventory_Interact(bool place, Vector3 hit, Vector3 normal, int targetBlock) {
-    if (targetBlock <= 0 || displayedInventory.open) return;
+    if (displayedInventory.open) return;
+    if (targetBlock<=0) {
+        if (place) QueueAction((InventoryAction){.type=INVENTORY_USE});
+        return;
+    }
     InventoryAction action = {
         .type = place ? INVENTORY_PLACE : INVENTORY_BREAK,
         .x = (int)floorf(hit.x), .y = (int)floorf(hit.y), .z = (int)floorf(hit.z),
@@ -168,9 +180,41 @@ void ClientInventory_Interact(bool place, Vector3 hit, Vector3 normal, int targe
     action.hit[0] = (uint8_t)((hit.x - floorf(hit.x)) * 255);
     action.hit[1] = (uint8_t)((hit.y - floorf(hit.y)) * 255);
     action.hit[2] = (uint8_t)((hit.z - floorf(hit.z)) * 255);
-    QueueAction(action);
+    if (QueueAction(action) && !place) digSequence=nextSequence-1;
 }
 
 bool ClientInventory_CloseBlocked(void) {
     return closeBlocked;
+}
+
+void ClientInventory_Dig(bool held, Vector3 hit, Vector3 normal, int block) {
+    Vector3 position={floorf(hit.x),floorf(hit.y),floorf(hit.z)};
+    ItemStack stack=*Inventory_GetSelected(&displayedInventory);
+    bool changed=position.x!=digPosition.x || position.y!=digPosition.y || position.z!=digPosition.z ||
+        block!=digBlock || digSlot!=displayedInventory.selectedHotbar ||
+        stack.count!=digStack.count || !ItemStack_Matches(stack,digStack);
+    if (digging && (!held || changed || displayedInventory.open)) {
+        if (!QueueAction((InventoryAction){.type=INVENTORY_CANCEL_DIG})) return;
+        digging=digApproved=false;
+    }
+    if (!digging && held && block>0 && !displayedInventory.open && ready && pendingCount<MAX_PENDING_ACTIONS) {
+        digPosition=position; digBlock=block; digSlot=displayedInventory.selectedHotbar; digStack=stack;
+        uint32_t before=nextSequence;
+        ClientInventory_Interact(false,hit,normal,block);
+        digging=nextSequence!=before; digApproved=false;
+    }
+}
+static uint32_t DigRead32(const unsigned char *data) {
+    return (uint32_t)data[0]<<24 | (uint32_t)data[1]<<16 | (uint32_t)data[2]<<8 | data[3];
+}
+void ClientInventory_HandleDig(void) {
+    if (packetDataLength!=21 || !digging || DigRead32(packetData+13)!=digSequence) return;
+    int milliseconds=(int32_t)DigRead32(packetData+17);
+    digApproved=milliseconds>=0;
+    digStart=GetTime(); digDuration=milliseconds/1000.0;
+}
+float ClientInventory_DigProgress(Vector3 *position) {
+    if (!digging || !digApproved) return -1;
+    *position=digPosition;
+    return digDuration>0 ? fminf(1,(GetTime()-digStart)/digDuration) : 1;
 }

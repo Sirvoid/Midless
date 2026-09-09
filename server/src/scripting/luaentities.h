@@ -3,6 +3,7 @@
 #include "../entity.h"
 #include "minilua.h"
 Entity *LuaEntities_Check(lua_State *state, int index);
+void LuaEntities_Push(Entity *entity);
 void LuaEntities_Init(void);
 void LuaEntities_Shutdown(void);
 int LuaEntities_Register(void);

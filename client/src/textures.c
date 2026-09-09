@@ -1,3 +1,4 @@
+#include "digging.h"
 #include "textures.h"
 #include "items.h"
 #include "textureprotocol.h"
@@ -119,6 +120,7 @@ void ClientTextures_HandleTerrain(void) {
 }
 void ClientTextures_Reset(void) {
     ClientItems_Reset();
+    Digging_Reset();
     ClearTransfer();
     desiredTerrain=1; ApplyTerrain();
     for(int id=2;id<TEXTURE_LIMIT;id++) {

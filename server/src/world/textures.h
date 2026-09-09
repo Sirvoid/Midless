@@ -9,4 +9,6 @@ void ServerTextures_SendTerrain(Player *player);
 void ServerTextures_Update(void);
 void ServerTextures_Shutdown(void);
 void ServerTextures_HandleAck(void);
+int ServerTextures_SetBreaking(void);
+void ServerTextures_SendBreaking(Player *player);
 #endif

@@ -9,6 +9,7 @@
 #include "minilua.h"
 #include "pthread.h"
 #include <dirent.h>
+#include <sys/stat.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -82,11 +83,14 @@ static bool Lua_LoadModFolder(const char *folder) {
     while((entry = readdir(dir)) != NULL) {
         size_t length = strlen(entry->d_name);
 
-        if(length < 4)
-            continue;
-
-        if(strcmp(entry->d_name + length - 4, ".lua") != 0)
-            continue;
+        if (entry->d_name[0]=='.') continue;
+        char candidate[512]; struct stat info;
+        int written=snprintf(candidate,sizeof(candidate),"%s/%s",folder,entry->d_name);
+        if (written<0 || written>=sizeof(candidate) || stat(candidate,&info)) continue;
+        if (S_ISDIR(info.st_mode)) {
+            written=snprintf(candidate,sizeof(candidate),"%s/%s/init.lua",folder,entry->d_name);
+            if (written<0 || written>=sizeof(candidate) || stat(candidate,&info) || !S_ISREG(info.st_mode)) continue;
+        } else if (!S_ISREG(info.st_mode) || length<4 || strcmp(entry->d_name+length-4,".lua")) continue;
 
         char **grown = realloc(names, (count + 1) * sizeof(*names));
         if (!grown) { for (int i = 0; i < count; i++) free(names[i]); free(names); closedir(dir); return false; }
@@ -109,18 +113,22 @@ static bool Lua_LoadModFolder(const char *folder) {
             names[i]
         );
 
-        printf("Loading %s\n", path);
-
-        if(luaL_dofile(L, path) != 0) {
-            success = false;
-            printf(
-                "Lua error in %s: %s\n",
-                path,
-                lua_tostring(L, -1)
-            );
-
-            lua_pop(L, 1);
+        struct stat info;
+        bool directory=stat(path,&info)==0 && S_ISDIR(info.st_mode);
+        char script[512];
+        int written=snprintf(script,sizeof(script),directory?"%s/init.lua":"%s",path);
+        int top=lua_gettop(L);
+        printf("Loading %s\n",script);
+        if (written<0 || written>=sizeof(script)) success=false;
+        else {
+            int error=luaL_loadfile(L,script);
+            if (!error) {
+                if (directory) lua_pushstring(L,path);
+                error=lua_pcall(L,directory?1:0,0,0);
+            }
+            if (error) { success=false; printf("Lua error in %s: %s\n",script,lua_tostring(L,-1)); }
         }
+        lua_settop(L,top);
         free(names[i]);
     }
     free(names);

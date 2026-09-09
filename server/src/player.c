@@ -35,6 +35,7 @@ Player *ServerPlayer_Create(void *peer, bool isWeb) {
 
 void ServerPlayer_Destroy(Player *player) {
     if (player == NULL) return;
+    for (int i=0;i<player->metadataCount;i++) Metadata_Free(&player->metadata[i].value);
     MemFree(player->name);
     MemFree(player);
 }

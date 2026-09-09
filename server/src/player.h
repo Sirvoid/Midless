@@ -12,11 +12,22 @@
 #include "blockdefinition.h"
 #include "textureprotocol.h"
 #include "inventory.h"
+#include "world/chunk/chunkmetadata.h"
 #include "inventorywindow.h"
 #include "playerinventories.h"
 
+#define PLAYER_METADATA_GROUPS 16
+typedef struct PlayerMetadata { char name[65]; Metadata value; } PlayerMetadata;
+
 typedef struct Player {
     Inventory inventory;
+    PlayerMetadata metadata[PLAYER_METADATA_GROUPS];
+    uint8_t metadataCount;
+    bool digging;
+    InventoryAction digAction;
+    ItemStack digStack;
+    int digSlot;
+    double digEnd;
     NamedInventory namedInventories[PLAYER_INVENTORIES];
     uint8_t namedInventoryCount;
     uint32_t inventoryRevision, inventorySequence;

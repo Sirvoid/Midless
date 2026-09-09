@@ -1,6 +1,8 @@
+#include "version.h"
 #include "luametadata.h"
 #include "binarydata.h"
 #include "luaentities.h"
+#include "luabindings.h"
 #include "../items.h"
 #include "../world/world.h"
 #include <stdlib.h>
@@ -34,6 +36,56 @@ static bool BuildDefaults(Schema *schema);
 static Schema *schemas[MAX_SCHEMAS];
 static int schemaCount, blockSchemas[256];
 static int itemSchemas[ITEM_LIMIT];
+static struct { char name[65]; int schema; } playerSchemas[PLAYER_METADATA_GROUPS];
+static int playerSchemaCount;
+#define PLAYER_CHANGE_LIMIT 256
+static struct { char key[130]; int callback; } playerListeners[PLAYER_CHANGE_LIMIT];
+static int playerListenerCount;
+typedef struct PlayerChange {
+    int player, oldValue, newValue, listeners;
+    uint64_t connection;
+    char key[130];
+} PlayerChange;
+static PlayerChange playerChanges[PLAYER_CHANGE_LIMIT];
+static int playerChangeCount;
+static bool notifyingPlayers;
+
+static void NotifyPlayer(Player *player, const char *key, int oldValue, int newValue) {
+    if (lua_rawequal(L,oldValue,newValue)) return;
+    bool listening=false;
+    for (int i=0;i<playerListenerCount;i++) if (!strcmp(playerListeners[i].key,key)) listening=true;
+    if (!listening) return;
+    if (playerChangeCount==PLAYER_CHANGE_LIMIT) {
+        TraceLog(LOG_WARNING,"Player metadata callback limit reached; further notifications skipped"); return;
+    }
+    PlayerChange *change=&playerChanges[playerChangeCount++];
+    change->player=player->id; change->connection=player->connectionId;
+    change->listeners=playerListenerCount; strcpy(change->key,key);
+    lua_pushvalue(L,oldValue); change->oldValue=luaL_ref(L,LUA_REGISTRYINDEX);
+    lua_pushvalue(L,newValue); change->newValue=luaL_ref(L,LUA_REGISTRYINDEX);
+    if (notifyingPlayers) return;
+    notifyingPlayers=true;
+    // Nested writes append here; never recursively invoke another listener.
+    for (int next=0;next<playerChangeCount;next++) {
+        PlayerChange current=playerChanges[next];
+        for (int i=0;i<current.listeners;i++) {
+            Player *owner=serverWorld.players?serverWorld.players[current.player]:NULL;
+            if (!owner || owner->connectionId!=current.connection || owner->disconnected) break;
+            if (strcmp(playerListeners[i].key,current.key)) continue;
+            int top=lua_gettop(L);
+            lua_rawgeti(L,LUA_REGISTRYINDEX,playerListeners[i].callback);
+            LuaBindings_PushPlayer(owner);
+            lua_rawgeti(L,LUA_REGISTRYINDEX,current.oldValue);
+            lua_rawgeti(L,LUA_REGISTRYINDEX,current.newValue);
+            if (lua_pcall(L,3,0,0)!=LUA_OK) TraceLog(LOG_WARNING,"Player metadata callback: %s",lua_tostring(L,-1));
+            lua_settop(L,top);
+        }
+        luaL_unref(L,LUA_REGISTRYINDEX,current.oldValue);
+        luaL_unref(L,LUA_REGISTRYINDEX,current.newValue);
+    }
+    playerChangeCount=0; notifyingPlayers=false;
+}
+
 static int timerCallbacks[256], inventoryCallbacks[256];
 static bool notifying;
 
@@ -113,7 +165,7 @@ int LuaMetadata_Register(lua_State *state, int definition) {
     if (lua_isnil(state, -1)) { lua_pop(state, 1); return -1; }
     if (schemaCount == MAX_SCHEMAS) return luaL_error(state, "metadata schema registry is full");
     Schema layout;
-    int version = IntegerField(state, definition, "metadata_version", 1, 1, 65535);
+    int version = IntegerField(state, definition, "metadata_version", METADATA_DEFAULT_VERSION, 1, 65535);
     ReadSchema(state, -1, version, &layout);
     lua_pop(state, 1);
     lua_newtable(state);
@@ -894,6 +946,17 @@ static void Metatable(const char *name, const luaL_Reg *methods) {
     lua_pop(L, 1);
 }
 void LuaMetadata_Init(void) {
+    playerSchemaCount=0;
+    playerListenerCount=playerChangeCount=0; notifyingPlayers=false;
+    lua_pushcfunction(L,LuaMetadata_DefinePlayer);
+    lua_pushliteral(L,"midless");
+    lua_newtable(L); lua_newtable(L);
+    lua_pushliteral(L,"hp"); lua_setfield(L,-2,"name");
+    lua_pushliteral(L,"uint"); lua_setfield(L,-2,"type");
+    lua_pushinteger(L,16); lua_setfield(L,-2,"bits");
+    lua_pushinteger(L,20); lua_setfield(L,-2,"default");
+    lua_rawseti(L,-2,1);
+    lua_call(L,2,0);
     for (int i = 0; i < ITEM_LIMIT; i++) itemSchemas[i] = -1;
     changeCount = 0; notifying = false;
     for (int i = 0; i < 256; i++) {
@@ -912,6 +975,8 @@ void LuaMetadata_Init(void) {
     luaL_newmetatable(L, "midless.MetadataValue"); lua_pushcfunction(L, FreeValue); lua_setfield(L, -2, "__gc"); lua_pop(L, 1);
 }
 void LuaMetadata_Shutdown(void) {
+    for (int i=0;i<playerListenerCount;i++) luaL_unref(L,LUA_REGISTRYINDEX,playerListeners[i].callback);
+    playerListenerCount=0;
     free(changes); changes = NULL; changeCount = changeCapacity = 0;
     for (int i = 0; i < 256; i++) {
         luaL_unref(L, LUA_REGISTRYINDEX, timerCallbacks[i]);
@@ -923,4 +988,83 @@ void LuaMetadata_Shutdown(void) {
         free(schemas[i]);
     }
     schemaCount = 0;
+}
+
+int LuaMetadata_DefinePlayer(lua_State *state) {
+    size_t length; const char *name=luaL_checklstring(state,1,&length);
+    if (!length || length>64) return luaL_error(state,"invalid player metadata namespace");
+    for (size_t i=0;i<length;i++) if (!((name[i]>='a' && name[i]<='z') ||
+        (name[i]>='0' && name[i]<='9') || name[i]=='_' || name[i]=='-'))
+        return luaL_error(state,"metadata namespace must use lowercase letters, digits, underscores or hyphens");
+    for (int i=0;i<playerSchemaCount;i++) if (!strcmp(playerSchemas[i].name,name))
+        return luaL_error(state,"player metadata namespace is already registered");
+    if (playerSchemaCount==PLAYER_METADATA_GROUPS) return luaL_error(state,"too many player metadata namespaces");
+    luaL_checktype(state,2,LUA_TTABLE);
+    // Validate using the same field rules as block and entity metadata.
+    Schema layout; ReadSchema(state,2,1,&layout);
+    for (int i=0;i<layout.count;i++) if (layout.fields[i].type==FIELD_INVENTORY)
+        return luaL_error(state,"use player inventories instead of inventory metadata fields");
+    int listenerCount=0;
+    for (int i=0;i<layout.count;i++) {
+        lua_rawgeti(state,2,i+1); lua_getfield(state,-1,"on_change");
+        if (!lua_isnil(state,-1)) { luaL_checktype(state,-1,LUA_TFUNCTION); listenerCount++; }
+        lua_pop(state,2);
+    }
+    if (playerListenerCount+listenerCount>PLAYER_CHANGE_LIMIT) return luaL_error(state,"too many metadata listeners");
+    lua_newtable(state); lua_pushvalue(state,2); lua_setfield(state,-2,"metadata");
+    int schema=LuaMetadata_Register(state,lua_gettop(state)); lua_pop(state,1);
+    strcpy(playerSchemas[playerSchemaCount].name,name);
+    playerSchemas[playerSchemaCount++].schema=schema;
+    for (int i=0;i<layout.count;i++) {
+        lua_rawgeti(state,2,i+1); lua_getfield(state,-1,"on_change");
+        if (!lua_isnil(state,-1)) {
+            snprintf(playerListeners[playerListenerCount].key,130,"%s:%s",name,layout.fields[i].name);
+            playerListeners[playerListenerCount++].callback=luaL_ref(state,LUA_REGISTRYINDEX);
+        } else lua_pop(state,1);
+        lua_pop(state,1);
+    }
+    return 0;
+}
+int LuaMetadata_Player(lua_State *state, Player *player, bool write, bool reset) {
+    const char *key=luaL_checkstring(state,2), *separator=strchr(key,':');
+    if (!separator || separator==key || !separator[1]) return luaL_error(state,"expected namespace:field");
+    size_t length=separator-key; int schema=-1;
+    for (int i=0;i<playerSchemaCount;i++) if (strlen(playerSchemas[i].name)==length &&
+        !strncmp(playerSchemas[i].name,key,length)) { schema=playerSchemas[i].schema; break; }
+    if (schema<0) return luaL_error(state,"player metadata namespace is not registered");
+    int index=0;
+    for (;index<player->metadataCount;index++) if (strlen(player->metadata[index].name)==length &&
+        !strncmp(player->metadata[index].name,key,length)) break;
+    lua_pushstring(state,separator+1); int field=lua_gettop(state);
+    Metadata empty={0};
+    if (!write) return LuaMetadata_Get(state,schema,index<player->metadataCount?&player->metadata[index].value:&empty,field);
+    LuaMetadata_Get(state,schema,index<player->metadataCount?&player->metadata[index].value:&empty,field);
+    int oldValue=lua_gettop(state);
+    if (index==player->metadataCount) {
+        if (index==PLAYER_METADATA_GROUPS) return luaL_error(state,"player metadata is full");
+        // Reserve only after a successful write, so invalid values do not consume a namespace.
+        LuaMetadata_Set(state,schema,&player->metadata[index].value,field,reset?0:3);
+        memcpy(player->metadata[index].name,key,length); player->metadata[index].name[length]=0;
+        player->metadataCount++;
+    } else LuaMetadata_Set(state,schema,&player->metadata[index].value,field,reset?0:3);
+    LuaMetadata_Get(state,schema,&player->metadata[index].value,field);
+    NotifyPlayer(player,key,oldValue,lua_gettop(state));
+    return 0;
+}
+
+int LuaMetadata_RegisterPlayerChange(lua_State *state) {
+    size_t length; const char *key=luaL_checklstring(state,1,&length);
+    const char *separator=strchr(key,':');
+    if (!length || length>=130 || memchr(key,0,length) || !separator || separator==key || !separator[1])
+        return luaL_error(state,"expected namespace:field");
+    luaL_checktype(state,2,LUA_TFUNCTION);
+    if (playerListenerCount==PLAYER_CHANGE_LIMIT) return luaL_error(state,"too many metadata listeners");
+    strcpy(playerListeners[playerListenerCount].key,key);
+    lua_pushvalue(state,2); playerListeners[playerListenerCount++].callback=luaL_ref(state,LUA_REGISTRYINDEX);
+    return 0;
+}
+int LuaMetadata_RegisterHPChange(lua_State *state) {
+    luaL_checktype(state,1,LUA_TFUNCTION); lua_settop(state,1);
+    lua_pushliteral(state,"midless:hp"); lua_insert(state,1);
+    return LuaMetadata_RegisterPlayerChange(state);
 }

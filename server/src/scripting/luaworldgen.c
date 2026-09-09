@@ -1,3 +1,4 @@
+#include "version.h"
 #include "minilua.h"
 #include "../items.h"
 #include "../world/worldgen.h"
@@ -375,7 +376,7 @@ static int ConfigureWorldgen(lua_State *luaState) {
     int sky = ReadField(luaState, 1, "skylight", -1, false);
     int ceiling = ReadField(luaState, 1, "ceiling", -1, true);
     bool bounded = ReadBoolean(luaState, 1, "bounded", true);
-    int version = ReadInteger(luaState, 1, "version", 1, 1, 1000000);
+    int version = ReadInteger(luaState, 1, "version", WORLDGEN_DEFAULT_VERSION, 1, 1000000);
     lua_getfield(luaState, 1, "id");
     const char *id = lua_isnil(luaState, -1) ? "custom:world" : CheckName(luaState, -1);
     strcpy(worldgen.id, id);

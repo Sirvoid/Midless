@@ -1,3 +1,4 @@
+#include "../serverinventory.h"
 #include <math.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -377,6 +378,7 @@ void ServerWorld_SetBlock(Vector3 blockPosition, int blockId, bool broadcast, bo
         floorf(blockPosition.z) - chunkPosition.z * CHUNK_SIZE_Z
     };
     int previousBlock = ServerChunk_GetBlock(chunk, localPosition);
+    ServerInventory_InvalidateDig(blockPosition);
     if (previousBlock == blockId) return;
     InventoryWindow_Invalidate((Vector3){floorf(blockPosition.x), floorf(blockPosition.y), floorf(blockPosition.z)});
     ServerChunk_SetBlock(chunk, localPosition, blockId);

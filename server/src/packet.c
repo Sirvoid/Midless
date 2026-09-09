@@ -1,3 +1,4 @@
+#include "version.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  * 
@@ -53,7 +54,9 @@ int serverPacketLengths[256] = {
     INVENTORY_STATE_PACKET_SIZE,
     DROPPED_ITEM_PACKET_SIZE,
     0, // inventory view (variable length)
-    ITEM_DEFINITION_PACKET_SIZE
+    ITEM_DEFINITION_PACKET_SIZE,
+    21, // digging progress
+    2, // breaking texture
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -179,6 +182,7 @@ void ServerPacket_HandleIdentification(void) {
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMapInit());
     ServerItems_Send(serverPacketPlayer);
     ServerTextures_SendTerrain(serverPacketPlayer);
+    ServerTextures_SendBreaking(serverPacketPlayer);
     ServerWorld_SendEntityModels(serverPacketPlayer);
     ServerWorld_AddPlayer(serverPacketPlayer);
     if (serverPacketPlayer->entityId < 0) {

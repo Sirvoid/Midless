@@ -1,3 +1,5 @@
+#include "scripting/luaitemactions.h"
+#include "scripting/luadigging.h"
 #include "items.h"
 #include "world/world.h"
 #include "world/textures.h"
@@ -134,6 +136,8 @@ int ServerItems_Define(void) {
     if (!lua_isnil(L, -1) && strcmp(luaL_checkstring(L, -1), "sprite")) return luaL_error(L, "ordinary items use held_model = sprite");
     lua_pop(L, 1);
     definition.maxStack = max; definition.defined = true;
+    LuaDigging_Define(id, 2, false);
+    LuaItemActions_Define(id, 2, false);
     LuaMetadata_DefineItem(id, 2);
     serverItems[id] = definition; Item_SetMaxStack(id, max);
     for (int p = 0; p < WORLD_MAX_PLAYERS; p++) if (serverWorld.players[p]) ServerItems_Send(serverWorld.players[p]);

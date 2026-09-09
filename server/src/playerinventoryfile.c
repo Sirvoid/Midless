@@ -1,3 +1,4 @@
+#include "version.h"
 #include "serverinventory.h"
 #include "world/world.h"
 #include "binarydata.h"
@@ -34,7 +35,7 @@ bool ServerInventory_Save(Player *player) {
     char path[160];
     if (!ServerItems_Ready() || !Filename(player, path)) return false;
     BinaryWriter out = {0};
-    Binary_Write(&out, "MDPI", 4); Binary_U8(&out, player->namedInventoryCount ? 2 : 1);
+    Binary_Write(&out, "MDPI", 4); Binary_U8(&out, PLAYER_INVENTORY_VERSION);
     Binary_U8(&out, player->inventory.selectedHotbar);
     int occupied = 0;
     for (int i = 0; i < INVENTORY_SLOT_COUNT; i++) if (player->inventory.slots[i].count) occupied++;
@@ -43,60 +44,38 @@ bool ServerInventory_Save(Player *player) {
         Binary_U8(&out, i); WriteStack(&out, player->inventory.slots[i]);
     }
     WriteStack(&out, player->inventory.cursor);
-    if (player->namedInventoryCount) {
-        Binary_U8(&out, player->namedInventoryCount);
-        for (int n = 0; n < player->namedInventoryCount; n++) {
-            NamedInventory *inventory = &player->namedInventories[n];
-            size_t length = strlen(inventory->name);
-            Binary_U8(&out, length); Binary_Write(&out, inventory->name, length);
-            Binary_U8(&out, inventory->count);
-            int occupied = 0;
-            for (int i = 0; i < inventory->count; i++) if (inventory->slots[i].count) occupied++;
-            Binary_U8(&out, occupied);
-            for (int i = 0; i < inventory->count; i++) if (inventory->slots[i].count) {
-                Binary_U8(&out, i); WriteStack(&out, inventory->slots[i]);
-            }
+    Binary_U8(&out, player->namedInventoryCount);
+    for (int n = 0; n < player->namedInventoryCount; n++) {
+        NamedInventory *inventory = &player->namedInventories[n];
+        size_t length = strlen(inventory->name);
+        Binary_U8(&out, length); Binary_Write(&out, inventory->name, length);
+        Binary_U8(&out, inventory->count);
+        int occupied = 0;
+        for (int i = 0; i < inventory->count; i++) if (inventory->slots[i].count) occupied++;
+        Binary_U8(&out, occupied);
+        for (int i = 0; i < inventory->count; i++) if (inventory->slots[i].count) {
+            Binary_U8(&out, i); WriteStack(&out, inventory->slots[i]);
         }
+    }
+    Binary_U8(&out,player->metadataCount);
+    for (int i=0;i<player->metadataCount;i++) {
+        PlayerMetadata *entry=&player->metadata[i];
+        size_t length=strlen(entry->name);
+        Binary_U8(&out,length); Binary_Write(&out,entry->name,length);
+        Binary_U16(&out,entry->value.version); Binary_U32(&out,entry->value.size);
+        Binary_Write(&out,entry->value.data,entry->value.size);
     }
     bool ok = !out.failed && SaveFile_WriteAtomic(path, out.data, out.size);
     free(out.data);
     if (!ok) TraceLog(LOG_ERROR, "Could not save player inventory %s; original file retained", path);
     return ok;
 }
-bool ServerInventory_Load(Player *player) {
-    player->inventoryLoaded = false;
-    char path[160];
-    if (!ServerItems_Ready() || !Filename(player, path)) return false;
-    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
-        Player *other = serverWorld.players[i];
-        if (other && other != player && other->name && !strcmp(other->name, player->name)) return false;
-    }
-#if defined(OS_WINDOWS)
-    if (_mkdir("world/players") && errno != EEXIST) return false;
-#else
-    if (mkdir("world/players", 0755) && errno != EEXIST) return false;
-#endif
-    FILE *file = fopen(path, "rb");
-    if (!file) {
-        if (errno != ENOENT) return false;
-        Inventory_Init(&player->inventory);
-        player->namedInventoryCount = 0;
-        ServerInventory_GiveStartingBlocks(player);
-        player->inventoryLoaded = true;
-        // Create even an empty save, so future joins never refill it.
-        if (ServerInventory_Save(player)) return true;
-        player->inventoryLoaded = false;
-        return false;
-    }
-    uint8_t data[300000]; // Main inventory plus at most 16 named inventories.
-    size_t size = fread(data, 1, sizeof(data), file);
-    bool ok = !ferror(file);
-    fclose(file);
+static bool DecodePlayer(Player *player, const uint8_t *data, size_t size) {
     BinaryReader in = {data, size};
     const uint8_t *magic = Binary_Read(&in, 4);
-    if (!ok || !magic || memcmp(magic, "MDPI", 4)) return false;
+    if (!magic || memcmp(magic, "MDPI", 4)) return false;
     int version = Binary_ReadU8(&in);
-    if (version != 1 && version != 2) return false;
+    if (version != PLAYER_INVENTORY_VERSION) return false;
     Inventory inventory; Inventory_Init(&inventory);
     inventory.selectedHotbar = Binary_ReadU8(&in);
     int count = Binary_ReadU8(&in), previous = -1;
@@ -110,7 +89,7 @@ bool ServerInventory_Load(Player *player) {
     }
     inventory.cursor = ReadStack(&in);
     NamedInventory named[PLAYER_INVENTORIES] = {0};
-    int namedCount = version == 2 ? Binary_ReadU8(&in) : 0;
+    int namedCount = Binary_ReadU8(&in);
     if (namedCount > PLAYER_INVENTORIES) return false;
     for (int n = 0; n < namedCount; n++) {
         int length = Binary_ReadU8(&in);
@@ -129,11 +108,72 @@ bool ServerInventory_Load(Player *player) {
             previousSlot = slot;
         }
     }
+    PlayerMetadata metadata[PLAYER_METADATA_GROUPS]={0};
+    int metadataCount=Binary_ReadU8(&in);
+    if (metadataCount>PLAYER_METADATA_GROUPS) return false;
+    for (int i=0;i<metadataCount;i++) {
+        int length=Binary_ReadU8(&in);
+        const uint8_t *name=Binary_Read(&in,length);
+        if (!name || !length || length>64 || memchr(name,0,length)) return false;
+        memcpy(metadata[i].name,name,length);
+        for (int j=0;j<i;j++) if (!strcmp(metadata[j].name,metadata[i].name)) return false;
+        metadata[i].value.version=Binary_ReadU16(&in);
+        metadata[i].value.size=Binary_ReadU32(&in);
+        if (metadata[i].value.size>65535 || (metadata[i].value.size && !metadata[i].value.version)) return false;
+        metadata[i].value.data=(uint8_t *)Binary_Read(&in,metadata[i].value.size);
+    }
     if (!Binary_End(&in)) return false;
+    // Copy only after the whole file passes validation. Unknown mod payloads are retained.
+    for (int i=0;i<metadataCount;i++) {
+        Metadata source=metadata[i].value; metadata[i].value=(Metadata){0};
+        if (!Metadata_Copy(&metadata[i].value,&source)) {
+            for (int j=0;j<i;j++) Metadata_Free(&metadata[j].value);
+            return false;
+        }
+    }
+    for (int i=0;i<player->metadataCount;i++) Metadata_Free(&player->metadata[i].value);
+    memcpy(player->metadata,metadata,sizeof(metadata)); player->metadataCount=metadataCount;
     inventory.open = inventory.cursor.count != 0;
     player->inventory = inventory;
     memcpy(player->namedInventories, named, sizeof(named));
     player->namedInventoryCount = namedCount;
     player->inventoryLoaded = true;
     return true;
+}
+
+bool ServerInventory_Load(Player *player) {
+    player->inventoryLoaded = false;
+    char path[160];
+    if (!ServerItems_Ready() || !Filename(player, path)) return false;
+    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+        Player *other = serverWorld.players[i];
+        if (other && other != player && other->name && !strcmp(other->name, player->name)) return false;
+    }
+#if defined(OS_WINDOWS)
+    if (_mkdir("world/players") && errno != EEXIST) return false;
+#else
+    if (mkdir("world/players", 0755) && errno != EEXIST) return false;
+#endif
+    FILE *file = fopen(path, "rb");
+    if (!file) {
+        if (errno != ENOENT) return false;
+        Inventory_Init(&player->inventory);
+        player->namedInventoryCount = 0;
+        for (int i=0;i<player->metadataCount;i++) Metadata_Free(&player->metadata[i].value);
+        memset(player->metadata,0,sizeof(player->metadata)); player->metadataCount=0;
+        ServerInventory_GiveStartingBlocks(player);
+        player->inventoryLoaded = true;
+        // Create even an empty save, so future joins never refill it.
+        if (ServerInventory_Save(player)) return true;
+        player->inventoryLoaded = false;
+        return false;
+    }
+    const size_t limit=1400000; // Inventories plus sixteen maximum-sized metadata payloads.
+    uint8_t *data=malloc(limit);
+    if (!data) { fclose(file); return false; }
+    size_t size=fread(data,1,limit,file);
+    bool ok=!ferror(file) && fgetc(file)==EOF;
+    fclose(file);
+    if (ok) ok=DecodePlayer(player,data,size);
+    free(data); return ok;
 }

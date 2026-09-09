@@ -1,3 +1,4 @@
+#include "../serverinventory.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  *
@@ -117,6 +118,7 @@ void ServerWorld_Update(void) {
     ServerPlayerManager_Update();
     ServerTextures_Update();
     InventoryWindow_Update();
+    ServerInventory_UpdateDigging();
     float dt = elapsedMilliseconds > 0 ? elapsedMilliseconds / 1000.0f : 0.0f;
     if (dt > 0.25f) dt = 0.25f;
     if (dt > 0) {

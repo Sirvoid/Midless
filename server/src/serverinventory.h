@@ -10,4 +10,6 @@ bool ServerInventory_Save(Player *player);
 void ServerInventory_HandleAction(void);
 void ServerInventory_UpdateHeldBlock(Player *player);
 
+void ServerInventory_UpdateDigging(void);
+void ServerInventory_InvalidateDig(Vector3 position);
 #endif

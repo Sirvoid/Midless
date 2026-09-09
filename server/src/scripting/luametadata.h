@@ -31,4 +31,9 @@ int LuaMetadata_CheckBlockInventory(lua_State *state, int index, Vector3 positio
 bool LuaMetadata_BlockInventory(Vector3 position, const char *field, ItemStack *slots, int count, bool write);
 // Collect occupied stacks from every inventory field. -1 leaves the block intact.
 int LuaMetadata_CollectBlockItems(Vector3 position, ItemStack *stacks, int capacity);
+struct Player;
+int LuaMetadata_DefinePlayer(lua_State *state);
+int LuaMetadata_Player(lua_State *state, struct Player *player, bool write, bool reset);
+int LuaMetadata_RegisterPlayerChange(lua_State *state);
+int LuaMetadata_RegisterHPChange(lua_State *state);
 #endif

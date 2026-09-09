@@ -30,7 +30,7 @@ Entity *LuaEntities_Check(lua_State *state, int index) {
     return e;
 }
 static Entity *Check(lua_State *state) { return LuaEntities_Check(state, 1); }
-static void PushHandle(Entity *e) {
+void LuaEntities_Push(Entity *e) {
     Handle *h = lua_newuserdata(L, sizeof(*h));
     *h = (Handle){e->id, e->generation};
     luaL_setmetatable(L, ENTITY_HANDLE);
@@ -227,13 +227,13 @@ int LuaEntities_Spawn(void) {
         return luaL_error(L, "physics entities must spawn within one million blocks of the origin");
     }
     lua_newtable(L);
-    PushHandle(e); lua_setfield(L, -2, "object");
+    LuaEntities_Push(e); lua_setfield(L, -2, "object");
     e->scriptRef = luaL_ref(L, LUA_REGISTRYINDEX);
     if (!Call(e, definitions[definition].spawn, 0, false)) {
         ServerWorld_RemoveEntity(id);
         return luaL_error(L, "entity on_spawn failed");
     }
-    PushHandle(e);
+    LuaEntities_Push(e);
     return 1;
 }
 void LuaEntities_Step(Entity *e, float dt) {
@@ -271,7 +271,7 @@ int LuaEntities_Restore(int definition, Vector3 position) {
     e->definitionId = definition;
     e->body = definitions[definition].body;
     lua_newtable(L);
-    PushHandle(e); lua_setfield(L, -2, "object");
+    LuaEntities_Push(e); lua_setfield(L, -2, "object");
     e->scriptRef = luaL_ref(L, LUA_REGISTRYINDEX);
     return id;
 }

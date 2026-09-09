@@ -1,3 +1,6 @@
+#include "minilua.h"
+extern lua_State *L;
+#include "../scripting/luaengine.h"
 #include "textures.h"
 #include "world.h"
 #include "../packet.h"
@@ -17,6 +20,7 @@ typedef struct ServerTexture {
 static ServerTexture textures[TEXTURE_LIMIT];
 static int terrainId=1, totalBytes, totalPixels;
 static double nextSend;
+static int breakingId;
 
 int ServerTextures_Find(const char *name) {
     if (!strcmp(name,"humanoid")) return 0;
@@ -47,6 +51,7 @@ bool ServerTextures_Define(const char *name, const char *path) {
     if (!read || !Texture_ValidatePNG(data,size,&width,&height) ||
         totalPixels-textures[id].width*textures[id].height+width*height>TEXTURE_TOTAL_PIXELS ||
         (terrainId==id && (width!=256 || height!=256))) { MemFree(data); return false; }
+    if (id==breakingId && (width!=height*10 || height>64)) { MemFree(data); return false; }
     // Preserve compatibility with items and models already using this texture.
     if (width > 64 || height > 64) {
         for (int item=256; item<ITEM_LIMIT; item++) {
@@ -148,6 +153,21 @@ void ServerTextures_Update(void) {
     }
 }
 void ServerTextures_Shutdown(void) {
+    breakingId=0;
     for(int i=2;i<TEXTURE_LIMIT;i++) { MemFree(textures[i].data); textures[i]=(ServerTexture){0}; }
     totalBytes=totalPixels=0; terrainId=1; nextSend=0;
+}
+
+void ServerTextures_SendBreaking(Player *player) {
+    unsigned char *packet=MemAlloc(2);
+    if (!packet) return;
+    packet[0]=26; packet[1]=breakingId; ServerNetwork_Send(player,packet);
+}
+int ServerTextures_SetBreaking(void) {
+    int id=ServerTextures_Find(luaL_checkstring(L,1));
+    if (id<2 || textures[id].width!=textures[id].height*10 || textures[id].height>64)
+        return luaL_error(L,"breaking texture must contain ten square frames horizontally, up to 64 pixels per frame");
+    breakingId=id;
+    for (int i=0;i<WORLD_MAX_PLAYERS;i++) if (serverWorld.players[i]) ServerTextures_SendBreaking(serverWorld.players[i]);
+    return 0;
 }
