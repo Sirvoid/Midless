@@ -46,6 +46,7 @@ void ServerChunk_Destroy(Chunk *chunk) {
     arrfree(chunk->players);
     ChunkMetadata_Free(chunk);
     free(chunk->savedEntities);
+    free(chunk->timers);
     MemFree(chunk);
 }
 
@@ -94,7 +95,10 @@ void ServerChunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
     if (ServerChunk_IsValidPos(pos)) {
         int index = ServerChunk_PosToIndex(pos);
 
-        if (chunk->data[index] != blockId) ChunkMetadata_Clear(chunk, index);
+        if (chunk->data[index] != blockId) {
+            ChunkMetadata_Clear(chunk, index);
+            BlockTimer_Stop(chunk, index);
+        }
         chunk->data[index] = blockId;
     }
 }

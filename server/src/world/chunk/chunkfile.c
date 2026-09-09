@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <math.h>
 
-enum { SECTION_BLOCKS = 1, SECTION_METADATA = 2, SECTION_ENTITIES = 3 };
+enum { SECTION_BLOCKS = 1, SECTION_METADATA = 2, SECTION_ENTITIES = 3, SECTION_TIMERS = 4 };
 
 static void Section(BinaryWriter *out, int type, BinaryWriter *payload) {
     if (payload->failed) out->failed = true;
@@ -20,7 +21,7 @@ static void Section(BinaryWriter *out, int type, BinaryWriter *payload) {
 bool ChunkFile_Encode(const Chunk *chunk, BinaryWriter *out) {
     Binary_Write(out, "MDCH", 4);
     Binary_U16(out, 1);
-    Binary_U16(out, 1 + (chunk->metadataCount > 0) + (chunk->savedEntitiesSize > 0));
+    Binary_U16(out, 1 + (chunk->metadataCount > 0) + (chunk->savedEntitiesSize > 0) + (chunk->timerCount > 0));
     BinaryWriter section = {0};
     int count = 0;
     unsigned short *runs = ChunkData_CreateCompressed(chunk->data, &count);
@@ -57,6 +58,15 @@ bool ChunkFile_Encode(const Chunk *chunk, BinaryWriter *out) {
     if (chunk->savedEntitiesSize) {
         Binary_Write(&section, chunk->savedEntities, chunk->savedEntitiesSize);
         Section(out, SECTION_ENTITIES, &section);
+    }
+    if (chunk->timerCount) {
+        Binary_U16(&section, chunk->timerCount);
+        for (int i = 0; i < chunk->timerCount; i++) {
+            Binary_U16(&section, chunk->timers[i].index);
+            Binary_Float(&section, chunk->timers[i].interval);
+            Binary_Float(&section, chunk->timers[i].elapsed);
+        }
+        Section(out, SECTION_TIMERS, &section);
     }
     return !out->failed;
 }
@@ -103,14 +113,14 @@ ChunkFileResult ChunkFile_Decode(Chunk *chunk, const void *data, size_t size) {
         Binary_Read(&in, 4);
         if (Binary_ReadU16(&in) != 1) { result = CHUNK_FILE_UNSUPPORTED; goto done; }
         int sections = Binary_ReadU16(&in);
-        bool seen[4] = {0};
+        bool seen[5] = {0};
         for (int i = 0; i < sections; i++) {
             int type = Binary_ReadU16(&in), version = Binary_ReadU16(&in);
             uint32_t length = Binary_ReadU32(&in);
             const uint8_t *payload = Binary_Read(&in, length);
             if (in.failed) goto done;
             // Refuse unknown sections: an older writer must never discard newer data.
-            if (type < 1 || type > 3 || version != 1) {
+            if (type < 1 || type > 4 || version != 1) {
                 result = CHUNK_FILE_UNSUPPORTED; goto done;
             }
             if (seen[type]) goto done;
@@ -118,6 +128,25 @@ ChunkFileResult ChunkFile_Decode(Chunk *chunk, const void *data, size_t size) {
             BinaryReader section = {payload, length};
             if (type == SECTION_BLOCKS && !ReadBlocks(&parsed, &section)) goto done;
             if (type == SECTION_METADATA && (!seen[SECTION_BLOCKS] || !ReadMetadata(&parsed, &section))) goto done;
+            if (type == SECTION_TIMERS) {
+                int count = Binary_ReadU16(&section);
+                if (!count || count > CHUNK_SIZE) goto done;
+                parsed.timers = calloc(count, sizeof(BlockTimer));
+                if (!parsed.timers) goto done;
+                bool occupied[CHUNK_SIZE] = {0};
+                for (int t = 0; t < count; t++) {
+                    BlockTimer *timer = &parsed.timers[t];
+                    timer->index = Binary_ReadU16(&section);
+                    timer->interval = Binary_ReadFloat(&section);
+                    timer->elapsed = Binary_ReadFloat(&section);
+                    if (timer->index >= CHUNK_SIZE || occupied[timer->index] ||
+                        !isfinite(timer->interval) || timer->interval < 0.05f ||
+                        !isfinite(timer->elapsed) || timer->elapsed < 0) goto done;
+                    occupied[timer->index] = true;
+                }
+                if (!Binary_End(&section)) goto done;
+                parsed.timerCount = count;
+            }
             if (type == SECTION_ENTITIES) {
                 if (!length) goto done;
                 parsed.savedEntities = malloc(length);
@@ -137,12 +166,16 @@ ChunkFileResult ChunkFile_Decode(Chunk *chunk, const void *data, size_t size) {
     result = CHUNK_FILE_OK;
 done:
     if (result == CHUNK_FILE_OK) {
+        free(chunk->timers);
+        chunk->timers = parsed.timers; chunk->timerCount = parsed.timerCount;
+        parsed.timers = NULL;
         chunk->savedEntities = parsed.savedEntities;
         chunk->savedEntitiesSize = parsed.savedEntitiesSize;
         parsed.savedEntities = NULL;
     }
     ChunkMetadata_Free(&parsed);
     free(parsed.savedEntities);
+    free(parsed.timers);
     return result;
 }
 

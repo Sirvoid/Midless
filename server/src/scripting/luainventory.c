@@ -161,9 +161,26 @@ int LuaInventory_Show(lua_State *state, Player *p) {
         lua_getfield(state, element, "type"); const char *type = luaL_checkstring(state, -1);
         bool label = !strcmp(type, "label"); e->grid = !strcmp(type, "inventory");
         e->crafting = !strcmp(type, "crafting_output");
+        e->progress = !strcmp(type, "progress");
         lua_pop(state, 1);
         if (label) Text(state, element, "text", e->text);
+        else if (e->progress) {
+            e->width = Number(state, element, "width"); e->height = Number(state, element, "height");
+            lua_getfield(state, element, "max");
+            e->maximum = luaL_checknumber(state, -1); lua_pop(state, 1);
+            lua_getfield(state, element, "value");
+            if (lua_type(state, -1) == LUA_TSTRING) {
+                if (!window.block) return luaL_error(state, "metadata progress requires layout.block");
+                Text(state, element, "value", window.progressFields[i]);
+                if (!LuaMetadata_Progress(window.position, window.progressFields[i], &e->value))
+                    return luaL_error(state, "progress requires numeric block metadata");
+            } else e->value = luaL_checknumber(state, -1);
+            lua_pop(state, 1);
+        }
         else if (e->grid || e->crafting) {
+            lua_getfield(state, element, "slot");
+            e->first = lua_isnil(state, -1) ? 0 : Integer(state, -1, 1, 255) - 1;
+            lua_pop(state, 1);
             lua_getfield(state, element, "columns"); e->columns = Integer(state, -1, 1, 32); lua_pop(state, 1);
             lua_getfield(state, element, "rows"); e->rows = Integer(state, -1, 1, 32); lua_pop(state, 1);
             lua_getfield(state, element, "inventory");
@@ -176,7 +193,7 @@ int LuaInventory_Show(lua_State *state, Player *p) {
         } else return luaL_error(state, "unknown inventory UI element type");
         lua_pop(state, 1);
     }
-    if (!InventoryView_Validate(v)) return luaL_error(state, "screen requires one non-overlapping grid per inventory, covering all slots within its dimensions");
+    if (!InventoryView_Validate(v)) return luaL_error(state, "screen grids must cover each inventory slot once, without overlapping, within the layout");
     lua_pushboolean(state, InventoryWindow_Open(p, &window));
     return 1;
 }

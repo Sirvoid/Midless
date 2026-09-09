@@ -9,8 +9,9 @@
 #define PACKET_INVENTORY_VIEW 23
 
 typedef struct InventoryElement {
-    bool grid, crafting;
-    uint8_t binding;
+    bool grid, crafting, progress;
+    uint8_t binding, first;
+    float width, height, value, maximum;
     ItemStack preview;
     float x, y;
     uint8_t columns, rows;

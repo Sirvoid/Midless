@@ -12,7 +12,8 @@ bool InventoryView_Validate(const InventoryView *v) {
         !v->bindingCount || v->bindingCount > INVENTORY_VIEW_BINDINGS || v->bindingSlots[0] != INVENTORY_SLOT_COUNT ||
         !isfinite(v->width) || !isfinite(v->height) || v->width < 1 || v->width > 32 ||
         v->height < 1 || v->height > 32) return false;
-    int total = 0, grids[INVENTORY_VIEW_BINDINGS] = {0};
+    int total = 0;
+    bool covered[INVENTORY_VIEW_BINDINGS][255] = {{0}};
     for (int i = 1; i < v->bindingCount; i++) {
         if (!v->bindingSlots[i]) return false;
         total += v->bindingSlots[i];
@@ -22,13 +23,23 @@ bool InventoryView_Validate(const InventoryView *v) {
         const InventoryElement *e = &v->elements[i];
         if (!isfinite(e->x) || !isfinite(e->y) || e->x < 0 || e->y < 0 ||
             e->x >= v->width || e->y >= v->height) return false;
-        if (e->grid && e->crafting) return false;
+        if ((int)e->grid + e->crafting + e->progress > 1) return false;
+        if (e->progress) {
+            if (!isfinite(e->width) || !isfinite(e->height) || !isfinite(e->value) || !isfinite(e->maximum) ||
+                e->width <= 0 || e->height <= 0 || e->maximum <= 0 ||
+                e->x + e->width > v->width || e->y + e->height > v->height) return false;
+        }
         if (!e->grid && !e->crafting) continue;
-        if (e->binding >= v->bindingCount || (!e->crafting && ++grids[e->binding] > 1) || !e->columns || !e->rows ||
-            e->columns * e->rows != v->bindingSlots[e->binding] ||
+        if (e->binding >= v->bindingCount || !e->columns || !e->rows ||
+            e->first + e->columns * e->rows > v->bindingSlots[e->binding] ||
             e->x + (e->crafting ? 1 : e->columns) > v->width ||
             e->y + (e->crafting ? 1 : e->rows) > v->height) return false;
-        if (e->crafting && (!e->binding || e->columns > 3 || e->rows > 3)) return false;
+        if (e->crafting && (!e->binding || e->first || e->columns > 3 || e->rows > 3 ||
+            e->columns * e->rows != v->bindingSlots[e->binding])) return false;
+        if (e->grid) for (int slot = e->first; slot < e->first + e->columns * e->rows; slot++) {
+            if (covered[e->binding][slot]) return false;
+            covered[e->binding][slot] = true;
+        }
         for (int j = 0; j < i; j++) {
             const InventoryElement *other = &v->elements[j];
             if ((other->grid || other->crafting) &&
@@ -36,7 +47,8 @@ bool InventoryView_Validate(const InventoryView *v) {
                 e->y < other->y + (other->crafting ? 1 : other->rows) && other->y < e->y + (e->crafting ? 1 : e->rows)) return false;
         }
     }
-    for (int i = 0; i < v->bindingCount; i++) if (grids[i] != 1) return false;
+    for (int i = 0; i < v->bindingCount; i++)
+        for (int slot = 0; slot < v->bindingSlots[i]; slot++) if (!covered[i][slot]) return false;
     for (int i = 0; i < v->count; i++) if (v->elements[i].crafting) {
         for (int j = 0; j < v->count; j++) if (v->elements[j].grid && v->elements[j].binding == v->elements[i].binding &&
             (v->elements[j].columns != v->elements[i].columns || v->elements[j].rows != v->elements[i].rows)) return false;
@@ -67,6 +79,9 @@ void InventoryView_Write(BinaryWriter *out, const InventoryView *v) {
         const InventoryElement *e = &v->elements[i];
         Binary_U8(out, e->grid); Binary_U8(out, e->binding);
         Binary_U8(out, e->crafting);
+        Binary_U8(out, e->first); Binary_U8(out, e->progress);
+        Binary_Float(out, e->width); Binary_Float(out, e->height);
+        Binary_Float(out, e->value); Binary_Float(out, e->maximum);
         Binary_U16(out, e->preview.itemId); Binary_U8(out, e->preview.count);
         Binary_Float(out, e->x); Binary_Float(out, e->y);
         Binary_U8(out, e->columns); Binary_U8(out, e->rows);
@@ -95,6 +110,12 @@ bool InventoryView_Read(BinaryReader *in, InventoryView *v) {
         int crafting = Binary_ReadU8(in);
         if (crafting > 1) return false;
         e->crafting = crafting;
+        e->first = Binary_ReadU8(in);
+        int progress = Binary_ReadU8(in);
+        if (progress > 1) return false;
+        e->progress = progress;
+        e->width = Binary_ReadFloat(in); e->height = Binary_ReadFloat(in);
+        e->value = Binary_ReadFloat(in); e->maximum = Binary_ReadFloat(in);
         e->preview.itemId = Binary_ReadU16(in); e->preview.count = Binary_ReadU8(in);
         if ((!e->preview.itemId != !e->preview.count) || e->preview.count > Item_GetMaxStack(e->preview.itemId) ||
             (!e->crafting && e->preview.count)) return false;

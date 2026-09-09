@@ -10,6 +10,7 @@ typedef struct InventoryWindow {
     bool block;
     struct { bool block; char name[65]; } bindings[INVENTORY_VIEW_BINDINGS];
     char recipes[INVENTORY_VIEW_ELEMENTS][65];
+    char progressFields[INVENTORY_VIEW_ELEMENTS][65];
 } InventoryWindow;
 
 struct Player;

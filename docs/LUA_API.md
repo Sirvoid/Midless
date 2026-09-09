@@ -1555,9 +1555,10 @@ midless.define_block(200, {
 Layouts use slot-sized units and scale with the window:
 
 - Set `width` and `height` for the screen size, and `x` and `y` for each element.
-- Use `label` for text, `inventory` for a slot grid, and `crafting_output` for a result.
-- Include the main player inventory and one grid for each additional inventory.
-- Set `columns * rows` to the inventory's slot count. Keep grids inside the screen without overlapping.
+- Use `label` for text, `inventory` for slots, `crafting_output` for a result, and `progress` for a bar.
+- Include the main player inventory and each additional inventory.
+- Use `slot` to choose a grid's first slot (default 1), then `columns` and `rows` for its size.
+- Display every inventory slot once. Keep grids inside the screen without overlapping.
 - Set `block` when displaying a block inventory. A screen can show one block inventory.
 
 `player:close_inventory()` returns `true` if closed, or `false` if blocked.
@@ -1621,3 +1622,90 @@ Display that inventory as a 3-by-3 grid, then add this element to the same scree
 `columns` and `rows` describe the input grid, which must match a displayed block
 or named player inventory and be no larger than 3-by-3. The output itself occupies
 one UI slot.
+
+## Rules
+
+Use one inventory for a furnace, with a rule for each slot:
+
+```lua
+metadata = {
+    {name = "items", type = "inventory", slots = 3, rules = {
+        [1] = {items = {6}},       -- input: sand
+        [2] = {items = {4, 10}},   -- fuel: planks or logs
+        [3] = {insert = false},   -- output: players can only take items
+    }},
+}
+```
+
+Rules apply to player clicks and shift-clicks. Slots without a rule accept any
+item.
+
+Position the slots separately in the screen's `elements`:
+
+```lua
+local items = block:get_inventory("items")
+local elements = {
+    {type = "inventory", inventory = items, slot = 1,
+     x = 2, y = 0, columns = 1, rows = 1},
+    {type = "inventory", inventory = items, slot = 2,
+     x = 2, y = 2, columns = 1, rows = 1},
+    {type = "inventory", inventory = items, slot = 3,
+     x = 6, y = 1, columns = 1, rows = 1},
+    {type = "inventory", inventory = player:get_inventory(),
+     x = 0, y = 4, columns = 9, rows = 4},
+}
+```
+
+## Block timers
+
+Add these callbacks to the block definition:
+
+```lua
+on_inventory_changed = function(block, field)
+    if field == "items" and not block:timer_started() then
+        block:start_timer(1) -- seconds
+    end
+end,
+
+on_timer = function(block, dt)
+    -- Use dt (seconds) to burn fuel and advance cooking.
+    return true -- repeat; return false or nil to stop
+end,
+```
+
+`block:start_timer(seconds)` starts or restarts the timer. Use
+`block:timer_started()` to check it and `block:stop_timer()` to stop it.
+Timers pause while the chunk is unloaded and resume when it loads.
+
+`on_inventory_changed(block, field)` runs after inventory changes, including Lua
+changes. Several changes may share one call. Changes inside this callback do not
+trigger another call.
+
+## Inventory transactions
+
+Use `block:inventory_transaction(name, changes)` to consume ingredients and add
+their result together:
+
+```lua
+local cooked = block:inventory_transaction("items", {
+    take = {{slot = 1, id = 6, count = 1}},
+    give = {{slot = 3, id = 14, count = 1}},
+})
+```
+
+It returns `true` on success, or `false` without changing anything if the items
+are missing or the result does not fit. Each entry specifies a slot, item ID,
+and count. Omit `take` or `give` when you only need the other operation.
+
+## Progress bars
+
+Declare a numeric metadata field such as `cook_progress`, then add this element
+to a block screen:
+
+```lua
+{type = "progress", value = "cook_progress", max = 10,
+ x = 3.5, y = 1.25, width = 2, height = 0.5},
+```
+
+The bar updates automatically when that metadata changes. `max` is the value
+for a full bar. You can also use a number for a fixed `value`.

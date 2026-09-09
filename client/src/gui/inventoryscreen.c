@@ -28,6 +28,15 @@ static void DrawView(const InventoryView *view, const Inventory *inventory) {
     ItemStack hovered = {0};
     for (int i = 0; i < view->count; i++) {
         const InventoryElement *e = &view->elements[i];
+        if (e->progress) {
+            Rectangle bounds = {left + e->x * size, top + e->y * size, e->width * size, e->height * size};
+            DrawRectangleRec(bounds, (Color){0, 0, 0, 180});
+            Rectangle fill = bounds;
+            fill.width *= fminf(1, fmaxf(0, e->value / e->maximum));
+            DrawRectangleRec(fill, (Color){220, 150, 50, 230});
+            DrawRectangleLinesEx(bounds, 1, (Color){150, 150, 150, 200});
+            continue;
+        }
         if (e->crafting) {
             Rectangle bounds = {left + e->x * size, top + e->y * size, size - 3, size - 3};
             bool over = CheckCollisionPointRec(mouse, bounds);
@@ -47,6 +56,7 @@ static void DrawView(const InventoryView *view, const Inventory *inventory) {
             continue;
         }
         const ItemStack *slots = e->binding ? view->slots + InventoryView_Offset(view, e->binding) : inventory->slots;
+        slots += e->first;
         for (int slot = 0; slot < e->columns * e->rows; slot++) {
             Rectangle bounds = {left + (e->x + slot % e->columns) * size,
                 top + (e->y + slot / e->columns) * size, size - 3, size - 3};
@@ -57,8 +67,8 @@ static void DrawView(const InventoryView *view, const Inventory *inventory) {
             if (over) {
                 hovered = slots[slot];
                 bool shift = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT);
-                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) ClientInventory_ClickView(e->binding, slot, false, shift);
-                else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) ClientInventory_ClickView(e->binding, slot, true, false);
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) ClientInventory_ClickView(e->binding, e->first + slot, false, shift);
+                else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) ClientInventory_ClickView(e->binding, e->first + slot, true, false);
             }
         }
     }

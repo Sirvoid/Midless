@@ -61,6 +61,12 @@ static bool RefreshPreviews(InventoryWindow *w) {
     bool changed = false;
     for (int i = 0; i < w->view.count; i++) {
         InventoryElement *e = &w->view.elements[i];
+        if (e->progress && w->progressFields[i][0]) {
+            float value = 0;
+            LuaMetadata_Progress(w->position, w->progressFields[i], &value);
+            if (e->value != value) changed = true;
+            e->value = value;
+        }
         if (!e->crafting) continue;
         CraftingMatch match;
         Crafting_Find(w->recipes[i], w->view.slots + InventoryView_Offset(&w->view, e->binding), e->columns, e->rows, &match);
@@ -126,6 +132,20 @@ static void Revoke(Player *p) {
     ServerInventory_Send(p);
 }
 
+static bool CanInsert(InventoryWindow *w, int binding, int slot, int item) {
+    return !w->bindings[binding].block ||
+        LuaMetadata_CanInsert(w->position, w->bindings[binding].name, slot, item);
+}
+static void TransferTo(InventoryWindow *w, int binding, ItemStack *source, ItemStack *slots) {
+    for (int pass = 0; pass < 2 && source->count; pass++) {
+        for (int slot = 0; slot < w->view.bindingSlots[binding] && source->count; slot++) {
+            ItemStack *destination = &slots[slot];
+            if (pass == 0 ? (!destination->count || destination->itemId != source->itemId) : destination->count != 0) continue;
+            if (CanInsert(w, binding, slot, source->itemId)) Inventory_Transfer(source, destination, 1);
+        }
+    }
+}
+
 void InventoryWindow_Action(Player *p, const InventoryAction *a) {
     InventoryWindow *w = &p->inventoryWindow;
     if (!w->view.session || (uint32_t)a->x != w->view.session) return;
@@ -178,8 +198,9 @@ void InventoryWindow_Action(Player *p, const InventoryAction *a) {
         if (next.cursor.count) return;
         if (a->y) Inventory_Transfer(source, next.slots, INVENTORY_SLOT_COUNT);
         else for (int i = 1; i < w->view.bindingCount && source->count; i++)
-            Inventory_Transfer(source, slots + InventoryView_Offset(&w->view, i), w->view.bindingSlots[i]);
+            TransferTo(w, i, source, slots + InventoryView_Offset(&w->view, i));
     } else if (a->type == INVENTORY_VIEW_LEFT || a->type == INVENTORY_VIEW_RIGHT) {
+        if (next.cursor.count && !CanInsert(w, a->y, a->slot, next.cursor.itemId)) return;
         Inventory_ClickStack(source, &next.cursor, a->type == INVENTORY_VIEW_RIGHT);
     } else return;
     next.cursorOrigin = INVENTORY_NO_SLOT;

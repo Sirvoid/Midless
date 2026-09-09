@@ -27,10 +27,18 @@ typedef struct Schema {
     int count;
     Field fields[MAX_FIELDS];
     Metadata defaults;
+    int rules;
 } Schema;
 static bool BuildDefaults(Schema *schema);
 static Schema *schemas[MAX_SCHEMAS];
 static int schemaCount, blockSchemas[256];
+static int timerCallbacks[256], inventoryCallbacks[256];
+static bool notifying;
+
+// Pending notifications run after inventory transactions have fully committed.
+typedef struct InventoryChange { Vector3 position; int block; char field[65]; } InventoryChange;
+static InventoryChange *changes;
+static int changeCount, changeCapacity;
 
 static int Integer(lua_State *state, int index, int min, int max) {
     lua_Integer value = luaL_checkinteger(state, index);
@@ -106,6 +114,52 @@ int LuaMetadata_Register(lua_State *state, int definition) {
     int version = IntegerField(state, definition, "metadata_version", 1, 1, 65535);
     ReadSchema(state, -1, version, &layout);
     lua_pop(state, 1);
+    lua_newtable(state);
+    int rules = lua_gettop(state);
+    lua_getfield(state, definition, "metadata");
+    for (int i = 0; i < layout.count; i++) {
+        lua_rawgeti(state, -1, i + 1);
+        lua_getfield(state, -1, "rules");
+        if (!lua_isnil(state, -1)) {
+            if (layout.fields[i].type != FIELD_INVENTORY) luaL_error(state, "rules require an inventory");
+            luaL_checktype(state, -1, LUA_TTABLE);
+            int input = lua_gettop(state);
+            lua_pushnil(state);
+            while (lua_next(state, input)) {
+                Integer(state, -2, 1, layout.fields[i].limit);
+                lua_pop(state, 1);
+            }
+            lua_newtable(state);
+            for (int slot = 1; slot <= layout.fields[i].limit; slot++) {
+                lua_rawgeti(state, input, slot);
+                if (!lua_isnil(state, -1)) {
+                    luaL_checktype(state, -1, LUA_TTABLE);
+                    lua_getfield(state, -1, "insert");
+                    if (!lua_isnil(state, -1)) luaL_checktype(state, -1, LUA_TBOOLEAN);
+                    bool denied = lua_isboolean(state, -1) && !lua_toboolean(state, -1);
+                    lua_pop(state, 1);
+                    lua_getfield(state, -1, "items");
+                    if (denied) lua_pushboolean(state, false);
+                    else if (!lua_isnil(state, -1)) {
+                        luaL_checktype(state, -1, LUA_TTABLE);
+                        int items = lua_gettop(state);
+                        lua_newtable(state);
+                        for (int j = 1; j <= lua_rawlen(state, items); j++) {
+                            lua_rawgeti(state, items, j);
+                            int id = Integer(state, -1, 1, 65535); lua_pop(state, 1);
+                            lua_pushboolean(state, true); lua_rawseti(state, -2, id);
+                        }
+                    } else lua_pushboolean(state, true);
+                    lua_rawseti(state, -4, slot);
+                    lua_pop(state, 1);
+                }
+                lua_pop(state, 1);
+            }
+            lua_setfield(state, rules, layout.fields[i].name);
+        }
+        lua_pop(state, 2);
+    }
+    lua_pop(state, 1);
     Schema *schema = calloc(1, sizeof(*schema));
     if (!schema) return luaL_error(state, "out of memory");
     *schema = layout;
@@ -114,11 +168,22 @@ int LuaMetadata_Register(lua_State *state, int definition) {
         return luaL_error(state, "metadata defaults exceed the size limit or memory is exhausted");
     }
     schemas[schemaCount] = schema;
+    schema->rules = luaL_ref(state, LUA_REGISTRYINDEX);
     return schemaCount++;
 }
 void LuaMetadata_DefineBlock(int blockId, int definition) {
+    const char *names[] = {"on_timer", "on_inventory_changed"};
+    for (int i = 0; i < 2; i++) {
+        lua_getfield(L, definition, names[i]);
+        if (!lua_isnil(L, -1)) luaL_checktype(L, -1, LUA_TFUNCTION);
+        lua_pop(L, 1);
+    }
     if (blockSchemas[blockId] >= 0) luaL_error(L, "block metadata schema is already registered");
     blockSchemas[blockId] = LuaMetadata_Register(L, definition);
+    luaL_unref(L, LUA_REGISTRYINDEX, timerCallbacks[blockId]);
+    lua_getfield(L, definition, "on_timer"); timerCallbacks[blockId] = luaL_ref(L, LUA_REGISTRYINDEX);
+    luaL_unref(L, LUA_REGISTRYINDEX, inventoryCallbacks[blockId]);
+    lua_getfield(L, definition, "on_inventory_changed"); inventoryCallbacks[blockId] = luaL_ref(L, LUA_REGISTRYINDEX);
 }
 
 // Numeric fields share bytes. Variable-size fields start at the next byte.
@@ -424,7 +489,28 @@ static int BlockWrite(lua_State *state, bool reset) {
         if (!ChunkMetadata_Set(chunk, index, value)) return luaL_error(state, "out of memory");
         Metadata_Free(value);
     }
+    const Field *field = FindField(state, GetSchema(state, blockSchemas[chunk->data[index]]), 2);
+    if (field->type == FIELD_INVENTORY)
+        LuaMetadata_InventoryChanged(LuaMetadata_CheckBlock(state, 1), field->name);
     return 0;
+}
+static int BlockStartTimer(lua_State *state) {
+    int index; Chunk *chunk = ResolveBlock(state, &index);
+    double interval = luaL_checknumber(state, 2);
+    if (!isfinite(interval) || interval < 0.05 || interval > 86400)
+        return luaL_error(state, "timer interval must be between 0.05 and 86400 seconds");
+    if (!BlockTimer_Start(chunk, index, interval)) return luaL_error(state, "out of memory");
+    return 0;
+}
+static int BlockStopTimer(lua_State *state) {
+    int index; Chunk *chunk = ResolveBlock(state, &index);
+    BlockTimer_Stop(chunk, index); return 0;
+}
+static int BlockTimerStarted(lua_State *state) {
+    int index; Chunk *chunk = ResolveBlock(state, &index);
+    bool started = false;
+    for (int i = 0; i < chunk->timerCount; i++) if (chunk->timers[i].index == index) started = true;
+    lua_pushboolean(state, started); return 1;
 }
 static int BlockSet(lua_State *state) { return BlockWrite(state, false); }
 static int BlockReset(lua_State *state) { return BlockWrite(state, true); }
@@ -475,6 +561,42 @@ int LuaMetadata_Inventory(lua_State *state, int schema, int owner, int key) {
 static int BlockInventory(lua_State *state) {
     int index; Chunk *chunk = ResolveBlock(state, &index);
     return LuaMetadata_Inventory(state, blockSchemas[chunk->data[index]], 1, 2);
+}
+// All takes and gives affect one inventory, so encoding is a single commit.
+static int BlockTransaction(lua_State *state) {
+    int index; Chunk *chunk = ResolveBlock(state, &index);
+    const char *name = luaL_checkstring(state, 2);
+    const Field *field = FindField(state, GetSchema(state, blockSchemas[chunk->data[index]]), 2);
+    if (field->type != FIELD_INVENTORY) return luaL_error(state, "field is not an inventory");
+    luaL_checktype(state, 3, LUA_TTABLE);
+    ItemStack slots[255] = {0};
+    Vector3 position = LuaMetadata_CheckBlock(state, 1);
+    if (!LuaMetadata_BlockInventory(position, name, slots, field->limit, false))
+        return luaL_error(state, "cannot read inventory");
+    const char *operations[] = {"take", "give"};
+    for (int op = 0; op < 2; op++) {
+        lua_getfield(state, 3, operations[op]);
+        if (!lua_isnil(state, -1)) {
+            luaL_checktype(state, -1, LUA_TTABLE);
+            int list = lua_gettop(state);
+            for (int i = 1; i <= lua_rawlen(state, list); i++) {
+                lua_rawgeti(state, list, i); luaL_checktype(state, -1, LUA_TTABLE);
+                lua_getfield(state, -1, "slot"); int slot = Integer(state, -1, 1, field->limit) - 1; lua_pop(state, 1);
+                lua_getfield(state, -1, "id"); int id = Integer(state, -1, 1, 65535); lua_pop(state, 1);
+                lua_getfield(state, -1, "count"); int count = Integer(state, -1, 1, Item_GetMaxStack(id)); lua_pop(state, 1);
+                ItemStack *stack = &slots[slot];
+                bool fits = op == 0 ? stack->itemId == id && stack->count >= count :
+                    (!stack->count || stack->itemId == id) && stack->count + count <= Item_GetMaxStack(id);
+                if (!fits) { lua_pushboolean(state, false); return 1; }
+                stack->count += op == 0 ? -count : count;
+                stack->itemId = stack->count ? id : 0;
+                lua_pop(state, 1);
+            }
+        }
+        lua_pop(state, 1);
+    }
+    lua_pushboolean(state, LuaMetadata_BlockInventory(position, name, slots, field->limit, true));
+    return 1;
 }
 static int InventorySlot(lua_State *state) {
     luaL_checkudata(state, 1, INVENTORY_REF);
@@ -643,6 +765,73 @@ bool LuaMetadata_BlockInventory(Vector3 position, const char *field, ItemStack *
     lua_settop(L, top);
     return ok;
 }
+bool LuaMetadata_CanInsert(Vector3 position, const char *field, int slot, int item) {
+    int block = ServerWorld_GetBlock(position);
+    int schema = block >= 0 && block < 256 ? blockSchemas[block] : -1;
+    if (schema < 0) return false;
+    int top = lua_gettop(L);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, schemas[schema]->rules);
+    lua_getfield(L, -1, field);
+    bool allowed = true;
+    if (lua_istable(L, -1)) {
+        lua_rawgeti(L, -1, slot + 1);
+        if (lua_isboolean(L, -1)) allowed = lua_toboolean(L, -1);
+        else if (lua_istable(L, -1)) { lua_rawgeti(L, -1, item); allowed = lua_toboolean(L, -1); }
+    }
+    lua_settop(L, top);
+    return allowed;
+}
+bool LuaMetadata_Timer(Vector3 position, float dt) {
+    int id = ServerWorld_GetBlock(position);
+    if (!L || id < 0 || id >= 256 || timerCallbacks[id] < 0) return false;
+    int top = lua_gettop(L);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, timerCallbacks[id]);
+    LuaMetadata_PushBlock(L, position); lua_pushnumber(L, dt);
+    bool ok = lua_pcall(L, 2, 1, 0) == LUA_OK;
+    if (!ok) TraceLog(LOG_WARNING, "Block on_timer: %s", lua_tostring(L, -1));
+    bool repeat = ok && lua_toboolean(L, -1);
+    lua_settop(L, top); return repeat;
+}
+void LuaMetadata_InventoryChanged(Vector3 position, const char *field) {
+    int block = ServerWorld_GetBlock(position);
+    if (notifying || block < 0 || block >= 256 || inventoryCallbacks[block] < 0) return;
+    for (int i = 0; i < changeCount; i++) if (changes[i].position.x == position.x &&
+        changes[i].position.y == position.y && changes[i].position.z == position.z && !strcmp(changes[i].field, field)) return;
+    if (changeCount == changeCapacity) {
+        int capacity = changeCapacity ? changeCapacity * 2 : 16;
+        InventoryChange *next = realloc(changes, capacity * sizeof(*next));
+        if (!next) { TraceLog(LOG_ERROR, "Could not queue inventory change"); return; }
+        changes = next; changeCapacity = capacity;
+    }
+    changes[changeCount] = (InventoryChange){.position=position, .block=block};
+    strcpy(changes[changeCount++].field, field);
+}
+void LuaMetadata_FlushChanges(void) {
+    notifying = true;
+    for (int i = 0; i < changeCount; i++) {
+        InventoryChange *change = &changes[i];
+        if (ServerWorld_GetBlock(change->position) != change->block) continue;
+        int top = lua_gettop(L);
+        lua_rawgeti(L, LUA_REGISTRYINDEX, inventoryCallbacks[change->block]);
+        LuaMetadata_PushBlock(L, change->position); lua_pushstring(L, change->field);
+        if (lua_pcall(L, 2, 0, 0) != LUA_OK) TraceLog(LOG_WARNING, "Block on_inventory_changed: %s", lua_tostring(L, -1));
+        lua_settop(L, top);
+    }
+    changeCount = 0; notifying = false;
+}
+static int ReadProgress(lua_State *state) {
+    BlockGet(state);
+    double value = luaL_checknumber(state, -1);
+    if (!isfinite(value)) return luaL_error(state, "progress requires numeric metadata");
+    return 1;
+}
+bool LuaMetadata_Progress(Vector3 position, const char *field, float *value) {
+    int top = lua_gettop(L);
+    lua_pushcfunction(L, ReadProgress); LuaMetadata_PushBlock(L, position); lua_pushstring(L, field);
+    bool ok = lua_pcall(L, 2, 1, 0) == LUA_OK;
+    if (ok) *value = lua_tonumber(L, -1);
+    lua_settop(L, top); return ok;
+}
 static int FreeWriter(lua_State *state) { BinaryWriter *out = lua_touserdata(state, 1); free(out->data); out->data = NULL; return 0; }
 static int FreeValue(lua_State *state) { Metadata_Free(lua_touserdata(state, 1)); return 0; }
 static void Metatable(const char *name, const luaL_Reg *methods) {
@@ -652,19 +841,31 @@ static void Metatable(const char *name, const luaL_Reg *methods) {
     lua_pop(L, 1);
 }
 void LuaMetadata_Init(void) {
-    for (int i = 0; i < 256; i++) blockSchemas[i] = -1;
+    changeCount = 0; notifying = false;
+    for (int i = 0; i < 256; i++) {
+        blockSchemas[i] = -1;
+        timerCallbacks[i] = inventoryCallbacks[i] = LUA_NOREF;
+    }
     const luaL_Reg block[] = {{"get_id", BlockId}, {"set_id", BlockSetId},
         {"get_position", BlockPosition}, {"is_loaded", BlockLoaded},
         {"get_metadata", BlockGet}, {"set_metadata", BlockSet},
-        {"reset_metadata", BlockReset}, {"get_inventory", BlockInventory}, {NULL, NULL}};
+        {"reset_metadata", BlockReset}, {"get_inventory", BlockInventory},
+        {"start_timer", BlockStartTimer}, {"stop_timer", BlockStopTimer}, {"timer_started", BlockTimerStarted},
+        {"inventory_transaction", BlockTransaction}, {NULL, NULL}};
     const luaL_Reg inventory[] = {{"get_stack", InventoryGet}, {"set_stack", InventorySet}, {"add_item", InventoryAdd}, {NULL, NULL}};
     Metatable(BLOCK_OBJECT, block); Metatable(INVENTORY_REF, inventory);
     luaL_newmetatable(L, "midless.MetadataWriter"); lua_pushcfunction(L, FreeWriter); lua_setfield(L, -2, "__gc"); lua_pop(L, 1);
     luaL_newmetatable(L, "midless.MetadataValue"); lua_pushcfunction(L, FreeValue); lua_setfield(L, -2, "__gc"); lua_pop(L, 1);
 }
 void LuaMetadata_Shutdown(void) {
+    free(changes); changes = NULL; changeCount = changeCapacity = 0;
+    for (int i = 0; i < 256; i++) {
+        luaL_unref(L, LUA_REGISTRYINDEX, timerCallbacks[i]);
+        luaL_unref(L, LUA_REGISTRYINDEX, inventoryCallbacks[i]);
+    }
     for (int i = 0; i < schemaCount; i++) {
         Metadata_Free(&schemas[i]->defaults);
+        luaL_unref(L, LUA_REGISTRYINDEX, schemas[i]->rules);
         free(schemas[i]);
     }
     schemaCount = 0;

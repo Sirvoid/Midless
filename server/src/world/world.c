@@ -22,6 +22,7 @@
 #include "playermanager.h"
 #include "textures.h"
 #include "../scripting/luabindings.h"
+#include "../scripting/luametadata.h"
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "worldgenerator.h"
@@ -75,6 +76,7 @@ void ServerWorld_Init(void) {
 
 void ServerWorld_Shutdown(void) {
     ServerPlayerManager_Shutdown();
+    LuaMetadata_FlushChanges();
     EntityPersistence_EnsureChunks();
     ServerChunkManager_Shutdown();
     ServerEntities_Shutdown();
@@ -91,6 +93,7 @@ void ServerWorld_Shutdown(void) {
 }
 
 void ServerWorld_Update(void) {
+    LuaMetadata_FlushChanges();
     EntityPersistence_EnsureChunks();
     ServerChunkManager_Update();
 
@@ -115,6 +118,7 @@ void ServerWorld_Update(void) {
     float dt = elapsedMilliseconds > 0 ? elapsedMilliseconds / 1000.0f : 0.0f;
     if (dt > 0.25f) dt = 0.25f;
     if (dt > 0) {
+        BlockTimer_Update(dt);
         LuaBindings_InvokeStep(dt);
         ServerEntities_Update(dt);
     }

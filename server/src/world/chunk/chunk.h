@@ -12,6 +12,7 @@
 #include "../../player.h"
 #include "chunkdata.h"
 #include "chunkmetadata.h"
+#include "blocktimer.h"
 
 #define CHUNK_SIZE_VEC3 CLITERAL(Vector3){ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }
 
@@ -24,6 +25,8 @@ typedef struct Chunk{
     Player* *players;
     BlockMetadata *metadata;
     int metadataCount;
+    BlockTimer *timers;
+    int timerCount;
     unsigned char *savedEntities; // Pending records; only unavailable types remain after activation.
     unsigned int savedEntitiesSize;
     bool entitiesActivated; // Main-thread guard against loading the same records twice.
