@@ -2136,12 +2136,13 @@ wg.define_structure("example:tree", {
 
 # Example Mod
 
-This example creates a simple slime that wanders around.
+This example creates a simple slime that wanders around with gravity and terrain collisions.
 
 ```lua
 midless.define_texture("example:slime", "slime.png")
 
 midless.define_entity_model("example:slime", {
+    name = "Slime",
     texture = "example:slime",
 
     parts = {
@@ -2165,6 +2166,12 @@ midless.define_entity_model("example:slime", {
 
 midless.define_entity("example:slime", {
     model = "example:slime",
+    body = {
+        enabled = true,
+        min = {x = -5 / 16, y = 0, z = -5 / 16},
+        max = {x = 5 / 16, y = 8 / 16, z = 5 / 16},
+        gravity_scale = 1,
+    },
 
     on_spawn = function(self)
         self.direction = vector.new(1, 0, 0)
@@ -2198,15 +2205,11 @@ midless.define_entity("example:slime", {
             })
         end
 
-        -- Move the slime.
-        local pos = self.object:get_position()
-
-        pos = vector.add(
-            pos,
-            vector.multiply(self.direction, dt)
-        )
-
-        self.object:set_position(pos)
+        -- Walk at one block per second, preserving vertical velocity for gravity.
+        local velocity = self.object:get_velocity()
+        velocity.x = self.direction.x
+        velocity.z = self.direction.z
+        self.object:set_velocity(velocity)
     end
 })
 
@@ -2225,7 +2228,7 @@ midless.register_on_player_click(function(player, button)
 end)
 ```
 
-Right-click to spawn a slime. Each slime picks a new direction every few seconds and moves around on its own.
+Right-click to spawn a slime. Each slime falls to the ground, picks a new direction every two seconds, and moves with terrain collisions. Physics handles movement over time, so the velocity is not multiplied by `dt`. Use `teleport` for instant repositioning; `set_position` is only available when physics is disabled.
 
 ---
 
