@@ -6,7 +6,7 @@ local recipes = {
     ["midless:log"] = {id = "base_game:charcoal", count = 1, time = 10, key = 3},
 }
 local fuels = {["midless:wood"] = 10, ["midless:log"] = 15,
-    ["base_game:stick"] = 5, ["base_game:charcoal"] = 80, ["midless:coal_ore"] = 80} -- burn time in seconds
+    ["base_game:stick"] = 5, ["base_game:charcoal"] = 80, ["base_game:coal"] = 80} -- burn time in seconds
 
 local function keys(values)
     local result = {}

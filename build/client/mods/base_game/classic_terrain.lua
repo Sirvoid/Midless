@@ -50,6 +50,19 @@ wg.configure({
         + 384 * elevation * f.abs(elevation - 1)) + 1,
 })
 
+local function ore_vein(name, block, max_y, size, spacing, chance)
+    wg.define_ore("base_game:" .. name, {
+        block = block, replaces = {1},
+        min_y = -128, max_y = max_y,
+        distribution = "veins",
+        size = size, spacing = spacing, chance = chance,
+    })
+end
+
+ore_vein("coal", 8, 128, 16, 12, 0.8)
+ore_vein("iron", 7, 64, 12, 16, 0.7)
+ore_vein("gold", 9, 16, 8, 20, 0.4)
+
 local function random_at(px, py, pz, salt)
     return f.random({
         seed = f.trunc(px * 1135 + py * 1307 + pz * 1479) % 2048,

@@ -9,6 +9,13 @@ end
 item("stick", {name = "Stick"})
 item("iron_ingot", {name = "Iron Ingot"})
 item("charcoal", {name = "Charcoal"})
+midless.define_item("base_game:coal", {name = "Coal", texture = "base_game:charcoal"})
+
+midless.define_block("midless:coal_ore", {
+    name = "Coal Ore", textures = {all = 7},
+    hardness = 4, dig_group = "stone",
+    drops = {{id = "base_game:coal", count = 1}},
+})
 
 for _, tier in ipairs({
     {id = "wooden", name = "Wooden", speed = 2, uses = 60, level = 1},

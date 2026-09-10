@@ -7,6 +7,9 @@ end
 midless.define_recipe({group = "crafting", ingredients = {"midless:log"},
     output = {id = wood, count = 4}})
 shaped({{wood}, {wood}}, stick, 4)
+for _, fuel in ipairs({"base_game:coal", "base_game:charcoal"}) do
+    shaped({{fuel}, {stick}}, "base_game:torch", 4)
+end
 shaped({{wood, wood}, {wood, wood}}, "base_game:crafting_table")
 shaped({{wood, wood, wood}, {wood, 0, wood}, {wood, wood, wood}}, "base_game:chest")
 shaped({{stone, stone, stone}, {stone, 0, stone}, {stone, stone, stone}}, "base_game:furnace")
