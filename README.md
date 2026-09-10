@@ -1,7 +1,9 @@
 ![Image](https://i.imgur.com/4Ku3xak.png)
 [![Chat](https://img.shields.io/discord/908871478576033832?label=%20chat%20on%20discord)](https://discord.gg/tZthSbpUcV)
 
-Midless is a free and open-source voxel game made in C.
+Midless is a cross-platform, open-source voxel game engine written in C99, built for creating moddable single-player and multiplayer games.
+
+> Midless is under active development and its API is not yet stable.
 
 ## Controls
 
@@ -12,6 +14,7 @@ Midless is a free and open-source voxel game made in C.
 | Left Click          | Break block                    |
 | Right Click         | Place block                    |
 | Mouse wheel         | Block Selection                |
+| E                   | Open Inventory                 |
 | T                   | Open Chat                      |
 | ESC                 | Open menu                      |
 
@@ -46,12 +49,10 @@ DEBUG=TRUE              - Debug build
 
 PLATFORM=PLATFORM_WEB   - Build for the web (Client only)
 ```
+## Lua scripting
 
+See the [complete Lua API reference](docs/LUA_API.md)
 
 ## License
 
 All code in this repository is licensed under the [MIT License](https://github.com/Sirvoid/Midless/blob/main/LICENSE).
-
-## Lua scripting
-
-See the [complete Lua API reference](docs/LUA_API.md)
