@@ -1,20 +1,20 @@
 local path = ...
 
 local function item(id, definition)
-    midless.define_texture("base_game:" .. id, path .. "/textures/" .. id .. ".png")
-    definition.texture = "base_game:" .. id
-    midless.define_item("base_game:" .. id, definition)
+    midless.define_texture("midless:" .. id, path .. "/textures/" .. id .. ".png")
+    definition.texture = "midless:" .. id
+    midless.define_item("midless:" .. id, definition)
 end
 
 item("stick", {name = "Stick"})
 item("iron_ingot", {name = "Iron Ingot"})
 item("charcoal", {name = "Charcoal"})
-midless.define_item("base_game:coal", {name = "Coal", texture = "base_game:charcoal"})
+midless.define_item("midless:coal", {name = "Coal", texture = "midless:charcoal"})
 
 midless.define_block("midless:coal_ore", {
     name = "Coal Ore", textures = {all = 7},
     hardness = 4, dig_group = "stone",
-    drops = {{id = "base_game:coal", count = 1}},
+    drops = {{id = "midless:coal", count = 1}},
 })
 
 for _, tier in ipairs({

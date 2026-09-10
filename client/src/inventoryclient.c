@@ -70,10 +70,7 @@ static bool QueueAction(InventoryAction action) {
     return true;
 }
 
-static void HandleState(const uint8_t *data, int length, const InventoryView *view) {
-    Inventory authoritative;
-    uint32_t revision, acknowledged;
-    if (!InventoryProtocol_ReadState(data, length, &authoritative, &revision, &acknowledged)) return;
+void ClientInventory_SetState(const Inventory *authoritative, uint32_t revision, uint32_t acknowledged, const InventoryView *view) {
     if (ready && revision < latestRevision) return;
     latestRevision = revision;
     ready = true;
@@ -84,7 +81,7 @@ static void HandleState(const uint8_t *data, int length, const InventoryView *vi
         else if (pendingActions[i].type == INVENTORY_CLOSE) acknowledgedClose = true;
     }
     pendingCount = remaining;
-    displayedInventory = authoritative;
+    displayedInventory = *authoritative;
     displayedView = view ? *view : (InventoryView){0};
     for (int i = 0; i < pendingCount; i++) {
         if (!displayedView.session && !pendingActions[i].x)
@@ -94,16 +91,8 @@ static void HandleState(const uint8_t *data, int length, const InventoryView *vi
     if (!displayedInventory.cursor.count) closeBlocked = false;
     ApplyScreenState();
 }
-void ClientInventory_HandleState(void) {
-    HandleState(packetData, packetDataLength, NULL);
-}
-void ClientInventory_HandleView(void) {
-    if (packetDataLength <= 1 + INVENTORY_STATE_PACKET_SIZE || packetData[0] != PACKET_INVENTORY_VIEW) return;
-    BinaryReader in = {packetData + 1 + INVENTORY_STATE_PACKET_SIZE, packetDataLength - 1 - INVENTORY_STATE_PACKET_SIZE};
-    InventoryView view;
-    if (!InventoryView_Read(&in, &view) || !Binary_End(&in) || packetData[11] != 1) return;
-    HandleState(packetData + 1, INVENTORY_STATE_PACKET_SIZE, &view);
-}
+
+
 const InventoryView *ClientInventory_GetView(void) { return displayedView.session ? &displayedView : NULL; }
 void ClientInventory_ClickView(int binding, int slot, bool right, bool shift) {
     if (!displayedView.session || binding < 0 || binding >= displayedView.bindingCount ||
@@ -204,12 +193,8 @@ void ClientInventory_Dig(bool held, Vector3 hit, Vector3 normal, int block) {
         digging=nextSequence!=before; digApproved=false;
     }
 }
-static uint32_t DigRead32(const unsigned char *data) {
-    return (uint32_t)data[0]<<24 | (uint32_t)data[1]<<16 | (uint32_t)data[2]<<8 | data[3];
-}
-void ClientInventory_HandleDig(void) {
-    if (packetDataLength!=21 || !digging || DigRead32(packetData+13)!=digSequence) return;
-    int milliseconds=(int32_t)DigRead32(packetData+17);
+void ClientInventory_SetDigProgress(uint32_t sequence, int milliseconds) {
+    if (!digging || sequence != digSequence) return;
     digApproved=milliseconds>=0;
     digStart=GetTime(); digDuration=milliseconds/1000.0;
 }

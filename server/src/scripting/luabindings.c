@@ -1,6 +1,7 @@
 #include "blockstates.h"
 #include "luaitemactions.h"
 #include "../serverinventory.h"
+#include "../hudbars.h"
 #include "luadigging.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
@@ -375,7 +376,7 @@ static int LuaBindings_SetEntityModel(void) {
 //---------Players---------
 
 #define LUA_PLAYER_TYPE "midless.Player"
-static int *luaJoinCallbacks, *luaLeaveCallbacks;
+static int *luaJoinCallbacks, *luaLeaveCallbacks, *luaLandCallbacks;
 static Player *luaLeavingPlayer;
 typedef struct LuaPlayerHandle {
     int id;
@@ -436,6 +437,25 @@ void LuaBindings_InvokePlayerJoin(int playerId) {
 
 void LuaBindings_InvokePlayerLeave(int playerId) {
     LuaBindings_InvokePlayerEvent(playerId, true);
+}
+
+static int LuaBindings_RegisterPlayerLand(void) {
+    int callback = Lua_RefFunction(1);
+    arrput(luaLandCallbacks, callback);
+    return 0;
+}
+
+void LuaBindings_InvokePlayerLand(int playerId, float distance) {
+    if (!luaRunning || !serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS) return;
+    Player *player = serverWorld.players[playerId];
+    if (!player || player->disconnected) return;
+    int count = arrlen(luaLandCallbacks);
+    for (int i = 0; i < count; i++) {
+        Lua_GetRawI(Lua_GetRegistryIndex(), luaLandCallbacks[i]);
+        LuaBindings_PushPlayer(player);
+        lua_pushnumber(L, distance);
+        Lua_CallFunc(2, 0);
+    }
 }
 
 static int LuaBindings_GetPlayerById(void) {
@@ -590,9 +610,26 @@ static int SetPlayerHP(void) {
     lua_settop(L,1); lua_pushliteral(L,"midless:hp"); lua_pushinteger(L,hp);
     return LuaMetadata_Player(L,player,true,false);
 }
+static int GetPlayerSpawnPoint(void) {
+    LuaBindings_PushPosition(LuaBindings_CheckPlayer()->spawnPoint);
+    return 1;
+}
+static int SetPlayerSpawnPoint(void) {
+    Player *player = LuaBindings_CheckPlayer();
+    Vector3 position = LuaBindings_ReadPosition(2, false);
+    if (!isfinite(position.x) || !isfinite(position.y) || !isfinite(position.z) ||
+        fabsf(position.x) > 1000000 || fabsf(position.y) > 1000000 || fabsf(position.z) > 1000000)
+        return Lua_Error("spawn point must be within one million blocks of the origin");
+    player->spawnPoint = position;
+    return 0;
+}
+static int SetPlayerHudBar(void) { return ServerHudBars_Set(LuaBindings_CheckPlayer()); }
 static const struct LuaMethod playerLib[] = {
+    {"set_hud_bar", SetPlayerHudBar},
     {"get_hp", GetPlayerHP},
     {"set_hp", SetPlayerHP},
+    {"get_spawn_point", GetPlayerSpawnPoint},
+    {"set_spawn_point", SetPlayerSpawnPoint},
     {"get_metadata", GetPlayerMetadata},
     {"set_metadata", SetPlayerMetadata},
     {"reset_metadata", ResetPlayerMetadata},
@@ -683,6 +720,8 @@ static const struct LuaMethod midlessLib[] = {
     {"define_player_inventory_screen", LuaInventory_DefineScreen},
     {"define_recipe", Crafting_Register},
     {"define_texture", LuaBindings_DefineTexture},
+    {"define_hud_bar", ServerHudBars_Define},
+    {"remove_hud_bar", ServerHudBars_Remove},
     {"define_player_metadata", LuaMetadata_DefinePlayer},
     {"register_on_player_metadata_change", LuaMetadata_RegisterPlayerChange},
     {"register_on_hp_change", LuaMetadata_RegisterHPChange},
@@ -707,6 +746,7 @@ static const struct LuaMethod midlessLib[] = {
     {"register_on_player_message", LuaBindings_RegisterChatMessage},
     {"register_on_player_click", LuaBindings_RegisterPlayerClick},
     {"register_on_player_join", LuaBindings_RegisterPlayerJoin},
+    {"register_on_player_land", LuaBindings_RegisterPlayerLand},
     {"register_on_player_leave", LuaBindings_RegisterPlayerLeave},
     {"register_on_block_update", LuaBindings_RegisterBlockUpdate},
     {"broadcast", LuaBindings_BroadcastMessage},
@@ -771,6 +811,7 @@ void LuaBindings_Init(void) {
 }
 
 void LuaBindings_Shutdown(void) {
+    ServerHudBars_Reset();
     LuaDigging_Shutdown();
     LuaItemActions_Shutdown();
     LuaInventory_Shutdown();
@@ -786,6 +827,9 @@ void LuaBindings_Shutdown(void) {
     luaJoinCallbacks = NULL;
     arrfree(luaLeaveCallbacks);
     luaLeaveCallbacks = NULL;
+    for (int i = 0; i < arrlen(luaLandCallbacks); i++) Lua_Unref(Lua_GetRegistryIndex(), luaLandCallbacks[i]);
+    arrfree(luaLandCallbacks);
+    luaLandCallbacks = NULL;
     luaLeavingPlayer = NULL;
     arrfree(luaReadyCallbacks);
     luaReadyCallbacks = NULL;

@@ -1,5 +1,5 @@
-local STONE_STAIRS = "base_game:stone_stairs"
-local WOOD_STAIRS = "base_game:wood_stairs"
+local STONE_STAIRS = "midless:stone_stairs"
+local WOOD_STAIRS = "midless:wood_stairs"
 
 local function place_facing(player, block)
     local look = player:get_look_direction()

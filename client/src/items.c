@@ -1,7 +1,6 @@
 #include "items.h"
 #include "gui/itemspritemesh.h"
 #include "textures.h"
-#include "networking/packet.h"
 #include "block/block.h"
 #include "raymath.h"
 #include "rlgl.h"
@@ -40,14 +39,9 @@ static const char *spriteFragmentShader =
     "    OUTPUT = vec4(pixel.rgb * colDiffuse.rgb * fragColor.rgb, 1.0);\n"
     "}\n";
 
-void ClientItems_HandleDefinition(void) {
-    if (packetDataLength!=ITEM_DEFINITION_PACKET_SIZE) return;
-    int id=(packetData[1]<<8)|packetData[2];
-    if (id<1 || id>=ITEM_LIMIT || !memchr(packetData+3,0,65) || !memchr(packetData+68,0,65) ||
-        !packetData[133] || packetData[133]>64) return;
-    ItemDefinition *item=&definitions[id];
-    memcpy(item->identifier,packetData+3,65); memcpy(item->name,packetData+68,65);
-    item->maxStack=packetData[133]; item->texture=packetData[134]; item->defined=true;
+void ClientItems_Define(int id, const ItemDefinition *definition) {
+    definitions[id] = *definition;
+    const ItemDefinition *item = definition;
     Item_SetMaxStack(id,item->maxStack);
     if (models[id].mesh.vertexCount) UnloadMesh(models[id].mesh);
     memset(&models[id],0,sizeof(models[id]));

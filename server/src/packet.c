@@ -24,8 +24,8 @@
 #include "serverinventory.h"
 #include "inventoryprotocol.h"
 #include "items.h"
+#include "hudbars.h"
 
-#define PACKET_STRING_SIZE 64
 
 unsigned char *serverPacketData;
 Player *serverPacketPlayer;
@@ -33,31 +33,36 @@ int serverPacketLastDynamicLength;
 int serverPacketDataLength;
 
 int serverPacketLengths[256] = {
-    3,  //map init (protocol version)
-    0, //load chunk
-    16,  //setblock
-    19, //spawnEntity
-    18, //teleportEntity
-    65, //Message
-    3, //despawnEntity
-    13, //unload chunk
-    0, //block batch
-    5, //world time
-    65, //message continuation
-    4, //entity animation
-    DEFINE_BLOCK_PACKET_SIZE, //define block
-    2, //remove block definition
-    0, //define entity model
-    2, //remove entity model
-    4, //set entity model
-    TEXTURE_BEGIN_SIZE, TEXTURE_DATA_SIZE, 3,
-    5, // held block
-    INVENTORY_STATE_PACKET_SIZE,
-    DROPPED_ITEM_PACKET_SIZE,
-    0, // inventory view (variable length)
-    ITEM_DEFINITION_PACKET_SIZE,
-    21, // digging progress
-    2, // breaking texture
+    MAP_INIT_PACKET_SIZE, // 0
+    PACKET_VARIABLE_SIZE, // 1
+    SET_BLOCK_PACKET_SIZE, // 2
+    SPAWN_ENTITY_PACKET_SIZE, // 3
+    TELEPORT_ENTITY_PACKET_SIZE, // 4
+    MESSAGE_PACKET_SIZE, // 5
+    DESPAWN_ENTITY_PACKET_SIZE, // 6
+    UNLOAD_CHUNK_PACKET_SIZE, // 7
+    PACKET_VARIABLE_SIZE, // 8
+    WORLD_TIME_PACKET_SIZE, // 9
+    MESSAGE_CONTINUATION_PACKET_SIZE, // 10
+    ENTITY_ANIMATION_PACKET_SIZE, // 11
+    DEFINE_BLOCK_PACKET_SIZE, // 12
+    REMOVE_BLOCK_DEFINITION_PACKET_SIZE, // 13
+    PACKET_VARIABLE_SIZE, // 14
+    REMOVE_ENTITY_MODEL_PACKET_SIZE, // 15
+    SET_ENTITY_MODEL_PACKET_SIZE, // 16
+    TEXTURE_BEGIN_SIZE, // 17
+    TEXTURE_DATA_SIZE, // 18
+    TERRAIN_TEXTURE_PACKET_SIZE, // 19
+    HELD_BLOCK_PACKET_SIZE, // 20
+    INVENTORY_STATE_PACKET_SIZE, // 21
+    DROPPED_ITEM_PACKET_SIZE, // 22
+    PACKET_VARIABLE_SIZE, // 23
+    ITEM_DEFINITION_PACKET_SIZE, // 24
+    DIG_PROGRESS_PACKET_SIZE, // 25
+    BREAKING_TEXTURE_PACKET_SIZE, // 26
+    HUD_BAR_DEFINE_SIZE, // 27
+    HUD_BAR_STATE_SIZE, // 28
+    HUD_BAR_REMOVE_SIZE, // 29
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -67,6 +72,19 @@ int ServerPacket_GetLength(unsigned char opcode) {
 //Packet Readers
 
 int serverPacketReaderIndex = 1;
+
+const unsigned char *ServerPacket_ReadBytes(int size) {
+    if (size < 0 || serverPacketReaderIndex > serverPacketDataLength - size) return NULL;
+    const unsigned char *bytes = serverPacketData + serverPacketReaderIndex;
+    serverPacketReaderIndex += size;
+    return bytes;
+}
+
+uint32_t ServerPacket_ReadUInt(void) {
+    const unsigned char *bytes = ServerPacket_ReadBytes(4);
+    if (!bytes) return 0;
+    return (uint32_t)bytes[0] << 24 | (uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3];
+}
 
 unsigned char ServerPacket_ReadByte(void) {
     if (serverPacketReaderIndex >= serverPacketDataLength) return 0;
@@ -87,12 +105,7 @@ unsigned short ServerPacket_ReadUShort(void) {
     return value;
 }
 
-int ServerPacket_ReadInt(void) {
-    if (serverPacketReaderIndex > serverPacketDataLength - 4) return 0;
-    int value = (int)(serverPacketData[serverPacketReaderIndex] << 24 | serverPacketData[serverPacketReaderIndex + 1] << 16 | serverPacketData[serverPacketReaderIndex + 2] << 8 | serverPacketData[serverPacketReaderIndex + 3]);
-    serverPacketReaderIndex += 4;
-    return value;
-}
+int ServerPacket_ReadInt(void) { return (int32_t)ServerPacket_ReadUInt(); }
 
 char* ServerPacket_ReadString(void) {
     char *string = MemAlloc(PACKET_STRING_SIZE + 1);
@@ -184,6 +197,7 @@ void ServerPacket_HandleIdentification(void) {
     ServerItems_Send(serverPacketPlayer);
     ServerTextures_SendTerrain(serverPacketPlayer);
     ServerTextures_SendBreaking(serverPacketPlayer);
+    ServerHudBars_Send(serverPacketPlayer);
     ServerWorld_SendEntityModels(serverPacketPlayer);
     ServerWorld_AddPlayer(serverPacketPlayer);
     if (serverPacketPlayer->entityId < 0) {
@@ -256,6 +270,31 @@ void ServerPacket_HandlePlayerClick(void) {
     LuaBindings_InvokePlayerClick(serverPacketPlayer->id, button);
 }
 
+void ServerPacket_HandleTextureAck(void) {
+    if (serverPacketDataLength != TEXTURE_ACK_SIZE) return;
+    int id = ServerPacket_ReadUShort();
+    uint32_t revision = ServerPacket_ReadUInt();
+    uint32_t offset = ServerPacket_ReadUInt();
+    ServerTextures_Acknowledge(serverPacketPlayer, id, revision, offset);
+}
+
+void ServerPacket_HandleInventoryAction(void) {
+    if (serverPacketDataLength != INVENTORY_ACTION_PACKET_SIZE) return;
+    InventoryAction action = {0};
+    action.sequence = ServerPacket_ReadUInt();
+    action.type = ServerPacket_ReadByte();
+    action.slot = ServerPacket_ReadByte();
+    action.x = ServerPacket_ReadInt();
+    action.y = ServerPacket_ReadInt();
+    action.z = ServerPacket_ReadInt();
+    action.face = ServerPacket_ReadByte();
+    action.targetBlock = ServerPacket_ReadUShort();
+    for (int i = 0; i < 3; i++) action.hit[i] = ServerPacket_ReadByte();
+    ServerInventory_ApplyAction(serverPacketPlayer, action);
+}
+
+
+
 /* Packets sent */
 
 unsigned char* ServerPacket_CreateMapInit(void) {
@@ -270,7 +309,7 @@ unsigned char* ServerPacket_CreateMapInit(void) {
 unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned short length,
                                             Vector3 chunkPosition, const unsigned char *skyMask) {
     serverPacketWriterIndex = 0;
-    serverPacketLastDynamicLength = (length * 2) + 15 + CHUNK_SKY_MASK_SIZE;
+    serverPacketLastDynamicLength = (length * 2) + LOAD_CHUNK_HEADER_SIZE + CHUNK_SKY_MASK_SIZE;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLastDynamicLength);
     ServerPacket_WriteByte(packet, 1);
     ServerPacket_WriteInt(packet, (int)chunkPosition.x);
@@ -306,7 +345,7 @@ unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 positi
 
 unsigned char* ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, unsigned short count) {
     serverPacketWriterIndex = 0;
-    serverPacketLastDynamicLength = 3 + count * 14;
+    serverPacketLastDynamicLength = BLOCK_BATCH_HEADER_SIZE + count * BLOCK_BATCH_UPDATE_SIZE;
     unsigned char *packet = MemAlloc(serverPacketLastDynamicLength);
     ServerPacket_WriteByte(packet, 8);
     ServerPacket_WriteUShort(packet, count);
@@ -412,7 +451,7 @@ unsigned char *ServerPacket_CreateDefineBlock(int id, const BlockDefinition *def
 unsigned char *ServerPacket_CreateRemoveBlockDefinition(int id) {
     if (id < 1 || id > 255) return NULL;
     serverPacketWriterIndex = 0;
-    unsigned char *packet = MemAlloc(2);
+    unsigned char *packet = MemAlloc(REMOVE_BLOCK_DEFINITION_PACKET_SIZE);
     if (!packet) return NULL;
     ServerPacket_WriteByte(packet, PACKET_REMOVE_BLOCK_DEFINITION);
     ServerPacket_WriteByte(packet, (unsigned char)id);
@@ -446,7 +485,7 @@ unsigned char *ServerPacket_CreateDefineEntityModel(int id, const ModelDefinitio
 unsigned char *ServerPacket_CreateRemoveEntityModel(int id) {
     if (id < 1 || id > 255) return NULL;
     serverPacketWriterIndex = 0;
-    unsigned char *packet = MemAlloc(2);
+    unsigned char *packet = MemAlloc(REMOVE_ENTITY_MODEL_PACKET_SIZE);
     if (!packet) return NULL;
     ServerPacket_WriteByte(packet, PACKET_REMOVE_ENTITY_MODEL);
     ServerPacket_WriteByte(packet, id);
@@ -454,7 +493,7 @@ unsigned char *ServerPacket_CreateRemoveEntityModel(int id) {
 }
 unsigned char *ServerPacket_CreateSetEntityModel(unsigned short entityId, unsigned char modelId) {
     serverPacketWriterIndex = 0;
-    unsigned char *packet = MemAlloc(4);
+    unsigned char *packet = MemAlloc(SET_ENTITY_MODEL_PACKET_SIZE);
     if (!packet) return NULL;
     ServerPacket_WriteByte(packet, PACKET_SET_ENTITY_MODEL);
     ServerPacket_WriteUShort(packet, entityId);
@@ -464,7 +503,7 @@ unsigned char *ServerPacket_CreateSetEntityModel(unsigned short entityId, unsign
 
 unsigned char *ServerPacket_CreateHeldBlock(Entity *entity) {
     serverPacketWriterIndex = 0;
-    unsigned char *packet = MemAlloc(5);
+    unsigned char *packet = MemAlloc(HELD_BLOCK_PACKET_SIZE);
     ServerPacket_WriteByte(packet, 20);
     ServerPacket_WriteUShort(packet, entity->id);
     ServerPacket_WriteUShort(packet, entity->heldBlock);

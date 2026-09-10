@@ -8,6 +8,9 @@
 #ifndef MIDLESS_SERVER_PACKET_H
 #define MIDLESS_SERVER_PACKET_H
 
+#include "packetsizes.h"
+#include <stdint.h>
+
 #include "player.h"
 #include "blockdefinition.h"
 #include "entitymodeldefinition.h"
@@ -28,7 +31,11 @@ extern int serverPacketDataLength;
 int ServerPacket_GetLength(unsigned char opcode);
 
 unsigned char ServerPacket_ReadByte(void);
+uint32_t ServerPacket_ReadUInt(void);
+const unsigned char *ServerPacket_ReadBytes(int size);
 unsigned short ServerPacket_ReadUShort(void);
+short ServerPacket_ReadShort(void);
+int ServerPacket_ReadInt(void);
 char* ServerPacket_ReadString(void);
 unsigned char* ServerPacket_ReadArray(int size);
 
@@ -44,6 +51,9 @@ void ServerPacket_HandlePlayerPosition(void);
 void ServerPacket_HandleMessage(void);
 void ServerPacket_HandleSetDrawDistance(void);
 void ServerPacket_HandlePlayerClick(void);
+void ServerPacket_HandleTextureAck(void);
+void ServerPacket_HandleInventoryAction(void);
+
 unsigned char *ServerPacket_CreateHeldBlock(Entity *entity);
 unsigned char *ServerPacket_CreateDroppedItem(Entity *entity);
 
@@ -65,5 +75,6 @@ unsigned char* ServerPacket_CreateMessage(const char* message);
 unsigned char* ServerPacket_CreateMessageContinuation(const char* message);
 unsigned char* ServerPacket_CreateWorldTime(float timeSeconds);
 unsigned char* ServerPacket_CreateEntityAnimation(unsigned short entityId, EntityAnimationType animation);
+
 
 #endif

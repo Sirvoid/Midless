@@ -20,6 +20,7 @@ void LuaBindings_InvokeReady(void);
 void LuaBindings_InvokeStep(float delta);
 void LuaBindings_InvokePlayerJoin(int playerId);
 void LuaBindings_InvokePlayerLeave(int playerId);
+void LuaBindings_InvokePlayerLand(int playerId, float distance);
 void LuaBindings_InvokePlayerClick(int playerId, int button);
 void LuaBindings_InvokeBlockUpdate(Vector3 position, unsigned short blockId, unsigned short previousBlockId);
 bool LuaBindings_InvokeChatMessage(int playerId, const char *message);

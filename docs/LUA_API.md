@@ -20,7 +20,8 @@ development.
 11. [Items and inventories](#items)
 12. [Block breaking](#block-breaking)
 13. [Player HP and metadata](#player-hp)
-14. [Examples](#example-mod)
+14. [HUD bars](#hud-bars)
+15. [Examples](#example-mod)
 
 ## Getting started
 
@@ -212,6 +213,18 @@ midless.register_on_player_message(function(player, message)
     return false
 end)
 ```
+
+## Player lands
+
+```lua
+midless.register_on_player_land(function(player, distance)
+    local damage = math.max(0, math.floor(distance - 3))
+    if damage > 0 then
+        player:set_hp(math.max(0, player:get_hp() - damage))
+    end
+end)
+```
+
 
 ## Player click
 
@@ -429,6 +442,17 @@ local direction = player:get_look_direction()
 player:teleport({x = 0, y = 80, z = 0})
 ```
 
+## Spawn point
+
+```lua
+player:set_spawn_point({x = 10, y = 70, z = 20})
+local spawn = player:get_spawn_point()
+player:teleport(spawn)
+```
+
+The spawn point saves with the player and defaults to just above the highest
+solid or liquid surface in the world column at block X/Z `(0, 0)`
+
 ## Change model
 
 ```lua
@@ -460,6 +484,41 @@ kill or respawn the player; your mod controls that behavior. You do not need to
 declare a metadata field for HP.
 
 
+
+# HUD bars
+
+Define a bar using a registered **16x16 PNG**. `max` belongs to the definition:
+
+```lua
+midless.define_texture("survival:heart", "textures/heart.png")
+midless.define_hud_bar("survival:health", {
+    texture = "survival:heart",
+    max = 20,
+    icons = 10,     -- default 10; 1 to 16
+    priority = 0,   -- default 0; lower numbers appear first
+})
+
+midless.register_on_player_join(function(player)
+    player:set_hud_bar("survival:health", {
+        value = player:get_hp(),
+        visible = true,
+    })
+end)
+
+midless.register_on_hp_change(function(player, old_hp, new_hp)
+    player:set_hud_bar("survival:health", {value = new_hp})
+end)
+```
+
+Visible bars pack two per row above the hotbar, from bottom-left to bottom-right,
+then upward. Hiding a bar closes its gap automatically. Equal priorities use
+registration order (removed IDs may be reused).
+
+Remove a bar for everyone with:
+
+```lua
+midless.remove_hud_bar("survival:breathing")
+```
 
 # Player metadata
 

@@ -1,7 +1,7 @@
-midless.define_player_inventory("base_game:crafting", {slots = 4})
+midless.define_player_inventory("midless:crafting", {slots = 4})
 
 midless.define_player_inventory_screen(function(player)
-    local crafting = player:get_inventory("base_game:crafting")
+    local crafting = player:get_inventory("midless:crafting")
 
     return {
         title = "Inventory",

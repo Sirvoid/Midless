@@ -169,7 +169,7 @@ static bool TryHarvestBlock(Player *player, const InventoryAction *action) {
 }
 
 static void SendDigState(Player *player, int milliseconds) {
-    unsigned char *packet=MemAlloc(21);
+    unsigned char *packet=MemAlloc(DIG_PROGRESS_PACKET_SIZE);
     if (!packet) return;
     packet[0]=25;
     int values[]={player->digAction.x,player->digAction.y,player->digAction.z,
@@ -333,10 +333,7 @@ void ServerInventory_Send(Player *player) {
     ServerNetwork_Send(player, packet);
 }
 
-void ServerInventory_HandleAction(void) {
-    InventoryAction action;
-    if (!InventoryProtocol_ReadAction(serverPacketData, serverPacketDataLength, &action)) return;
-    Player *player = serverPacketPlayer;
+void ServerInventory_ApplyAction(Player *player, InventoryAction action) {
     if (player->entityId < 0 || player->entityId >= WORLD_MAX_ENTITIES) return;
     // Only the next sequence executes. Retries and out-of-order requests get a snapshot.
     if (player->inventorySequence == UINT32_MAX || action.sequence != player->inventorySequence + 1) {

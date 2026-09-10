@@ -62,11 +62,7 @@ static void Ack(int id,uint32_t revision,uint32_t offset) {
     Network_Send(packet);
 }
 static void ClearTransfer(void) { MemFree(transfer.data); memset(&transfer,0,sizeof(transfer)); }
-void ClientTextures_HandleBegin(void) {
-    if(packetDataLength!=TEXTURE_BEGIN_SIZE) return;
-    int id=Texture_Read16(packetData+1);
-    uint32_t revision=Texture_Read32(packetData+3), size=Texture_Read32(packetData+7);
-    int width=Texture_Read16(packetData+11),height=Texture_Read16(packetData+13);
+void ClientTextures_Begin(int id, uint32_t revision, uint32_t size, int width, int height) {
     if(id<2 || id>=TEXTURE_LIMIT) return;
     ClearTransfer();
     if(!revision || revision<=textures[id].revision || size<33 || size>TEXTURE_MAX_BYTES ||
@@ -78,16 +74,12 @@ void ClientTextures_HandleBegin(void) {
     transfer.id=id; transfer.revision=revision; transfer.size=size; transfer.width=width; transfer.height=height;
     Ack(id,revision,0);
 }
-void ClientTextures_HandleData(void) {
-    if(packetDataLength!=TEXTURE_DATA_SIZE) return;
-    int id=Texture_Read16(packetData+1);
-    uint32_t revision=Texture_Read32(packetData+3), offset=Texture_Read32(packetData+7);
-    unsigned count=Texture_Read16(packetData+11);
+void ClientTextures_Data(int id, uint32_t revision, uint32_t offset, unsigned count, const unsigned char *data) {
     if(!transfer.data || id!=transfer.id || revision!=transfer.revision) return;
     if(offset!=(unsigned)transfer.received || !count || count>TEXTURE_CHUNK_BYTES || count>(unsigned)(transfer.size-transfer.received)) {
         Ack(id,revision,UINT32_MAX); ClearTransfer(); return;
     }
-    memcpy(transfer.data+offset,packetData+13,count); transfer.received+=count;
+    memcpy(transfer.data+offset,data,count); transfer.received+=count;
     if(transfer.received<transfer.size) { Ack(id,revision,transfer.received); return; }
     int width=0,height=0;
     bool valid=Texture_ValidatePNG(transfer.data,transfer.size,&width,&height) && width==transfer.width && height==transfer.height;
@@ -112,9 +104,7 @@ void ClientTextures_HandleData(void) {
     if(image.data) UnloadImage(image);
     ClearTransfer();
 }
-void ClientTextures_HandleTerrain(void) {
-    if(packetDataLength!=3) return;
-    int id=Texture_Read16(packetData+1);
+void ClientTextures_SetTerrain(int id) {
     if(id<1 || id>=TEXTURE_LIMIT) return;
     desiredTerrain=id; ApplyTerrain();
 }

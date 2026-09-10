@@ -1,10 +1,11 @@
 #ifndef MIDLESS_ITEM_DEFINITION_H
 #define MIDLESS_ITEM_DEFINITION_H
+
+#include "packetsizes.h"
 #include <stdbool.h>
 #include <stdint.h>
 #define ITEM_LIMIT 4096
 #define PACKET_DEFINE_ITEM 24
-#define ITEM_DEFINITION_PACKET_SIZE 135
 typedef struct ItemDefinition {
     char identifier[65], name[65];
     uint8_t maxStack, texture;

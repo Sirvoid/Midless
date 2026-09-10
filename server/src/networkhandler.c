@@ -31,13 +31,13 @@ IncomingPacket *serverIncomingPackets = NULL;
 #define SERVER_MAX_QUEUED_PACKETS_PER_PLAYER 256
 
 static const int serverIncomingPacketLengths[] = {
-    67, 
-    16,
-    65, 
-    2,
-    2,
-    TEXTURE_ACK_SIZE,
-    INVENTORY_ACTION_PACKET_SIZE
+    IDENTIFICATION_PACKET_SIZE, // 0
+    PLAYER_POSITION_PACKET_SIZE, // 1
+    MESSAGE_PACKET_SIZE, // 2
+    DRAW_DISTANCE_PACKET_SIZE, // 3
+    PLAYER_CLICK_PACKET_SIZE, // 4
+    TEXTURE_ACK_SIZE, // 5
+    INVENTORY_ACTION_PACKET_SIZE, // 6
 };
 
 void ServerNetwork_Init(void) {
@@ -48,8 +48,8 @@ void ServerNetwork_Init(void) {
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleMessage};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleSetDrawDistance};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandlePlayerClick};
-    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerTextures_HandleAck};
-    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerInventory_HandleAction};
+    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleTextureAck};
+    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleInventoryAction};
 }
 
 void ServerNetwork_Shutdown(void) {

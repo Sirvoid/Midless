@@ -1,7 +1,6 @@
 #include "digging.h"
 #include "inventoryclient.h"
 #include "textures.h"
-#include "networking/packet.h"
 #include "block/block.h"
 #include "world.h"
 #include "rlgl.h"
@@ -9,7 +8,7 @@
 
 static int textureId;
 static Texture2D fallback;
-void Digging_HandleTexture(void) { if (packetDataLength==2) textureId=packetData[1]; }
+void Digging_SetTexture(int id) { textureId = id; }
 void Digging_Reset(void) {
     textureId=0;
     if (fallback.id) UnloadTexture(fallback);

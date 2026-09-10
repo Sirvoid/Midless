@@ -17,14 +17,62 @@
 #include "world/chunk/chunk.h"
 #include "networkhandler.h"
 #include "packet.h"
+#include "world/worldgen.h"
+#include "stb_ds.h"
 
 static uint64_t nextConnectionId;
+
+bool ServerPlayer_FindSpawnPoint(Vector3 *position) {
+    // Search actual chunks so saved terrain changes and generated structures count.
+    int top = worldgen.maxY, bottom = worldgen.minY;
+    for (int i = 0; i < worldgen.structureCount; i++)
+        top = fmaxf(top, worldgen.maxY + 1 + worldgen.structures[i].maxDY);
+    for (int i = 0; i < worldgen.featureCount; i++)
+        top = fmaxf(top, worldgen.maxY + worldgen.features[i].paddingMax[1]);
+    // Include player-built blocks above the generator's normal height range.
+    for (int i = 0; i < hmlen(serverWorld.chunks); i++) {
+        Chunk *chunk = serverWorld.chunks[i].value;
+        if (chunk->position.x != 0 || chunk->position.z != 0) continue;
+        top = fmaxf(top, chunk->blockPosition.y + CHUNK_SIZE_Y - 1);
+        bottom = fminf(bottom, chunk->blockPosition.y);
+    }
+    FilePathList files = LoadDirectoryFiles("world");
+    for (int i = 0; i < files.count; i++) {
+        const char *name = GetFileName(files.paths[i]);
+        int x, y, z, length = 0;
+        if (sscanf(name, "%d.%d.%d.dat%n", &x, &y, &z, &length) != 3 ||
+            !length || name[length] || x || z || y < -62500 || y > 62500) continue;
+        top = fmaxf(top, y * CHUNK_SIZE_Y + CHUNK_SIZE_Y - 1);
+        bottom = fminf(bottom, y * CHUNK_SIZE_Y);
+    }
+    UnloadDirectoryFiles(files);
+    for (int y = top; y >= bottom; y--) {
+        Vector3 cell = {0, y, 0};
+        Vector3 chunkPosition = {0, floorf(y / (float)CHUNK_SIZE_Y), 0};
+        if (!ServerWorld_RequestChunk(chunkPosition)) return false;
+        BlockShape shape = ServerBlockStates_Shape(ServerWorld_GetBlock(cell), cell);
+        float height = -INFINITY;
+        if (shape.liquid) height = shape.bounds.max.y;
+        if (shape.solid) for (int i = 0; i < shape.collisionCount; i++) {
+            BoundingBox box = shape.collision[i];
+            if (box.min.x <= 0.5f && box.max.x >= 0.5f && box.min.z <= 0.5f && box.max.z >= 0.5f)
+                height = fmaxf(height, box.max.y);
+        }
+        if (isfinite(height)) {
+            *position = (Vector3){0.5f, height + 1.0f / 32, 0.5f};
+            return true;
+        }
+    }
+    TraceLog(LOG_ERROR, "Cannot find a spawn surface at (0, 0)");
+    return false;
+}
 
 Player *ServerPlayer_Create(void *peer, bool isWeb) {
     Player *player = MemAlloc(sizeof(*player));
     if (player == NULL) return NULL;
 
     *player = (Player){0};
+    player->spawnPoint = (Vector3){0, 80, 0};
     Inventory_Init(&player->inventory);
     player->entityId = -1;
     player->connectionId = ++nextConnectionId;
@@ -57,14 +105,11 @@ void ServerPlayer_RemoveBlockDefinition(Player *player, int id) {
     ServerNetwork_Send(player, packet);
 }
 
-void ServerPlayer_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation) {
-    ServerWorld_TeleportEntity(player->entityId, position, rotation);
-}
-
 void ServerPlayer_Teleport(Player *player, Vector3 position) {
     if (player->entityId < 0) return;
     Entity *entity = &serverWorld.entities[player->entityId];
     ServerWorld_TeleportEntity(player->entityId, position, entity->rotation);
+    ServerPlayer_ResetMovement(player);
     Entity localEntity = *entity;
     localEntity.id = USHRT_MAX;
     Vector3 localPosition = {position.x - 0.5f, position.y, position.z - 0.5f};

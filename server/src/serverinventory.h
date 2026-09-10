@@ -6,7 +6,7 @@
 void ServerInventory_Send(Player *player);
 bool ServerInventory_Load(Player *player);
 bool ServerInventory_Save(Player *player);
-void ServerInventory_HandleAction(void);
+void ServerInventory_ApplyAction(Player *player, InventoryAction action);
 void ServerInventory_UpdateHeldBlock(Player *player);
 
 void ServerInventory_UpdateDigging(void);

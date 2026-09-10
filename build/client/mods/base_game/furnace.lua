@@ -1,12 +1,12 @@
-local FURNACE = "base_game:furnace"
+local FURNACE = "midless:furnace"
 local INPUT, FUEL, OUTPUT = 1, 2, 3
 local recipes = {
     ["midless:sand"] = {id = "midless:glass", count = 1, time = 10, key = 1}, -- All recipes take ten seconds.
-    ["midless:iron_ore"] = {id = "base_game:iron_ingot", count = 1, time = 10, key = 2},
-    ["midless:log"] = {id = "base_game:charcoal", count = 1, time = 10, key = 3},
+    ["midless:iron_ore"] = {id = "midless:iron_ingot", count = 1, time = 10, key = 2},
+    ["midless:log"] = {id = "midless:charcoal", count = 1, time = 10, key = 3},
 }
 local fuels = {["midless:wood"] = 10, ["midless:log"] = 15,
-    ["base_game:stick"] = 5, ["base_game:charcoal"] = 80, ["base_game:coal"] = 80} -- burn time in seconds
+    ["midless:stick"] = 5, ["midless:charcoal"] = 80, ["midless:coal"] = 80} -- burn time in seconds
 
 local function keys(values)
     local result = {}
@@ -54,7 +54,6 @@ midless.define_block(FURNACE, {
     on_place = function(player, block)
         local look = player:get_look_direction()
         local facing
-        -- The unrotated front is +Z. Point it back toward the player.
         if math.abs(look.x) > math.abs(look.z) then
             facing = look.x > 0 and 1 or 3
         else

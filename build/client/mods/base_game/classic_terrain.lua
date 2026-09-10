@@ -51,7 +51,7 @@ wg.configure({
 })
 
 local function ore_vein(name, block, max_y, size, spacing, chance)
-    wg.define_ore("base_game:" .. name, {
+    wg.define_ore("midless:" .. name, {
         block = block, replaces = {1},
         min_y = -128, max_y = max_y,
         distribution = "veins",

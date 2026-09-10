@@ -1,13 +1,13 @@
 #ifndef MIDLESS_ENTITY_MODEL_DEFINITION_H
 #define MIDLESS_ENTITY_MODEL_DEFINITION_H
+
+#include "packetsizes.h"
 #include <stdint.h>
 #include <stdbool.h>
 #define PACKET_DEFINE_ENTITY_MODEL 14
 #define PACKET_REMOVE_ENTITY_MODEL 15
 #define PACKET_SET_ENTITY_MODEL 16
 #define ENTITY_MODEL_MAX_PARTS 64
-#define ENTITY_MODEL_HEADER_SIZE 69
-#define ENTITY_MODEL_PART_SIZE 75
 // Coordinates use 1/64 of a model unit. UVs are signed pixel rectangles.
 // Faces: east, west, up, down, north, south (matches existing models).
 typedef struct ModelPartDefinition {

@@ -279,6 +279,8 @@ void Player_CheckInputs() {
     player.camera.target = Vector3Add(eyePosition, forward);
 }
 
+
+
 void Player_Update(void) {
     ClientInventory_Update();
     

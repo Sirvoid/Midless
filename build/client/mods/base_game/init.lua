@@ -1,7 +1,11 @@
 local path = ...
 assert(type(path) == "string", "Load base_game as a mod folder")
-midless.define_texture("base_game:terrain", path .. "/textures/terrain.png")
-midless.set_terrain_texture("base_game:terrain")
+
+midless.define_texture("midless:terrain", path .. "/textures/terrain.png")
+midless.set_terrain_texture("midless:terrain")
+
+assert(loadfile(path .. "/health.lua"))(path)
+
 assert(loadfile(path .. "/items.lua"))(path)
 dofile(path .. "/classic_terrain.lua")
 dofile(path .. "/containers.lua")

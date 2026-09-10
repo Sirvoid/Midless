@@ -1,5 +1,6 @@
 #include <math.h>
 #include "inventoryscreen.h"
+#include "hudbars.h"
 #include "../items.h"
 #include "inventoryclient.h"
 #include "blockitemrenderer.h"
@@ -133,7 +134,10 @@ void ClientInventory_Draw(bool showStorage) {
         DrawRectangleLinesEx(bounds, selected ? 2 : 1, selected || hovered ? WHITE : (Color){150, 150, 150, 200});
         DrawStack(inventory->slots[index], bounds);
     }
-    if (!showStorage) return;
+    if (!showStorage) {
+        ClientHudBars_Draw((Rectangle){left, top, 9 * size - 3, size - 3});
+        return;
+    }
     if (inventory->cursor.count) {
         DrawStack(inventory->cursor, (Rectangle){mouse.x - size / 2, mouse.y - size / 2, size, size});
     } else if (hoveredSlot >= 0 && inventory->slots[hoveredSlot].count) {

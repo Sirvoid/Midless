@@ -25,6 +25,8 @@
 #include "../textures.h"
 #include "textureprotocol.h"
 #include "inventoryprotocol.h"
+#include "hudbarprotocol.h"
+#include "../gui/hudbars.h"
 #include "inventoryclient.h"
 
 PacketHandlerEntry packets[256];
@@ -54,33 +56,36 @@ void Network_Init(void) {
     acceptingIncoming = true;
     pthread_mutex_unlock(&networkQueueMutex);
     packetCount = 0;
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMapInit, 0}; //0
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleLoadChunk, 0}; //1
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetBlock, 16}; //2
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSpawnEntity, 19}; //3
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleTeleportEntity, 18}; //4
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMessage, 65}; //5
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDespawnEntity, 3}; //6
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleUnloadChunk, 13}; //7
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleBlockBatch, 0}; //8
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleWorldTime, 5}; //9
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMessageContinuation, 65}; //10
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleEntityAnimation, 4}; //11
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMapInit, MAP_INIT_PACKET_SIZE}; //0
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleLoadChunk, PACKET_VARIABLE_SIZE}; //1
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetBlock, SET_BLOCK_PACKET_SIZE}; //2
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSpawnEntity, SPAWN_ENTITY_PACKET_SIZE}; //3
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleTeleportEntity, TELEPORT_ENTITY_PACKET_SIZE}; //4
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMessage, MESSAGE_PACKET_SIZE}; //5
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDespawnEntity, DESPAWN_ENTITY_PACKET_SIZE}; //6
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleUnloadChunk, UNLOAD_CHUNK_PACKET_SIZE}; //7
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleBlockBatch, PACKET_VARIABLE_SIZE}; //8
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleWorldTime, WORLD_TIME_PACKET_SIZE}; //9
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleMessageContinuation, MESSAGE_CONTINUATION_PACKET_SIZE}; //10
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleEntityAnimation, ENTITY_ANIMATION_PACKET_SIZE}; //11
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDefineBlock, DEFINE_BLOCK_PACKET_SIZE}; //12
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleRemoveBlockDefinition, 2}; //13
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDefineEntityModel, 0}; //14
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleRemoveEntityModel, 2}; //15
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetEntityModel, 4}; //16
-    packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleBegin, TEXTURE_BEGIN_SIZE};
-    packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleData, TEXTURE_DATA_SIZE};
-    packets[packetCount++] = (PacketHandlerEntry) {&ClientTextures_HandleTerrain, 3};
-    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleHeldBlock, 5}; //20
-    packets[packetCount++] = (PacketHandlerEntry) {&ClientInventory_HandleState, INVENTORY_STATE_PACKET_SIZE}; //21
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleRemoveBlockDefinition, REMOVE_BLOCK_DEFINITION_PACKET_SIZE}; //13
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDefineEntityModel, PACKET_VARIABLE_SIZE}; //14
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleRemoveEntityModel, REMOVE_ENTITY_MODEL_PACKET_SIZE}; //15
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetEntityModel, SET_ENTITY_MODEL_PACKET_SIZE}; //16
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleTextureBegin, TEXTURE_BEGIN_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleTextureData, TEXTURE_DATA_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleTerrainTexture, TERRAIN_TEXTURE_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleHeldBlock, HELD_BLOCK_PACKET_SIZE}; //20
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleInventoryState, INVENTORY_STATE_PACKET_SIZE}; //21
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDroppedItem, DROPPED_ITEM_PACKET_SIZE}; //22
-    packets[packetCount++] = (PacketHandlerEntry) {&ClientInventory_HandleView, 0}; //23
-    packets[packetCount++] = (PacketHandlerEntry) {&ClientItems_HandleDefinition, ITEM_DEFINITION_PACKET_SIZE};
-    packets[packetCount++] = (PacketHandlerEntry) {&ClientInventory_HandleDig, 21};
-    packets[packetCount++] = (PacketHandlerEntry) {&Digging_HandleTexture, 2};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleInventoryView, PACKET_VARIABLE_SIZE}; //23
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDefineItem, ITEM_DEFINITION_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDigProgress, DIG_PROGRESS_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleBreakingTexture, BREAKING_TEXTURE_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDefineHudBar, HUD_BAR_DEFINE_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetHudBar, HUD_BAR_STATE_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleRemoveHudBar, HUD_BAR_REMOVE_SIZE};
 }
 
 void Network_Connect(void) {
@@ -103,6 +108,7 @@ void Network_Disconnect(void) {
 }
 
 static void Network_PerformDisconnect(void) {
+    ClientHudBars_Reset();
     ClientInventory_Reset();
     for (int i = 0; i < hmlen(world.chunks); i++) world.chunks[i].value->modified = false;
     bool wasLocal = LocalServer_IsRunning();
@@ -155,7 +161,7 @@ void Network_ProcessIncomingPackets(void) {
         Network_PerformDisconnect();
         return;
     }
-    if (reset) { ClientInventory_Reset(); EntityModel_ResetDefinitions(); ClientTextures_Reset(); Block_ResetDefinitions(); }
+    if (reset) { ClientHudBars_Reset(); ClientInventory_Reset(); EntityModel_ResetDefinitions(); ClientTextures_Reset(); Block_ResetDefinitions(); }
     const int maxPacketsPerFrame = 1024;
     const double terrainPacketBudgetSeconds = 0.002;
     IncomingPacket gameplayPackets[maxPacketsPerFrame];

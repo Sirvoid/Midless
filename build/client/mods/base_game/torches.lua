@@ -1,6 +1,6 @@
-midless.define_block("base_game:torch", {
+midless.define_block("midless:torch", {
     name = "Torch",
-    textures = {all = 21},
+    textures = {all = 24},
     boxes = {
         {min = {7, 0, 7}, max = {9, 10, 9}},
     },

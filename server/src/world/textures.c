@@ -6,6 +6,7 @@ extern lua_State *L;
 #include "../packet.h"
 #include "../networkhandler.h"
 #include "../items.h"
+#include "../hudbars.h"
 #include "textureprotocol.h"
 #include <stdio.h>
 #include <string.h>
@@ -32,6 +33,9 @@ int ServerTextures_Find(const char *name) {
 bool ServerTextures_ItemSize(int id) {
     return id >= 2 && id < TEXTURE_LIMIT && textures[id].data && textures[id].width <= 64 && textures[id].height <= 64;
 }
+bool ServerTextures_HudSize(int id) {
+    return id >= 2 && id < TEXTURE_LIMIT && textures[id].data && textures[id].width == 9 && textures[id].height == 9;
+}
 bool ServerTextures_Define(const char *name, const char *path) {
     int id=ServerTextures_Find(name);
     if (id==0 || id==1 || !name[0] || strlen(name)>64) return false;
@@ -52,6 +56,7 @@ bool ServerTextures_Define(const char *name, const char *path) {
         totalPixels-textures[id].width*textures[id].height+width*height>TEXTURE_TOTAL_PIXELS ||
         (terrainId==id && (width!=256 || height!=256))) { MemFree(data); return false; }
     if (id==breakingId && (width!=height*10 || height>64)) { MemFree(data); return false; }
+    if (ServerHudBars_UsesTexture(id) && (width != 9 || height != 9)) { MemFree(data); return false; }
     // Preserve compatibility with items and models already using this texture.
     if (width > 64 || height > 64) {
         for (int item=256; item<ITEM_LIMIT; item++) {
@@ -81,7 +86,7 @@ bool ServerTextures_Define(const char *name, const char *path) {
     return true;
 }
 void ServerTextures_SendTerrain(Player *p) {
-    unsigned char *packet=MemAlloc(3);
+    unsigned char *packet=MemAlloc(TERRAIN_TEXTURE_PACKET_SIZE);
     if (!packet) return;
     packet[0]=PACKET_TERRAIN_TEXTURE; Texture_Write16(packet+1,terrainId);
     ServerNetwork_Send(p,packet);
@@ -93,10 +98,7 @@ bool ServerTextures_SetTerrain(int id) {
         if(serverWorld.players[p] && !serverWorld.players[p]->disconnected) ServerTextures_SendTerrain(serverWorld.players[p]);
     return true;
 }
-void ServerTextures_HandleAck(void) {
-    Player *p=serverPacketPlayer;
-    int id=Texture_Read16(serverPacketData+1);
-    uint32_t revision=Texture_Read32(serverPacketData+3), offset=Texture_Read32(serverPacketData+7);
+void ServerTextures_Acknowledge(Player *p, int id, uint32_t revision, uint32_t offset) {
     if (!p->textureWaiting || id!=p->textureId || revision!=p->textureRevision) return;
     if (offset==UINT32_MAX) {
         TraceLog(LOG_WARNING,"Player %i rejected texture %i revision %u",p->id,id,revision);
@@ -159,7 +161,7 @@ void ServerTextures_Shutdown(void) {
 }
 
 void ServerTextures_SendBreaking(Player *player) {
-    unsigned char *packet=MemAlloc(2);
+    unsigned char *packet=MemAlloc(BREAKING_TEXTURE_PACKET_SIZE);
     if (!packet) return;
     packet[0]=26; packet[1]=breakingId; ServerNetwork_Send(player,packet);
 }

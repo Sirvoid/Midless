@@ -23,19 +23,23 @@
 #include "rotation.h"
 #include "inventoryprotocol.h"
 #include "itemdefinition.h"
+#include "../textures.h"
+#include "../items.h"
+#include "../inventoryclient.h"
+#include "../digging.h"
+#include "../gui/hudbars.h"
 
-#define PACKET_STRING_SIZE 64
 
 unsigned char *packetData;
 int packetDataLength;
 int Packet_Lengths[256] = {
-    67, //0 identification
-    16, //1 player position
-    65, //2 message
-    2, //3 draw distance
-    2, //4 player click
-    TEXTURE_ACK_SIZE, //5
-    INVENTORY_ACTION_PACKET_SIZE, //6
+    IDENTIFICATION_PACKET_SIZE, // 0
+    PLAYER_POSITION_PACKET_SIZE, // 1
+    MESSAGE_PACKET_SIZE, // 2
+    DRAW_DISTANCE_PACKET_SIZE, // 3
+    PLAYER_CLICK_PACKET_SIZE, // 4
+    TEXTURE_ACK_SIZE, // 5
+    INVENTORY_ACTION_PACKET_SIZE, // 6
 };
 int pingCalculationPreviousTime = 0;
 
@@ -47,6 +51,19 @@ int Packet_GetLength(unsigned char opcode) {
 *-------------------------------------------Packets Readers----------------------------------------------*
 *--------------------------------------------------------------------------------------------------------*/
 int packetReaderIndex = 1;
+
+const unsigned char *Packet_ReadBytes(int size) {
+    if (size < 0 || packetReaderIndex > packetDataLength - size) return NULL;
+    const unsigned char *bytes = packetData + packetReaderIndex;
+    packetReaderIndex += size;
+    return bytes;
+}
+
+uint32_t Packet_ReadUInt(void) {
+    const unsigned char *bytes = Packet_ReadBytes(4);
+    if (!bytes) return 0;
+    return (uint32_t)bytes[0] << 24 | (uint32_t)bytes[1] << 16 | (uint32_t)bytes[2] << 8 | bytes[3];
+}
 
 unsigned char Packet_ReadByte(void) {
     return packetData[packetReaderIndex++];
@@ -68,11 +85,7 @@ unsigned short Packet_ReadUShort(void) {
     return value;
 }
 
-int Packet_ReadInt(void) {
-    int value = (int)(packetData[packetReaderIndex] << 24 | packetData[packetReaderIndex + 1] << 16 | packetData[packetReaderIndex + 2] << 8 | packetData[packetReaderIndex + 3]); 
-    packetReaderIndex += 4;
-    return value;
-}
+int Packet_ReadInt(void) { return (int32_t)Packet_ReadUInt(); }
 
 char *Packet_ReadString(void) {
     char *string = MemAlloc(PACKET_STRING_SIZE + 1);
@@ -142,7 +155,7 @@ void Packet_WriteString(unsigned char *packet, char *string) {
 *--------------------------------------------------------------------------------------------------------*/
 
 void Packet_HandleMapInit(void) {
-    if (packetDataLength != 3 || Packet_ReadUShort() != GAME_PROTOCOL_VERSION) {
+    if (packetDataLength != MAP_INIT_PACKET_SIZE || Packet_ReadUShort() != GAME_PROTOCOL_VERSION) {
         TraceLog(LOG_WARNING, "Incompatible server protocol; expected version %d", GAME_PROTOCOL_VERSION);
         Network_Disconnect();
         return;
@@ -153,7 +166,7 @@ void Packet_HandleMapInit(void) {
 
 void Packet_HandleLoadChunk(void) {
     // Opcode + three coordinates + compressed-array length.
-    const int headerLength = 1 + 3 * 4 + 2;
+    const int headerLength = LOAD_CHUNK_HEADER_SIZE;
     if (packetDataLength < headerLength + CHUNK_SKY_MASK_SIZE) return;
     int x = Packet_ReadInt();
     int y = Packet_ReadInt();
@@ -266,8 +279,8 @@ void Packet_HandleMessageContinuation(void) {
 }
 
 void Packet_HandleBlockBatch(void) {
-    const int headerLength = 1 + 2; // Opcode + update count.
-    const int updateLength = 2 + 3 * 4; // Block ID + three coordinates.
+    const int headerLength = BLOCK_BATCH_HEADER_SIZE; // Opcode + update count.
+    const int updateLength = BLOCK_BATCH_UPDATE_SIZE; // Block ID + three coordinates.
     if (packetDataLength < headerLength) return;
     int count = Packet_ReadUShort();
     if (packetDataLength != headerLength + count * updateLength) return;
@@ -290,6 +303,220 @@ void Packet_HandleEntityAnimation(void) {
     int id = Packet_ReadUShort();
     EntityAnimationType animation = (EntityAnimationType)Packet_ReadByte();
     World_PlayEntityAnimation(id, animation);
+}
+
+void Packet_HandleDefineBlock(void) {
+    if (packetDataLength != DEFINE_BLOCK_PACKET_SIZE) return;
+    BlockDefinition definition = {0};
+    int id = Packet_ReadUShort();
+    char *name = Packet_ReadString();
+    if (!name) return;
+    memcpy(definition.name, name, sizeof(definition.name));
+    MemFree(name);
+    for (int i = 0; i < 6; i++) definition.textures[i] = Packet_ReadByte();
+    definition.modelType = Packet_ReadByte();
+    definition.renderType = Packet_ReadByte();
+    definition.colliderType = Packet_ReadByte();
+    definition.lightType = Packet_ReadByte();
+    for (int i = 0; i < 3; i++) definition.min[i] = Packet_ReadByte();
+    for (int i = 0; i < 3; i++) definition.max[i] = Packet_ReadByte();
+    uint8_t geometry[BLOCK_GEOMETRY_BYTES];
+    for(int i=0;i<BLOCK_GEOMETRY_BYTES;i++) geometry[i]=Packet_ReadByte();
+    if(!BlockGeometry_Decode(&definition.geometry,geometry)) return;
+    if (!Block_ApplyDefinition(id, &definition)) {
+        TraceLog(LOG_WARNING, "Rejected invalid block definition");
+    }
+}
+
+void Packet_HandleRemoveBlockDefinition(void) {
+    if (packetDataLength == REMOVE_BLOCK_DEFINITION_PACKET_SIZE) Block_RemoveDefinition(Packet_ReadByte());
+}
+
+void Packet_HandleDefineEntityModel(void) {
+    if (packetDataLength < ENTITY_MODEL_HEADER_SIZE) return;
+    ModelDefinition d = {0};
+    int id = Packet_ReadByte();
+    char *name = Packet_ReadString();
+    if (!name) return;
+    memcpy(d.name, name, sizeof(d.name)); MemFree(name);
+    d.texture = Packet_ReadUShort();
+    d.partCount = Packet_ReadByte();
+    if (!d.partCount || d.partCount > ENTITY_MODEL_MAX_PARTS ||
+        packetDataLength != ENTITY_MODEL_HEADER_SIZE + d.partCount * ENTITY_MODEL_PART_SIZE) return;
+    for (int i = 0; i < d.partCount; i++) {
+        ModelPartDefinition *p = &d.parts[i];
+        p->role = Packet_ReadByte();
+        p->firstPersonVisible = Packet_ReadByte();
+        p->hasGrip = Packet_ReadByte();
+        for (int a = 0; a < 3; a++) p->grip[a] = Packet_ReadShort();
+        for (int a = 0; a < 3; a++) p->position[a] = Packet_ReadShort();
+        for (int a = 0; a < 3; a++) p->min[a] = Packet_ReadShort();
+        for (int a = 0; a < 3; a++) p->max[a] = Packet_ReadShort();
+        for (int f = 0; f < 6; f++) for (int a = 0; a < 4; a++) p->uv[f][a] = Packet_ReadShort();
+    }
+    if (!EntityModel_ApplyDefinition(id, &d)) TraceLog(LOG_WARNING, "Rejected invalid entity model");
+}
+void Packet_HandleRemoveEntityModel(void) { EntityModel_RemoveDefinition(Packet_ReadByte()); }
+void Packet_HandleSetEntityModel(void) {
+    int entityId = Packet_ReadUShort();
+    int modelId = Packet_ReadByte();
+    EntityModel_SetEntityModel(entityId, modelId);
+}
+
+void Packet_HandleHeldBlock(void) {
+    int id = Packet_ReadUShort();
+    unsigned short blockId = Packet_ReadUShort();
+    if (world.entities && id < WORLD_MAX_ENTITIES && world.entities[id].type)
+        world.entities[id].heldBlock = blockId;
+}
+
+void Packet_HandleDroppedItem(void) {
+    if (packetDataLength != DROPPED_ITEM_PACKET_SIZE) return;
+    int id = Packet_ReadUShort();
+    ItemStack stack = {Packet_ReadUShort(), Packet_ReadByte()};
+    Vector3 position = {Packet_ReadInt() / 64.0f, Packet_ReadInt() / 64.0f, Packet_ReadInt() / 64.0f};
+    stack.metadataSize = Packet_ReadByte();
+    stack.metadataVersion = Packet_ReadUShort();
+    if (stack.metadataSize > ITEM_METADATA_BYTES || (stack.metadataSize && !stack.metadataVersion)) return;
+    memcpy(stack.metadata, Packet_ReadBytes(ITEM_METADATA_BYTES), ITEM_METADATA_BYTES);
+    if (!world.entities || id >= WORLD_MAX_ENTITIES || !stack.itemId || stack.itemId >= ITEM_LIMIT ||
+        !stack.count || stack.count > Item_GetMaxStack(stack.itemId) ||
+        fabsf(position.x) > 1000000 || fabsf(position.y) > 1000000 || fabsf(position.z) > 1000000) return;
+    Entity *entity = &world.entities[id];
+    if (entity->type != ENTITY_TYPE_DROPPED_ITEM) {
+        World_AddEntity(id, ENTITY_TYPE_DROPPED_ITEM, 0, position, (Vector3){0});
+    } else {
+        World_TeleportEntity(id, position, (Vector3){0});
+    }
+    entity->droppedStack = stack;
+}
+
+void Packet_HandleTextureBegin(void) {
+    if (packetDataLength != TEXTURE_BEGIN_SIZE) return;
+    int id = Packet_ReadUShort();
+    uint32_t revision = Packet_ReadUInt();
+    uint32_t size = Packet_ReadUInt();
+    int width = Packet_ReadUShort();
+    int height = Packet_ReadUShort();
+    ClientTextures_Begin(id, revision, size, width, height);
+}
+
+void Packet_HandleTextureData(void) {
+    if (packetDataLength != TEXTURE_DATA_SIZE) return;
+    int id = Packet_ReadUShort();
+    uint32_t revision = Packet_ReadUInt();
+    uint32_t offset = Packet_ReadUInt();
+    unsigned count = Packet_ReadUShort();
+    const unsigned char *data = Packet_ReadBytes(TEXTURE_CHUNK_BYTES);
+    ClientTextures_Data(id, revision, offset, count, data);
+}
+
+void Packet_HandleTerrainTexture(void) {
+    if (packetDataLength != TERRAIN_TEXTURE_PACKET_SIZE) return;
+    ClientTextures_SetTerrain(Packet_ReadUShort());
+}
+
+void Packet_HandleDefineItem(void) {
+    if (packetDataLength != ITEM_DEFINITION_PACKET_SIZE) return;
+    int id = Packet_ReadUShort();
+    ItemDefinition item = {0};
+    memcpy(item.identifier, Packet_ReadBytes(sizeof(item.identifier)), sizeof(item.identifier));
+    memcpy(item.name, Packet_ReadBytes(sizeof(item.name)), sizeof(item.name));
+    item.maxStack = Packet_ReadByte();
+    item.texture = Packet_ReadByte();
+    if (id < 1 || id >= ITEM_LIMIT || !memchr(item.identifier, 0, sizeof(item.identifier)) ||
+        !memchr(item.name, 0, sizeof(item.name)) || !item.maxStack || item.maxStack > 64) return;
+    item.defined = true;
+    ClientItems_Define(id, &item);
+}
+
+static bool Packet_ReadInventory(Inventory *inventory, uint32_t *revision, uint32_t *acknowledged) {
+    *inventory = (Inventory){0};
+    *revision = Packet_ReadUInt();
+    *acknowledged = Packet_ReadUInt();
+    inventory->selectedHotbar = Packet_ReadByte();
+    int open = Packet_ReadByte();
+    inventory->open = open != 0;
+    inventory->cursorOrigin = Packet_ReadByte();
+    if (inventory->selectedHotbar >= INVENTORY_HOTBAR_SLOTS || open > 1 ||
+        (inventory->cursorOrigin >= INVENTORY_SLOT_COUNT && inventory->cursorOrigin != INVENTORY_NO_SLOT)) return false;
+    for (int i = 0; i <= INVENTORY_SLOT_COUNT; i++) {
+        ItemStack *stack = i == INVENTORY_SLOT_COUNT ? &inventory->cursor : &inventory->slots[i];
+        stack->itemId = Packet_ReadUShort();
+        stack->count = Packet_ReadByte();
+        stack->metadataSize = Packet_ReadByte();
+        stack->metadataVersion = Packet_ReadUShort();
+        memcpy(stack->metadata, Packet_ReadBytes(ITEM_METADATA_BYTES), ITEM_METADATA_BYTES);
+        if (stack->metadataSize > ITEM_METADATA_BYTES ||
+            (stack->metadataSize && (!stack->count || !stack->metadataVersion)) ||
+            (stack->count == 0) != (stack->itemId == 0) || stack->count > Item_GetMaxStack(stack->itemId)) return false;
+    }
+    return inventory->open || !inventory->cursor.count;
+}
+
+void Packet_HandleInventoryState(void) {
+    if (packetDataLength != INVENTORY_STATE_PACKET_SIZE) return;
+    Inventory inventory;
+    uint32_t revision, acknowledged;
+    if (!Packet_ReadInventory(&inventory, &revision, &acknowledged)) return;
+    ClientInventory_SetState(&inventory, revision, acknowledged, NULL);
+}
+
+void Packet_HandleInventoryView(void) {
+    if (packetDataLength <= INVENTORY_VIEW_HEADER_SIZE || Packet_ReadByte() != PACKET_INVENTORY_STATE) return;
+    Inventory inventory;
+    uint32_t revision, acknowledged;
+    if (!Packet_ReadInventory(&inventory, &revision, &acknowledged) || !inventory.open) return;
+    // The view uses the shared variable-length UI format, also used by the server writer.
+    int size = packetDataLength - packetReaderIndex;
+    BinaryReader reader = {Packet_ReadBytes(size), size};
+    InventoryView view;
+    if (!InventoryView_Read(&reader, &view) || !Binary_End(&reader)) return;
+    ClientInventory_SetState(&inventory, revision, acknowledged, &view);
+}
+
+void Packet_HandleDigProgress(void) {
+    if (packetDataLength != DIG_PROGRESS_PACKET_SIZE) return;
+    Packet_ReadInt(); // Target position, retained in the packet for compatibility.
+    Packet_ReadInt();
+    Packet_ReadInt();
+    uint32_t sequence = Packet_ReadUInt();
+    int milliseconds = Packet_ReadInt();
+    ClientInventory_SetDigProgress(sequence, milliseconds);
+}
+
+void Packet_HandleBreakingTexture(void) {
+    if (packetDataLength != BREAKING_TEXTURE_PACKET_SIZE) return;
+    Digging_SetTexture(Packet_ReadByte());
+}
+
+void Packet_HandleDefineHudBar(void) {
+    if (packetDataLength != HUD_BAR_DEFINE_SIZE) return;
+    int id = Packet_ReadByte();
+    HudBarDefinition bar = {.defined = true};
+    bar.texture = Packet_ReadByte();
+    bar.icons = Packet_ReadByte();
+    bar.priority = Packet_ReadUShort();
+    bar.max = Packet_ReadUShort();
+    if (id >= HUD_BAR_LIMIT || bar.texture < 2 || bar.texture >= TEXTURE_LIMIT ||
+        !bar.icons || bar.icons > HUD_BAR_MAX_ICONS || !bar.max) return;
+    ClientHudBars_Define(id, bar);
+}
+
+void Packet_HandleSetHudBar(void) {
+    if (packetDataLength != HUD_BAR_STATE_SIZE) return;
+    int id = Packet_ReadByte();
+    int value = Packet_ReadUShort();
+    int visible = Packet_ReadByte();
+    if (id >= HUD_BAR_LIMIT || visible > 1) return;
+    ClientHudBars_Set(id, (HudBarState){value, visible != 0});
+}
+
+void Packet_HandleRemoveHudBar(void) {
+    if (packetDataLength != HUD_BAR_REMOVE_SIZE) return;
+    int id = Packet_ReadByte();
+    if (id >= HUD_BAR_LIMIT) return;
+    ClientHudBars_Remove(id);
 }
 
 /*-------------------------------------------------------------------------------------------------------*
@@ -341,87 +568,4 @@ unsigned char *Packet_CreatePlayerClick(unsigned char button) {
     return packet;
 }
 
-void Packet_HandleDefineBlock(void) {
-    if (packetDataLength != DEFINE_BLOCK_PACKET_SIZE) return;
-    BlockDefinition definition = {0};
-    int id = Packet_ReadUShort();
-    char *name = Packet_ReadString();
-    if (!name) return;
-    memcpy(definition.name, name, sizeof(definition.name));
-    MemFree(name);
-    for (int i = 0; i < 6; i++) definition.textures[i] = Packet_ReadByte();
-    definition.modelType = Packet_ReadByte();
-    definition.renderType = Packet_ReadByte();
-    definition.colliderType = Packet_ReadByte();
-    definition.lightType = Packet_ReadByte();
-    for (int i = 0; i < 3; i++) definition.min[i] = Packet_ReadByte();
-    for (int i = 0; i < 3; i++) definition.max[i] = Packet_ReadByte();
-    uint8_t geometry[BLOCK_GEOMETRY_BYTES];
-    for(int i=0;i<BLOCK_GEOMETRY_BYTES;i++) geometry[i]=Packet_ReadByte();
-    if(!BlockGeometry_Decode(&definition.geometry,geometry)) return;
-    if (!Block_ApplyDefinition(id, &definition)) {
-        TraceLog(LOG_WARNING, "Rejected invalid block definition");
-    }
-}
 
-void Packet_HandleRemoveBlockDefinition(void) {
-    if (packetDataLength == 2) Block_RemoveDefinition(Packet_ReadByte());
-}
-
-void Packet_HandleDefineEntityModel(void) {
-    if (packetDataLength < ENTITY_MODEL_HEADER_SIZE) return;
-    ModelDefinition d = {0};
-    int id = Packet_ReadByte();
-    char *name = Packet_ReadString();
-    if (!name) return;
-    memcpy(d.name, name, sizeof(d.name)); MemFree(name);
-    d.texture = Packet_ReadUShort();
-    d.partCount = Packet_ReadByte();
-    if (!d.partCount || d.partCount > ENTITY_MODEL_MAX_PARTS ||
-        packetDataLength != ENTITY_MODEL_HEADER_SIZE + d.partCount * ENTITY_MODEL_PART_SIZE) return;
-    for (int i = 0; i < d.partCount; i++) {
-        ModelPartDefinition *p = &d.parts[i];
-        p->role = Packet_ReadByte();
-        p->firstPersonVisible = Packet_ReadByte();
-        p->hasGrip = Packet_ReadByte();
-        for (int a = 0; a < 3; a++) p->grip[a] = Packet_ReadShort();
-        for (int a = 0; a < 3; a++) p->position[a] = Packet_ReadShort();
-        for (int a = 0; a < 3; a++) p->min[a] = Packet_ReadShort();
-        for (int a = 0; a < 3; a++) p->max[a] = Packet_ReadShort();
-        for (int f = 0; f < 6; f++) for (int a = 0; a < 4; a++) p->uv[f][a] = Packet_ReadShort();
-    }
-    if (!EntityModel_ApplyDefinition(id, &d)) TraceLog(LOG_WARNING, "Rejected invalid entity model");
-}
-void Packet_HandleRemoveEntityModel(void) { EntityModel_RemoveDefinition(Packet_ReadByte()); }
-void Packet_HandleSetEntityModel(void) {
-    int entityId = Packet_ReadUShort();
-    int modelId = Packet_ReadByte();
-    EntityModel_SetEntityModel(entityId, modelId);
-}
-
-void Packet_HandleHeldBlock(void) {
-    int id = Packet_ReadUShort();
-    unsigned short blockId = Packet_ReadUShort();
-    if (world.entities && id < WORLD_MAX_ENTITIES && world.entities[id].type)
-        world.entities[id].heldBlock = blockId;
-}
-
-void Packet_HandleDroppedItem(void) {
-    if (packetDataLength != DROPPED_ITEM_PACKET_SIZE) return;
-    int id = Packet_ReadUShort();
-    ItemStack stack = {Packet_ReadUShort(), Packet_ReadByte()};
-    stack.metadataSize = packetData[18]; stack.metadataVersion = (packetData[19] << 8) | packetData[20];
-    if (stack.metadataSize > ITEM_METADATA_BYTES || (stack.metadataSize && !stack.metadataVersion)) return;
-    memcpy(stack.metadata, packetData + 21, ITEM_METADATA_BYTES);
-    Vector3 position = {Packet_ReadInt() / 64.0f, Packet_ReadInt() / 64.0f, Packet_ReadInt() / 64.0f};
-    if (!world.entities || id >= WORLD_MAX_ENTITIES || !stack.itemId || stack.itemId >= ITEM_LIMIT ||
-        !stack.count || stack.count > Item_GetMaxStack(stack.itemId) ||
-        fabsf(position.x) > 1000000 || fabsf(position.y) > 1000000 || fabsf(position.z) > 1000000) return;
-    Entity *entity = &world.entities[id];
-    if (entity->type != ENTITY_TYPE_DROPPED_ITEM) {
-        World_AddEntity(id, ENTITY_TYPE_DROPPED_ITEM, 0, position, (Vector3){0});
-    } else {
-        World_TeleportEntity(id, position, (Vector3){0});
-    }
-    entity->droppedStack = stack;
-}

@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <math.h>
 #if defined(OS_WINDOWS)
 #include <direct.h>
 #else
@@ -65,6 +66,20 @@ bool ServerInventory_Save(Player *player) {
         Binary_U16(&out,entry->value.version); Binary_U32(&out,entry->value.size);
         Binary_Write(&out,entry->value.data,entry->value.size);
     }
+    Binary_Float(&out, player->spawnPoint.x);
+    Binary_Float(&out, player->spawnPoint.y);
+    Binary_Float(&out, player->spawnPoint.z);
+    if (serverWorld.entities && player->entityId >= 0 && player->entityId < WORLD_MAX_ENTITIES) {
+        Entity *entity = &serverWorld.entities[player->entityId];
+        if (entity->active && entity->ownerPlayerId == player->id) {
+            player->savedPosition = entity->position;
+            player->hasSavedPosition = true;
+        }
+    }
+    Binary_U8(&out, player->hasSavedPosition);
+    Binary_Float(&out, player->savedPosition.x);
+    Binary_Float(&out, player->savedPosition.y);
+    Binary_Float(&out, player->savedPosition.z);
     bool ok = !out.failed && SaveFile_WriteAtomic(path, out.data, out.size);
     free(out.data);
     if (!ok) TraceLog(LOG_ERROR, "Could not save player inventory %s; original file retained", path);
@@ -74,8 +89,7 @@ static bool DecodePlayer(Player *player, const uint8_t *data, size_t size) {
     BinaryReader in = {data, size};
     const uint8_t *magic = Binary_Read(&in, 4);
     if (!magic || memcmp(magic, "MDPI", 4)) return false;
-    int version = Binary_ReadU8(&in);
-    if (version != PLAYER_INVENTORY_VERSION) return false;
+    if (Binary_ReadU8(&in) != PLAYER_INVENTORY_VERSION) return false;
     Inventory inventory; Inventory_Init(&inventory);
     inventory.selectedHotbar = Binary_ReadU8(&in);
     int count = Binary_ReadU8(&in), previous = -1;
@@ -122,6 +136,19 @@ static bool DecodePlayer(Player *player, const uint8_t *data, size_t size) {
         if (metadata[i].value.size>65535 || (metadata[i].value.size && !metadata[i].value.version)) return false;
         metadata[i].value.data=(uint8_t *)Binary_Read(&in,metadata[i].value.size);
     }
+    Vector3 spawnPoint;
+    spawnPoint.x = Binary_ReadFloat(&in);
+    spawnPoint.y = Binary_ReadFloat(&in);
+    spawnPoint.z = Binary_ReadFloat(&in);
+    if (!isfinite(spawnPoint.x) || !isfinite(spawnPoint.y) || !isfinite(spawnPoint.z) ||
+        fabsf(spawnPoint.x) > 1000000 || fabsf(spawnPoint.y) > 1000000 || fabsf(spawnPoint.z) > 1000000) return false;
+    Vector3 savedPosition;
+    int hasSavedPosition = Binary_ReadU8(&in);
+    savedPosition.x = Binary_ReadFloat(&in);
+    savedPosition.y = Binary_ReadFloat(&in);
+    savedPosition.z = Binary_ReadFloat(&in);
+    if (hasSavedPosition > 1 || !isfinite(savedPosition.x) || !isfinite(savedPosition.y) || !isfinite(savedPosition.z) ||
+        fabsf(savedPosition.x) > 1000000 || fabsf(savedPosition.y) > 1000000 || fabsf(savedPosition.z) > 1000000) return false;
     if (!Binary_End(&in)) return false;
     // Copy only after the whole file passes validation. Unknown mod payloads are retained.
     for (int i=0;i<metadataCount;i++) {
@@ -135,6 +162,9 @@ static bool DecodePlayer(Player *player, const uint8_t *data, size_t size) {
     memcpy(player->metadata,metadata,sizeof(metadata)); player->metadataCount=metadataCount;
     inventory.open = inventory.cursor.count != 0;
     player->inventory = inventory;
+    player->spawnPoint = spawnPoint;
+    player->savedPosition = savedPosition;
+    player->hasSavedPosition = hasSavedPosition != 0;
     memcpy(player->namedInventories, named, sizeof(named));
     player->namedInventoryCount = namedCount;
     player->inventoryLoaded = true;
@@ -158,6 +188,9 @@ bool ServerInventory_Load(Player *player) {
     if (!file) {
         if (errno != ENOENT) return false;
         Inventory_Init(&player->inventory);
+        if (!ServerPlayer_FindSpawnPoint(&player->spawnPoint)) return false;
+        player->savedPosition = (Vector3){0};
+        player->hasSavedPosition = false;
         player->namedInventoryCount = 0;
         for (int i=0;i<player->metadataCount;i++) Metadata_Free(&player->metadata[i].value);
         memset(player->metadata,0,sizeof(player->metadata)); player->metadataCount=0;

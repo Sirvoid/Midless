@@ -1,6 +1,8 @@
 #ifndef MIDLESS_BLOCK_DEFINITION_H
 #define MIDLESS_BLOCK_DEFINITION_H
 
+#include "packetsizes.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -10,7 +12,6 @@
 #define BLOCK_MAX_STATES 32
 #define BLOCK_RUNTIME_COUNT (256 * BLOCK_MAX_STATES)
 #define BLOCK_GEOMETRY_BYTES (5 + BLOCK_MODEL_MAX_BOXES * 24)
-#define DEFINE_BLOCK_PACKET_SIZE (83 + BLOCK_GEOMETRY_BYTES)
 #define BLOCK_DEFAULT_LAST_ID 18
 
 typedef enum BlockModelType {

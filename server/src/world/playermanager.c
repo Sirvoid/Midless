@@ -31,11 +31,13 @@ void ServerWorld_AddPlayer(void *player) {
 
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if (serverWorld.players[i] != NULL) continue;
-        int entityId = ServerWorld_AddEntity(1, 0, (Vector3){0, 80, 0}, i);
+        Vector3 position = newPlayer->hasSavedPosition ? newPlayer->savedPosition : newPlayer->spawnPoint;
+        int entityId = ServerWorld_AddEntity(1, 0, position, i);
         if (entityId < 0) return;
         newPlayer->entityId = entityId;
         serverWorld.players[i] = newPlayer;
         newPlayer->id = i;
+        ServerPlayer_ResetMovement(newPlayer);
 
         Entity localEntity = serverWorld.entities[newPlayer->entityId];
         localEntity.id = USHRT_MAX;

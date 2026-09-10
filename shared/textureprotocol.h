@@ -1,5 +1,7 @@
 #ifndef MIDLESS_TEXTURE_PROTOCOL_H
 #define MIDLESS_TEXTURE_PROTOCOL_H
+
+#include "packetsizes.h"
 #include <stdint.h>
 #include <stdbool.h>
 #define TEXTURE_LIMIT 66
@@ -12,9 +14,6 @@
 #define PACKET_TEXTURE_DATA 18
 #define PACKET_TERRAIN_TEXTURE 19
 #define PACKET_TEXTURE_ACK 5
-#define TEXTURE_BEGIN_SIZE 15
-#define TEXTURE_DATA_SIZE (13 + TEXTURE_CHUNK_BYTES)
-#define TEXTURE_ACK_SIZE 11
 static inline uint32_t Texture_Read32(const unsigned char *p) {
     return ((uint32_t)p[0]<<24) | ((uint32_t)p[1]<<16) | ((uint32_t)p[2]<<8) | p[3];
 }

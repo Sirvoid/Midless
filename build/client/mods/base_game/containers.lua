@@ -1,12 +1,27 @@
-local CHEST_ID = "base_game:chest"
+local CHEST_ID = "midless:chest"
 
 midless.define_block(CHEST_ID, {
     name = "Chest",
-    textures = {all = 4, top = 9, bottom = 9},
+    textures = {all = 22, top = 21, bottom = 21, front = 23},
     hardness = 2.5, dig_group = "wood",
     metadata = {
         {name = "items", type = "inventory", slots = 27},
+        {name = "facing", type = "uint", default = 0}
     },
+    state_fields = {"facing"},
+    variants = {
+        {when = {}, rotate_y_from = "facing"},
+    },
+    on_place = function(player, block)
+        local look = player:get_look_direction()
+        local facing
+        if math.abs(look.x) > math.abs(look.z) then
+            facing = look.x > 0 and 1 or 3
+        else
+            facing = look.z > 0 and 2 or 0
+        end
+        block:set_metadata("facing", facing)
+    end,
 
     on_interact = function(player, block)
         player:show_inventory({
@@ -34,7 +49,7 @@ midless.define_block(CHEST_ID, {
 })
 
 
-local CRAFTING_TABLE = "base_game:crafting_table"
+local CRAFTING_TABLE = "midless:crafting_table"
 
 midless.define_block(CRAFTING_TABLE, {
     name = "Crafting Table",
