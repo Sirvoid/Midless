@@ -207,7 +207,7 @@ void Packet_HandleUnloadChunk(void) {
 }
 
 void Packet_HandleSetBlock(void) {
-    int blockId = Packet_ReadByte();
+    int blockId = Packet_ReadUShort();
     Vector3 position = (Vector3) { Packet_ReadInt(), Packet_ReadInt(), Packet_ReadInt() };
     bool byPlayer = Packet_ReadByte();
     if (!Block_IsDefined(blockId)) return;
@@ -267,12 +267,12 @@ void Packet_HandleMessageContinuation(void) {
 
 void Packet_HandleBlockBatch(void) {
     const int headerLength = 1 + 2; // Opcode + update count.
-    const int updateLength = 1 + 3 * 4; // Block ID + three coordinates.
+    const int updateLength = 2 + 3 * 4; // Block ID + three coordinates.
     if (packetDataLength < headerLength) return;
     int count = Packet_ReadUShort();
     if (packetDataLength != headerLength + count * updateLength) return;
     for (int i = 0; i < count; i++) {
-        int blockId = Packet_ReadByte();
+        int blockId = Packet_ReadUShort();
         Vector3 position = {
             Packet_ReadInt(), Packet_ReadInt(), Packet_ReadInt()
         };
@@ -344,7 +344,7 @@ unsigned char *Packet_CreatePlayerClick(unsigned char button) {
 void Packet_HandleDefineBlock(void) {
     if (packetDataLength != DEFINE_BLOCK_PACKET_SIZE) return;
     BlockDefinition definition = {0};
-    int id = Packet_ReadByte();
+    int id = Packet_ReadUShort();
     char *name = Packet_ReadString();
     if (!name) return;
     memcpy(definition.name, name, sizeof(definition.name));
@@ -356,6 +356,9 @@ void Packet_HandleDefineBlock(void) {
     definition.lightType = Packet_ReadByte();
     for (int i = 0; i < 3; i++) definition.min[i] = Packet_ReadByte();
     for (int i = 0; i < 3; i++) definition.max[i] = Packet_ReadByte();
+    uint8_t geometry[BLOCK_GEOMETRY_BYTES];
+    for(int i=0;i<BLOCK_GEOMETRY_BYTES;i++) geometry[i]=Packet_ReadByte();
+    if(!BlockGeometry_Decode(&definition.geometry,geometry)) return;
     if (!Block_ApplyDefinition(id, &definition)) {
         TraceLog(LOG_WARNING, "Rejected invalid block definition");
     }

@@ -658,7 +658,8 @@ bool Worldgen_Freeze(void) {
                               id != 15 && id != 17 && id != 18;
         if (serverWorld.hasBlockDefinition[id]) {
             BlockDefinition *b = &serverWorld.blockDefinitions[id];
-            worldgen.opaque[id] = b->renderType == BLOCK_RENDER_OPAQUE && b->min[0] == 0 &&
+            worldgen.opaque[id] = (!b->geometry.enabled || b->geometry.boxCount == 1) &&
+                                  b->renderType == BLOCK_RENDER_OPAQUE && b->min[0] == 0 &&
                                   b->min[1] == 0 && b->min[2] == 0 && b->max[0] == 16 &&
                                   b->max[1] == 16 && b->max[2] == 16;
         }

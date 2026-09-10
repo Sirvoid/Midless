@@ -37,7 +37,7 @@ static Color FaceColor(int face, bool sprite) {
 
 static Mesh BuildMesh(int blockId, const Block *block) {
     const bool sprite = block->modelType == BLOCK_MODEL_SPRITE;
-    const int faceCount = sprite ? 4 : 6;
+    const int faceCount = BlockMesh_GetTemplate(blockId)->faceCount;
     static const int triangleCorners[6] = {0, 1, 2, 1, 0, 3};
     const BlockMeshTemplate *meshTemplate = BlockMesh_GetTemplate(blockId);
     Mesh mesh = {0};
@@ -54,7 +54,7 @@ static Mesh BuildMesh(int blockId, const Block *block) {
     for (int face = 0; face < faceCount; face++) {
         const unsigned char *source = meshTemplate->vertices[face];
         const unsigned short *uvs = meshTemplate->texcoords[face];
-        Color color = FaceColor(face, sprite);
+        Color color = FaceColor(meshTemplate->directions[face], sprite);
 
         for (int vertex = 0; vertex < 6; vertex++) {
             int corner = triangleCorners[vertex];

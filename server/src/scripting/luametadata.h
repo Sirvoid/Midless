@@ -5,6 +5,9 @@
 #include "inventory.h"
 #include "raylib.h"
 
+bool LuaMetadata_StateField(int id, const char *name, bool *boolean, int *bits);
+bool LuaMetadata_StateValue(int id, const Metadata *value, const char *name, int64_t *out);
+
 // Schema registry IDs are runtime-only. Payloads store the declared version.
 int LuaMetadata_Register(lua_State *state, int definition);
 void LuaMetadata_DefineItem(int id, int definition);

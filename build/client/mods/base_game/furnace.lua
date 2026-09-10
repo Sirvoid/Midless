@@ -45,7 +45,23 @@ midless.define_block(FURNACE, {
         {name = "burn_progress", type = "float"},
         {name = "cook_progress", type = "float"},
         {name = "cook_item", type = "uint"},
+        {name = "facing", type = "uint", default = 0},
     },
+    state_fields = {"facing"},
+    variants = {
+        {when = {}, rotate_y_from = "facing"},
+    },
+    on_place = function(player, block)
+        local look = player:get_look_direction()
+        local facing
+        -- The unrotated front is +Z. Point it back toward the player.
+        if math.abs(look.x) > math.abs(look.z) then
+            facing = look.x > 0 and 1 or 3
+        else
+            facing = look.z > 0 and 2 or 0
+        end
+        block:set_metadata("facing", facing)
+    end,
     on_inventory_changed = function(block, field)
         if field ~= "items" then return end
         local input = block:get_inventory("items"):get_stack(INPUT)

@@ -15,8 +15,8 @@ static unsigned char *vertices, *colors, *verticesT, *colorsT;
 static unsigned short *indices, *texcoords, *indicesT, *texcoordsT;
 
 void ChunkMeshGeneration_Init(void) {
-    int vertexCount = 2 * 6 * CHUNK_SIZE * 2;
-    int triangleCount = 2 * 6 * CHUNK_SIZE;
+    int vertexCount = 2 * 6 * BLOCK_MODEL_MAX_BOXES * CHUNK_SIZE * 2;
+    int triangleCount = 2 * 6 * BLOCK_MODEL_MAX_BOXES * CHUNK_SIZE;
     vertices = MemAlloc(vertexCount * 3);
     texcoords = MemAlloc(vertexCount * 2 * sizeof(unsigned short));
     colors = MemAlloc(vertexCount);
@@ -65,6 +65,9 @@ static bool FaceVisible(const Block *block, const Block *next) {
 
 static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
                     BlockFace face, const Block *block) {
+    const BlockMeshTemplate *model=BlockMesh_GetTemplate((int)(block-blockDefinitions));
+    int templateFace=(int)face;
+    face=(BlockFace)model->directions[templateFace];
     static const int indexOffsets[6] = {-1, 1, CHUNK_SIZE_XZ, -CHUNK_SIZE_XZ, CHUNK_SIZE_X, -CHUNK_SIZE_X};
     int nx = x, ny = y, nz = z;
     if (face == BLOCK_FACE_LEFT) nx--;
@@ -89,7 +92,11 @@ static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
 
     const Block *next = &blockDefinitions[nextChunk->data[nextIndex]];
     bool sprite = block->modelType == BLOCK_MODEL_SPRITE;
-    if (!sprite && !FaceVisible(block, next)) return;
+    if (!sprite && model->boundary[templateFace]) {
+        if (next->geometry.enabled) { if(next->fastOpaqueCube) return; }
+        else if(block->geometry.enabled) { if(next->fastOpaqueCube) return; }
+        else if(!FaceVisible(block,next)) return;
+    }
 
     int light;
     int sunlight;
@@ -110,10 +117,10 @@ static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
 
     if (block->renderType == BLOCK_RENDER_TRANSLUCENT) {
         chunkTransparentTriangleCount += 2;
-        BlockMesh_AddFace(verticesT, indicesT, texcoordsT, colorsT, face, x, y, z, block, 1, light, sunlight);
+        BlockMesh_AddFace(verticesT, indicesT, texcoordsT, colorsT, (BlockFace)templateFace, x, y, z, block, 1, light, sunlight);
     } else {
         chunkTriangleCount += 2;
-        BlockMesh_AddFace(vertices, indices, texcoords, colors, face, x, y, z, block, 0, light, sunlight);
+        BlockMesh_AddFace(vertices, indices, texcoords, colors, (BlockFace)templateFace, x, y, z, block, 0, light, sunlight);
     }
 }
 
@@ -133,7 +140,7 @@ void ChunkMeshGeneration_Build(Chunk *chunk) {
                 if (block->modelType == BLOCK_MODEL_GAS) continue;
                 chunk->onlyAir = false;
                 if (block->renderType == BLOCK_RENDER_TRANSLUCENT) chunk->hasTransparency = true;
-                int faceCount = block->modelType == BLOCK_MODEL_SPRITE ? 4 : 6;
+                int faceCount = BlockMesh_GetTemplate(blockId)->faceCount;
                 for (int face = 0; face < faceCount; face++) AddFace(chunk, index, x, y, z, (BlockFace)face, block);
             }
         }

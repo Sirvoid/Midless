@@ -376,11 +376,10 @@ bool Player_TestCollision(Vector3 offset) {
                 const Block *blockDef = Block_GetDefinition(blockId);
                 if (blockDef->colliderType != BLOCK_COLLIDER_SOLID) continue;
                 
-                BoundingBox blockB;
-                blockB.min = (Vector3) {x + (blockDef->minBB.x / 16), y + (blockDef->minBB.y / 16), z + (blockDef->minBB.z / 16)};
-                blockB.max = (Vector3) {x + (blockDef->maxBB.x / 16), y + (blockDef->maxBB.y / 16), z + (blockDef->maxBB.z / 16)};
-                
-                if (CheckCollisionBoxes(pB, blockB)) return true;
+                for(int box=0;box<Block_BoxCount(blockDef,false);box++) {
+                    BoundingBox blockB=Block_GetBox(blockDef,box,blockPos,false);
+                    if(CheckCollisionBoxes(pB,blockB)) return true;
+                }
             }
         }
     }

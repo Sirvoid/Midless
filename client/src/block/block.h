@@ -21,6 +21,7 @@ typedef enum BlockFace{
 } BlockFace;
 
 typedef struct Block {
+    BlockGeometry geometry;
     char name[65];
     int textures[6];
     int modelType;
@@ -35,7 +36,10 @@ typedef struct Block {
     Color liquidTint;
 } Block;
 
-extern Block blockDefinitions[256];
+extern Block blockDefinitions[BLOCK_RUNTIME_COUNT];
+
+BoundingBox Block_GetBox(const Block *block, int index, Vector3 position, bool selection);
+int Block_BoxCount(const Block *block, bool selection);
 
 const Block *Block_GetDefinition(int id);
 

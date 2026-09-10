@@ -1,5 +1,6 @@
 #include "version.h"
 #include "luametadata.h"
+#include "blockstates.h"
 #include "binarydata.h"
 #include "luaentities.h"
 #include "luabindings.h"
@@ -446,6 +447,36 @@ static bool SkipField(const Field *field, BinaryReader *in, Bits *bits) {
     }
     return !in->failed;
 }
+bool LuaMetadata_StateField(int id, const char *name, bool *boolean, int *bits) {
+    if (id<0 || id>255 || blockSchemas[id]<0) return false;
+    Schema *schema=schemas[blockSchemas[id]];
+    for(int i=0;i<schema->count;i++) if(!strcmp(schema->fields[i].name,name)) {
+        Field *f=&schema->fields[i];
+        if(f->type>FIELD_BOOL) return false;
+        *boolean=f->type==FIELD_BOOL; *bits=f->bits; return true;
+    }
+    return false;
+}
+bool LuaMetadata_StateValue(int id, const Metadata *value, const char *name, int64_t *out) {
+    if(id<0 || id>255 || blockSchemas[id]<0) return false;
+    Schema *schema=schemas[blockSchemas[id]];
+    Bits bits={0};
+    const Metadata *source=value && value->size && value->version==schema->version ? value : &schema->defaults;
+    BinaryReader in={source->data,source->size};
+    for(int i=0;i<schema->count;i++) {
+        Field *f=&schema->fields[i];
+        if(!strcmp(f->name,name)) {
+            if(f->type>FIELD_BOOL) return false;
+            uint32_t number=ReadBits(&in,&bits,f->bits);
+            if(in.failed) { *out=(int64_t)f->defaultNumber; return true; }
+            int64_t decoded=number;
+            if(f->type==FIELD_INT && (number & (1u<<(f->bits-1)))) decoded-=(int64_t)1<<f->bits;
+            *out=decoded; return true;
+        }
+        if(!SkipField(f,&in,&bits)) return false;
+    }
+    return false;
+}
 static BinaryReader Locate(lua_State *state, Schema *schema, const Metadata *value, const Field *field, Bits *bits) {
     if (value->size && value->version != schema->version) luaL_error(state, "metadata schema version does not match");
     const Metadata *source = value->size ? value : &schema->defaults;
@@ -523,6 +554,7 @@ static int BlockGet(lua_State *state) {
 }
 static int BlockWrite(lua_State *state, bool reset) {
     int index; Chunk *chunk = ResolveBlock(state, &index);
+    chunk->states[index]=ServerBlockStates_Resolve(chunk,index);
     Metadata *existing = ChunkMetadata_Get(chunk, index);
     Metadata *value = existing;
     if (!value) {
@@ -538,6 +570,7 @@ static int BlockWrite(lua_State *state, bool reset) {
         if (!ChunkMetadata_Set(chunk, index, value)) return luaL_error(state, "out of memory");
         Metadata_Free(value);
     }
+    ServerBlockStates_Changed(chunk, index);
     const Field *field = FindField(state, GetSchema(state, blockSchemas[chunk->data[index]]), 2);
     if (field->type == FIELD_INVENTORY)
         LuaMetadata_InventoryChanged(LuaMetadata_CheckBlock(state, 1), field->name);
@@ -975,6 +1008,7 @@ void LuaMetadata_Init(void) {
     luaL_newmetatable(L, "midless.MetadataValue"); lua_pushcfunction(L, FreeValue); lua_setfield(L, -2, "__gc"); lua_pop(L, 1);
 }
 void LuaMetadata_Shutdown(void) {
+    ServerBlockStates_Reset();
     for (int i=0;i<playerListenerCount;i++) luaL_unref(L,LUA_REGISTRYINDEX,playerListeners[i].callback);
     playerListenerCount=0;
     free(changes); changes = NULL; changeCount = changeCapacity = 0;

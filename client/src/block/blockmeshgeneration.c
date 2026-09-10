@@ -7,7 +7,7 @@
 #include "block.h"
 #include "blockmeshgeneration.h"
 
-static BlockMeshTemplate templates[256];
+static BlockMeshTemplate templates[BLOCK_RUNTIME_COUNT];
 static int verticesIndex[2], textureIndex[2], colorsIndex[2], indicesIndex[2];
 
 static const unsigned char spriteVertices[4][12] = {
@@ -31,10 +31,7 @@ static void BuildSolidVertices(const Block *block, BlockMeshTemplate *out) {
     memcpy(out->vertices, v, sizeof(v));
 }
 
-void BlockMesh_BuildTemplate(int id) {
-    if (id < 0 || id >= 256) return;
-    const Block *block = &blockDefinitions[id];
-    BlockMeshTemplate *out = &templates[id];
+static void BuildBoxTemplate(const Block *block, BlockMeshTemplate *out) {
     if (block->modelType == BLOCK_MODEL_SPRITE) memcpy(out->vertices, spriteVertices, sizeof(spriteVertices));
     else BuildSolidVertices(block, out);
 
@@ -60,12 +57,46 @@ void BlockMesh_BuildTemplate(int id) {
     }
 }
 
+void BlockMesh_BuildTemplate(int id) {
+    if(id<0 || id>=BLOCK_RUNTIME_COUNT) return;
+    const Block *block=&blockDefinitions[id]; BlockMeshTemplate *out=&templates[id];
+    memset(out,0,sizeof(*out));
+    int boxes=block->geometry.enabled?block->geometry.boxCount:1;
+    static const int rotatedFace[6]={5,4,2,3,0,1};
+    for(int box=0;box<boxes;box++) {
+        Block part=*block;
+        if(block->geometry.enabled) {
+            const BlockModelBox *b=&block->geometry.boxes[box];
+            part.minBB=(Vector3){b->bounds.min[0],b->bounds.min[1],b->bounds.min[2]};
+            part.maxBB=(Vector3){b->bounds.max[0],b->bounds.max[1],b->bounds.max[2]};
+            for(int f=0;f<6;f++) part.textures[f]=b->textures[f];
+        }
+        BlockMeshTemplate temp={0}; BuildBoxTemplate(&part,&temp);
+        int faces=part.modelType==BLOCK_MODEL_SPRITE?4:6;
+        for(int face=0;face<faces;face++) {
+            int dest=out->faceCount++, direction=face;
+            memcpy(out->vertices[dest],temp.vertices[face],12);
+            memcpy(out->texcoords[dest],temp.texcoords[face],sizeof(temp.texcoords[face]));
+            for(int turn=0;turn<block->geometry.rotation;turn++) {
+                direction=rotatedFace[direction];
+                for(int v=0;v<4;v++) { int x=out->vertices[dest][v*3]; out->vertices[dest][v*3]=16-out->vertices[dest][v*3+2]; out->vertices[dest][v*3+2]=x; }
+            }
+            out->directions[dest]=direction;
+            int axis=direction<2?0:direction<4?1:2;
+            int edge=direction==0 || direction==3 || direction==5?0:16;
+            bool boundary=part.modelType!=BLOCK_MODEL_SPRITE;
+            for(int v=0;v<4;v++) boundary &= out->vertices[dest][v*3+axis]==edge;
+            out->boundary[dest]=boundary;
+        }
+    }
+}
+
 void BlockMesh_BuildTemplates(void) {
     for (int id = 0; id < 256; id++) BlockMesh_BuildTemplate(id);
 }
 
 const BlockMeshTemplate *BlockMesh_GetTemplate(int blockId) {
-    if (blockId < 0 || blockId >= 256) return NULL;
+    if (blockId < 0 || blockId >= BLOCK_RUNTIME_COUNT) return NULL;
     return &templates[blockId];
 }
 
@@ -104,7 +135,7 @@ void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigne
     static const unsigned short faceIndices[6] = {0, 1, 2, 1, 0, 3};
     for (int i = 0; i < 6; i++) indices[indicesIndex[translucent]++] = (unsigned short)(baseVertex + faceIndices[i]);
 
-    unsigned char color = FaceColor(face, block->modelType == BLOCK_MODEL_SPRITE, light, sunlight);
+    unsigned char color = FaceColor(meshTemplate->directions[(int)face], block->modelType == BLOCK_MODEL_SPRITE, light, sunlight);
     int offsetX = x * 15, offsetY = y * 15, offsetZ = z * 15;
     for (int i = 0; i < 4; i++) {
         vertices[verticesIndex[translucent]++] = (unsigned char)(offsetX + source[i*3] * 15 / 16);

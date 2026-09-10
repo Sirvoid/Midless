@@ -41,11 +41,8 @@ static bool Particle_Collides(Vector3 position, float size) {
                 int blockId = World_GetBlock((Vector3){x, y, z});
                 const Block *block = Block_GetDefinition(blockId);
                 if (block->colliderType != BLOCK_COLLIDER_SOLID) continue;
-                BoundingBox blockBox = {
-                    {x + block->minBB.x / 16.0f, y + block->minBB.y / 16.0f, z + block->minBB.z / 16.0f},
-                    {x + block->maxBB.x / 16.0f, y + block->maxBB.y / 16.0f, z + block->maxBB.z / 16.0f}
-                };
-                if (CheckCollisionBoxes(particleBox, blockBox)) return true;
+                for(int box=0;box<Block_BoxCount(block,false);box++)
+                    if(CheckCollisionBoxes(particleBox,Block_GetBox(block,box,(Vector3){x,y,z},false))) return true;
             }
         }
     }

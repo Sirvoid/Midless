@@ -44,22 +44,24 @@ void Digging_Draw(void) {
     int block=World_GetBlock(position);
     if (block<=0) return;
     const Block *definition=Block_GetDefinition(block);
-    Vector3 a={position.x+definition->minBB.x/16,position.y+definition->minBB.y/16,position.z+definition->minBB.z/16};
-    Vector3 b={position.x+definition->maxBB.x/16,position.y+definition->maxBB.y/16,position.z+definition->maxBB.z/16};
-    float e=0.002f;
-    a.x-=e; a.y-=e; a.z-=e; b.x+=e; b.y+=e; b.z+=e;
-    Vector3 corners[]={ {a.x,a.y,a.z},{b.x,a.y,a.z},{b.x,b.y,a.z},{a.x,b.y,a.z},
-        {a.x,a.y,b.z},{b.x,a.y,b.z},{b.x,b.y,b.z},{a.x,b.y,b.z} };
-    const int faces[6][4]={{0,1,2,3},{5,4,7,6},{4,0,3,7},{1,5,6,2},{3,2,6,7},{4,5,1,0}};
-    int stage=(int)(progress*10); if (stage>9) stage=9;
-    float u=stage/10.0f,v=(stage+1)/10.0f;
-    const float uv[4][2]={{u,1},{v,1},{v,0},{u,0}};
-    rlDrawRenderBatchActive(); rlDisableDepthMask(); rlDisableBackfaceCulling();
-    rlSetTexture(texture.id); rlBegin(RL_QUADS); rlColor4ub(255,255,255,255);
-    for (int face=0;face<6;face++) for (int point=0;point<4;point++) {
-        Vector3 vertex=corners[faces[face][point]];
-        rlTexCoord2f(uv[point][0],uv[point][1]); rlVertex3f(vertex.x,vertex.y,vertex.z);
+    for(int box=0;box<Block_BoxCount(definition,true);box++) {
+        BoundingBox bounds=Block_GetBox(definition,box,position,true);
+        Vector3 a=bounds.min, b=bounds.max;
+        float e=0.002f;
+        a.x-=e; a.y-=e; a.z-=e; b.x+=e; b.y+=e; b.z+=e;
+        Vector3 corners[]={ {a.x,a.y,a.z},{b.x,a.y,a.z},{b.x,b.y,a.z},{a.x,b.y,a.z},
+            {a.x,a.y,b.z},{b.x,a.y,b.z},{b.x,b.y,b.z},{a.x,b.y,b.z} };
+        const int faces[6][4]={{0,1,2,3},{5,4,7,6},{4,0,3,7},{1,5,6,2},{3,2,6,7},{4,5,1,0}};
+        int stage=(int)(progress*10); if (stage>9) stage=9;
+        float u=stage/10.0f,v=(stage+1)/10.0f;
+        const float uv[4][2]={{u,1},{v,1},{v,0},{u,0}};
+        rlDrawRenderBatchActive(); rlDisableDepthMask(); rlDisableBackfaceCulling();
+        rlSetTexture(texture.id); rlBegin(RL_QUADS); rlColor4ub(255,255,255,255);
+        for (int face=0;face<6;face++) for (int point=0;point<4;point++) {
+            Vector3 vertex=corners[faces[face][point]];
+            rlTexCoord2f(uv[point][0],uv[point][1]); rlVertex3f(vertex.x,vertex.y,vertex.z);
+        }
+        rlEnd(); rlSetTexture(0); rlDrawRenderBatchActive();
+        rlEnableBackfaceCulling(); rlEnableDepthMask();
     }
-    rlEnd(); rlSetTexture(0); rlDrawRenderBatchActive();
-    rlEnableBackfaceCulling(); rlEnableDepthMask();
 }

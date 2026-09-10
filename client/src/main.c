@@ -131,12 +131,13 @@ void Game_RunLoop(void) {
             World_Draw(player.camera.position);
             if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) Player_Draw();
             if (player.rayResult.hitblockId != -1) {
-                const Block *block = Block_GetDefinition(player.rayResult.hitblockId);
-                Vector3 blockSize = Vector3Subtract(block->maxBB, block->minBB);
-                blockSize = Vector3Scale(blockSize, 1.0f / 16);
-                selectionBoxPos = Vector3Add(selectionBoxPos,
-                    Vector3Scale(Vector3Add(block->minBB, block->maxBB), 1.0f / 32));
-                DrawCube(selectionBoxPos, blockSize.x + 0.02f, blockSize.y + 0.02f, blockSize.z + 0.02f, (Color){255, 255, 255, 40});
+                const Block *block = Block_GetDefinition(World_GetBlock(selectionBoxPos));
+                for(int box=0;box<Block_BoxCount(block,true);box++) {
+                    BoundingBox bounds=Block_GetBox(block,box,selectionBoxPos,true);
+                    Vector3 size=Vector3Subtract(bounds.max,bounds.min);
+                    Vector3 center=Vector3Scale(Vector3Add(bounds.min,bounds.max),0.5f);
+                    DrawCube(center,size.x+0.02f,size.y+0.02f,size.z+0.02f,(Color){255,255,255,40});
+                }
             }
                 
         EndMode3D();

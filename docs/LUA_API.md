@@ -951,6 +951,8 @@ back
 
 Block geometry uses coordinates from `0` to `16`.
 
+Blocks that need multiple shapes, direction, or stateful geometry should use inline `boxes`, `models`, and `variants` instead of a single `bounds` value.
+
 A full block:
 
 ```lua
@@ -987,6 +989,81 @@ midless.define_block(19, {
 })
 ```
 
+## Block placement callback
+
+Use `on_place(player, placed)` in `midless.define_block` for custom logic after a
+successful player placement.
+
+It does not run for `midless.set_block`
+
+```lua
+on_place = function(player, placed)
+    local look = player:get_look_direction()
+    local facing = (math.abs(look.x) > math.abs(look.z))
+        and (look.x > 0 and 1 or 3)
+        or  (look.z > 0 and 2 or 0)
+    placed:set_metadata("facing", facing)
+end,
+```
+
+Pair this with `rotate_y_from = "facing"` (where `facing` is `uint` with
+`bits = 2`) to face the block’s +Z side toward the player.
+
+## Inline block models and metadata variants
+
+Use inline models for stateful or non-cubic blocks.
+
+`boxes` define geometry directly in `midless.define_block` using integer coordinates
+from `0` to `16` and `min < max`. A model can use `1` to `8` boxes; each box can
+override textures with `textures = { ... }`.
+
+```lua
+midless.define_block("example:stairs", {
+    name = "Stone stairs",
+    textures = {all = 5},
+    boxes = {
+        {min = {0, 0, 0}, max = {16, 8, 16}},
+        {min = {0, 8, 8}, max = {16, 16, 16}},
+    },
+})
+```
+
+For stateful shapes, add `models` and `variants` in the same block definition.
+`state_fields` lists up to 8 metadata fields used for matching.
+
+```lua
+midless.define_block("example:door", {
+    name = "Door",
+    textures = {all = 6},
+    metadata = {
+        {name = "facing", type = "uint", bits = 2, default = 0},
+        {name = "open", type = "bool", default = false},
+    },
+    state_fields = {"facing", "open"},
+    models = {
+        closed = {boxes = {{min = {0, 0, 0}, max = {16, 16, 3}}}},
+        open = {boxes = {{min = {0, 0, 0}, max = {3, 16, 16}}}},
+    },
+    variants = {
+        {when = {open = false}, model = "closed", rotate_y_from = "facing"},
+        {when = {open = true}, model = "open", rotate_y_from = "facing"},
+    },
+    on_interact = function(player, door)
+        door:set_metadata("open", not door:get_metadata("open"))
+    end,
+})
+```
+
+`when = {}` is a catch-all; the first matching variant wins. Variants can also
+set `boxes`, `textures`, `render`, `light`, and `collider`.
+
+`rotate_y` uses `0/90/180/270`; `rotate_y_from` uses 0–3 from metadata
+(outside that range falls back to 0). Both are applied together.
+
+By default, collision and selection use the model boxes. Override with
+`collision_boxes` and `selection_boxes` (each supports 0–8 boxes). An empty
+selection list makes the block untargetable.
+
 ---
 
 
@@ -1000,6 +1077,8 @@ block.model.GAS
 block.model.SOLID
 block.model.SPRITE
 ```
+
+`block.model.SOLID` is the default and supports inline box models when a block defines `boxes`, `models`, or `variants`.
 
 ## Rendering
 

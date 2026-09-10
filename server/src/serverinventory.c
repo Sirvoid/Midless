@@ -1,3 +1,4 @@
+#include "blockstates.h"
 #include "scripting/luaitemactions.h"
 #include "raymath.h"
 #include "scripting/luadigging.h"
@@ -24,9 +25,7 @@ static const Vector3 faceNormals[6] = {
 };
 
 static BlockPhysics GetBlockPhysics(int blockId, Vector3 position) {
-    const BlockDefinition *definition = blockId > 0 && blockId < 256 && serverWorld.hasBlockDefinition[blockId]
-        ? &serverWorld.blockDefinitions[blockId] : NULL;
-    return BlockShape_Get(blockId, definition, position);
+    return ServerBlockStates_Shape(blockId, position);
 }
 
 static bool IsLoaded(Vector3 position) {
@@ -71,6 +70,21 @@ static bool CanReachTarget(Player *player, const InventoryAction *action) {
     BlockPhysics physics = GetBlockPhysics(action->targetBlock, target);
     if (!physics.targetable) return false;
 
+    // Choose the closest selection surface to the quantized client hit.
+    int selected=-1; float best=INFINITY;
+    Vector3 requested={target.x+action->hit[0]/255.0f,target.y+action->hit[1]/255.0f,target.z+action->hit[2]/255.0f};
+    for(int box=0;box<physics.selectionCount;box++) {
+        BoundingBox b=physics.selection[box];
+        float lo[]={b.min.x,b.min.y,b.min.z}, hi[]={b.max.x,b.max.y,b.max.z};
+        float point[]={requested.x,requested.y,requested.z}; float distance=0;
+        for(int axis=0;axis<3;axis++) {
+            float projected=axis==action->face/2?(action->face%2?hi[axis]:lo[axis]):Clamp(point[axis],lo[axis],hi[axis]);
+            float delta=point[axis]-projected; distance+=delta*delta;
+        }
+        if(distance<best) { best=distance; selected=box; }
+    }
+    if(selected<0) return false;
+    physics.bounds=physics.selection[selected];
     float minimum[3] = {physics.bounds.min.x, physics.bounds.min.y, physics.bounds.min.z};
     float maximum[3] = {physics.bounds.max.x, physics.bounds.max.y, physics.bounds.max.z};
     float hit[3] = {target.x + action->hit[0] / 255.0f, target.y + action->hit[1] / 255.0f, target.z + action->hit[2] / 255.0f};
@@ -86,7 +100,6 @@ static bool CanReachTarget(Player *player, const InventoryAction *action) {
     for (int x = (int)floorf(fminf(eye.x, end.x)); x <= (int)floorf(fmaxf(eye.x, end.x)); x++) {
         for (int y = (int)floorf(fminf(eye.y, end.y)); y <= (int)floorf(fmaxf(eye.y, end.y)); y++) {
             for (int z = (int)floorf(fminf(eye.z, end.z)); z <= (int)floorf(fmaxf(eye.z, end.z)); z++) {
-                if (x == action->x && y == action->y && z == action->z) continue;
                 Vector3 cell = {(float)x, (float)y, (float)z};
                 float entry;
                 if (!IsLoaded(cell)) {
@@ -94,7 +107,10 @@ static bool CanReachTarget(Player *player, const InventoryAction *action) {
                     if (SegmentHitsBox(eye, end, bounds, &entry) && entry < 0.9999f) return false;
                 } else {
                     BlockPhysics obstacle = GetBlockPhysics(ServerWorld_GetBlock(cell), cell);
-                    if (obstacle.targetable && SegmentHitsBox(eye, end, obstacle.bounds, &entry) && entry < 0.9999f) return false;
+                    for(int box=0;box<obstacle.selectionCount;box++) {
+                        if(x==action->x && y==action->y && z==action->z && box==selected) continue;
+                        if(obstacle.targetable && SegmentHitsBox(eye,end,obstacle.selection[box],&entry) && entry<0.9999f) return false;
+                    }
                 }
             }
         }
@@ -225,10 +241,12 @@ static void TryPlaceBlock(Player *player, const InventoryAction *action) {
         if (support != 2 && support != 3 && support != 6) return;
     }
     BlockPhysics physics = GetBlockPhysics(blockId, position);
-    if (physics.solid && OverlapsPlayer(physics.bounds)) return;
+    for(int box=0;box<physics.collisionCount;box++)
+        if (physics.solid && OverlapsPlayer(physics.collision[box])) return;
     stack->count--;
     if (!stack->count) *stack = (ItemStack){0};
     ServerWorld_SetBlock(position, blockId, true, true, true);
+    if (ServerWorld_GetBlock(position)==blockId) LuaItemActions_Placed(player,position,blockId);
 }
 
 // Resolve entity and empty-space uses on the server; walls and unloaded chunks stop the ray.
@@ -250,18 +268,20 @@ static Entity *FindUseTarget(Player *player, InventoryAction *block) {
         int id=loaded?ServerWorld_GetBlock(cell):0;
         BlockPhysics shape=GetBlockPhysics(id,cell);
         if (loaded && !shape.targetable) continue;
-        BoundingBox bounds=loaded?shape.bounds:(BoundingBox){cell,{x+1,y+1,z+1}};
-        float entry;
-        if (!SegmentHitsBox(eye,end,bounds,&entry) || entry*BLOCK_INTERACTION_REACH>=closest) continue;
-        closest=entry*BLOCK_INTERACTION_REACH;
-        Vector3 hit=Vector3Add(eye,Vector3Scale(direction,closest));
-        *block=(InventoryAction){.targetBlock=id,.x=x,.y=y,.z=z};
-        float distances[]={fabsf(hit.x-bounds.min.x),fabsf(hit.x-bounds.max.x),
-            fabsf(hit.y-bounds.min.y),fabsf(hit.y-bounds.max.y),fabsf(hit.z-bounds.min.z),fabsf(hit.z-bounds.max.z)};
-        for (int face=1;face<6;face++) if (distances[face]<distances[block->face]) block->face=face;
-        block->hit[0]=Clamp((hit.x-x)*255,0,255);
-        block->hit[1]=Clamp((hit.y-y)*255,0,255);
-        block->hit[2]=Clamp((hit.z-z)*255,0,255);
+        for(int box=0;box<(loaded?shape.selectionCount:1);box++) {
+            BoundingBox bounds=loaded?shape.selection[box]:(BoundingBox){cell,{x+1,y+1,z+1}};
+            float entry;
+            if (!SegmentHitsBox(eye,end,bounds,&entry) || entry*BLOCK_INTERACTION_REACH>=closest) continue;
+            closest=entry*BLOCK_INTERACTION_REACH;
+            Vector3 hit=Vector3Add(eye,Vector3Scale(direction,closest));
+            *block=(InventoryAction){.targetBlock=id,.x=x,.y=y,.z=z};
+            float distances[]={fabsf(hit.x-bounds.min.x),fabsf(hit.x-bounds.max.x),
+                fabsf(hit.y-bounds.min.y),fabsf(hit.y-bounds.max.y),fabsf(hit.z-bounds.min.z),fabsf(hit.z-bounds.max.z)};
+            for (int face=1;face<6;face++) if (distances[face]<distances[block->face]) block->face=face;
+            block->hit[0]=Clamp((hit.x-x)*255,0,255);
+            block->hit[1]=Clamp((hit.y-y)*255,0,255);
+            block->hit[2]=Clamp((hit.z-z)*255,0,255);
+        }
     }
     Entity *target=NULL;
     for (int i=0;i<WORLD_MAX_ENTITIES;i++) {

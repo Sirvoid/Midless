@@ -14,8 +14,11 @@
 #include "chunkmesh.h"
 
 typedef struct BlockMeshTemplate {
-    unsigned char vertices[6][12];
-    unsigned short texcoords[6][8];
+    int faceCount;
+    unsigned char directions[6 * BLOCK_MODEL_MAX_BOXES];
+    bool boundary[6 * BLOCK_MODEL_MAX_BOXES];
+    unsigned char vertices[6 * BLOCK_MODEL_MAX_BOXES][12];
+    unsigned short texcoords[6 * BLOCK_MODEL_MAX_BOXES][8];
 } BlockMeshTemplate;
 
 //Reset memory counters.

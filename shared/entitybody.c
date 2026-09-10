@@ -64,6 +64,7 @@ static BlockShape Query(void *context, EntityBody_QueryBlock query, Vector3 cell
     BlockShape shape = {0};
     *loaded = query(context, cell, &shape);
     if (!*loaded) shape = (BlockShape){.solid = true, .bounds = {cell, {cell.x + 1, cell.y + 1, cell.z + 1}}};
+    if(!*loaded) { shape.collisionCount=1; shape.collision[0]=shape.bounds; }
     return shape;
 }
 
@@ -81,16 +82,19 @@ void EntityBody_Step(EntityBody *body, Vector3 *position, float dt, EntityBody_Q
         for (int z = (int)floorf(bounds.min.z); z <= (int)floorf(bounds.max.z); z++) {
             bool loaded;
             BlockShape shape = Query(context, query, (Vector3){x,y,z}, &loaded);
-            if (!shape.solid || !Overlaps(bounds, shape.bounds)) continue;
-            if (!loaded) { body->blockedByUnloaded = true; return; }
-            float offsets[] = {shape.bounds.min.x - bounds.max.x, shape.bounds.max.x - bounds.min.x,
-                shape.bounds.min.y - bounds.max.y, shape.bounds.max.y - bounds.min.y,
-                shape.bounds.min.z - bounds.max.z, shape.bounds.max.z - bounds.min.z};
-            for (int face = 0; face < 6; face++) {
-                if (fabsf(offsets[face]) >= distance) continue;
-                distance = fabsf(offsets[face]);
-                float offset = offsets[face] + (face % 2 ? CONTACT_EPSILON : -CONTACT_EPSILON);
-                correction = (Vector3){face / 2 == 0 ? offset : 0, face / 2 == 1 ? offset : 0, face / 2 == 2 ? offset : 0};
+            for(int box=0;box<shape.collisionCount;box++) {
+                BoundingBox obstacle=shape.collision[box];
+                if (!shape.solid || !Overlaps(bounds, obstacle)) continue;
+                if (!loaded) { body->blockedByUnloaded = true; return; }
+                float offsets[] = {obstacle.min.x - bounds.max.x, obstacle.max.x - bounds.min.x,
+                    obstacle.min.y - bounds.max.y, obstacle.max.y - bounds.min.y,
+                    obstacle.min.z - bounds.max.z, obstacle.max.z - bounds.min.z};
+                for (int face = 0; face < 6; face++) {
+                    if (fabsf(offsets[face]) >= distance) continue;
+                    distance = fabsf(offsets[face]);
+                    float offset = offsets[face] + (face % 2 ? CONTACT_EPSILON : -CONTACT_EPSILON);
+                    correction = (Vector3){face / 2 == 0 ? offset : 0, face / 2 == 1 ? offset : 0, face / 2 == 2 ? offset : 0};
+                }
             }
         }
         if (!isfinite(distance)) break;
@@ -106,7 +110,8 @@ void EntityBody_Step(EntityBody *body, Vector3 *position, float dt, EntityBody_Q
         bool loaded;
         BlockShape shape = Query(context, query, (Vector3){x, floorf(bounds.min.y - 0.01f), z}, &loaded);
         float time; int axis;
-        if (shape.solid && Sweep(bounds, shape.bounds, (Vector3){0,-0.01f,0}, &time, &axis)) {
+        for(int box=0;box<shape.collisionCount;box++)
+        if (shape.solid && Sweep(bounds, shape.collision[box], (Vector3){0,-0.01f,0}, &time, &axis)) {
             supported = true;
             if (!loaded) body->blockedByUnloaded = true;
         }
@@ -128,7 +133,8 @@ void EntityBody_Step(EntityBody *body, Vector3 *position, float dt, EntityBody_Q
             bool loaded;
             BlockShape shape = Query(context, query, (Vector3){x,y,z}, &loaded);
             float time; int axis;
-            if (shape.solid && Sweep(bounds, shape.bounds, move, &time, &axis) && time <= earliest) {
+            for(int box=0;box<shape.collisionCount;box++)
+            if (shape.solid && Sweep(bounds, shape.collision[box], move, &time, &axis) && time <= earliest) {
                 earliest = time; hitAxis = axis; unloadedHit = !loaded;
             }
         }

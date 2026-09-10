@@ -38,5 +38,33 @@ BlockShape BlockShape_Get(int id, const BlockDefinition *override, Vector3 posit
             {position.x + definition->max[0] / 16.0f, position.y + definition->max[1] / 16.0f, position.z + definition->max[2] / 16.0f}
         }
     };
+    shape.collisionCount=shape.selectionCount=1;
+    shape.collision[0]=shape.selection[0]=shape.bounds;
+    const BlockGeometry *g=&definition->geometry;
+    if(g->enabled) {
+        shape.collisionCount=g->collisionCount; shape.selectionCount=g->selectionCount;
+        for(int group=0;group<2;group++) {
+            int count=group?g->selectionCount:g->collisionCount;
+            for(int i=0;i<count;i++) {
+                BlockBox b=BlockBox_Rotate(group?g->selection[i]:g->collision[i],g->rotation);
+                BoundingBox box={{position.x+b.min[0]/16.0f,position.y+b.min[1]/16.0f,position.z+b.min[2]/16.0f},
+                    {position.x+b.max[0]/16.0f,position.y+b.max[1]/16.0f,position.z+b.max[2]/16.0f}};
+                if(group) shape.selection[i]=box; else shape.collision[i]=box;
+            }
+        }
+        shape.targetable &= shape.selectionCount>0;
+        shape.solid &= shape.collisionCount>0;
+        int count=shape.selectionCount?shape.selectionCount:shape.collisionCount;
+        BoundingBox *boxes=shape.selectionCount?shape.selection:shape.collision;
+        if(count) shape.bounds=boxes[0];
+        for(int i=1;i<count;i++) {
+            if(boxes[i].min.x<shape.bounds.min.x) shape.bounds.min.x=boxes[i].min.x;
+            if(boxes[i].min.y<shape.bounds.min.y) shape.bounds.min.y=boxes[i].min.y;
+            if(boxes[i].min.z<shape.bounds.min.z) shape.bounds.min.z=boxes[i].min.z;
+            if(boxes[i].max.x>shape.bounds.max.x) shape.bounds.max.x=boxes[i].max.x;
+            if(boxes[i].max.y>shape.bounds.max.y) shape.bounds.max.y=boxes[i].max.y;
+            if(boxes[i].max.z>shape.bounds.max.z) shape.bounds.max.z=boxes[i].max.z;
+        }
+    }
     return shape;
 }

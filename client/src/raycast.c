@@ -36,55 +36,52 @@ RaycastResult Raycast_Cast(Vector3 position, Vector3 direction, bool ignoreLiqui
                 continue;
             }
             Vector3 blockPos = (Vector3){floor(position.x), floor(position.y), floor(position.z)};
-            if (position.x > blockPos.x + block->minBB.x / 16 &&
-                position.y > blockPos.y + block->minBB.y / 16 &&
-                position.z > blockPos.z + block->minBB.z / 16 &&
-                position.x < blockPos.x + block->maxBB.x / 16 &&
-                position.y < blockPos.y + block->maxBB.y / 16 &&
-                position.z < blockPos.z + block->maxBB.z / 16) {
-                Vector3 loc = Vector3Subtract(position, Vector3Add(blockPos, Vector3Scale(block->minBB, 1.0f / 16)));
-                Vector3 bbSize = Vector3Scale(Vector3Subtract(block->maxBB, block->minBB), 1.0f / 16);
-                float entryX = -loc.x;
-                if (loc.x > bbSize.x - loc.x)
-                    entryX = bbSize.x - loc.x;
+            for(int box=0;box<Block_BoxCount(block,true);box++) {
+                BoundingBox bounds=Block_GetBox(block,box,blockPos,true);
+                if (position.x > bounds.min.x && position.y > bounds.min.y && position.z > bounds.min.z &&
+                    position.x < bounds.max.x && position.y < bounds.max.y && position.z < bounds.max.z) {
+                    Vector3 loc=Vector3Subtract(position,bounds.min);
+                    Vector3 bbSize=Vector3Subtract(bounds.max,bounds.min);
+                    float entryX = -loc.x;
+                    if (loc.x > bbSize.x - loc.x)
+                        entryX = bbSize.x - loc.x;
                 
-                float entryY = -loc.y;
-                if (loc.y > bbSize.y - loc.y)
-                    entryY = bbSize.y - loc.y;
+                    float entryY = -loc.y;
+                    if (loc.y > bbSize.y - loc.y)
+                        entryY = bbSize.y - loc.y;
                 
-                float entryZ = -loc.z;
-                if (loc.z > bbSize.z - loc.z)
-                    entryZ = bbSize.z - loc.z;
+                    float entryZ = -loc.z;
+                    if (loc.z > bbSize.z - loc.z)
+                        entryZ = bbSize.z - loc.z;
                 
-                Vector3 normal = (Vector3){0,0,0};
+                    Vector3 normal = (Vector3){0,0,0};
                 
-                if (fabs(entryX) < fabs(entryY)) {
-                    if (fabs(entryX) < fabs(entryZ)) {
-                        normal.x = (entryX > 0) ? 1 : ((entryX < 0) ? -1 : 0);
-                        normal.y = 0.0f;
-                        normal.z = 0.0f;
+                    if (fabs(entryX) < fabs(entryY)) {
+                        if (fabs(entryX) < fabs(entryZ)) {
+                            normal.x = (entryX > 0) ? 1 : ((entryX < 0) ? -1 : 0);
+                            normal.y = 0.0f;
+                            normal.z = 0.0f;
+                        } else {
+                            normal.z = (entryZ > 0) ? 1 : ((entryZ < 0) ? -1 : 0);
+                            normal.x = 0.0f;
+                            normal.y = 0.0f;
+                        }
                     } else {
-                        normal.z = (entryZ > 0) ? 1 : ((entryZ < 0) ? -1 : 0);
-                        normal.x = 0.0f;
-                        normal.y = 0.0f;
-                    }
-                } else {
-                    if (fabs(entryY) < fabs(entryZ)) {
-                        normal.y = (entryY > 0) ? 1 : ((entryY < 0) ? -1 : 0);
-                        normal.x = 0.0f;
-                        normal.z = 0.0f;
+                        if (fabs(entryY) < fabs(entryZ)) {
+                            normal.y = (entryY > 0) ? 1 : ((entryY < 0) ? -1 : 0);
+                            normal.x = 0.0f;
+                            normal.z = 0.0f;
 
-                    } else {
-                        normal.z = (entryZ > 0) ? 1 : ((entryZ < 0) ? -1 : 0);
-                        normal.x = 0.0f;
-                        normal.y = 0.0f;
+                        } else {
+                            normal.z = (entryZ > 0) ? 1 : ((entryZ < 0) ? -1 : 0);
+                            normal.x = 0.0f;
+                            normal.y = 0.0f;
+                        }
                     }
-                }
                 
-                return (RaycastResult) {position, oldPos, blockId, normal};
+                    return (RaycastResult) {position, oldPos, blockId & 255, normal};
+                }
             }
-            else
-                continue;
         }
     }
     

@@ -7,24 +7,31 @@
 #include <string.h>
 extern lua_State *L;
 
-static int uses[ITEM_LIMIT], levels[ITEM_LIMIT], drops[256];
+static int uses[ITEM_LIMIT], levels[ITEM_LIMIT], drops[256], placements[256];
 static struct { int level; char group[65]; } requirements[256];
 void LuaItemActions_Init(void) {
     for (int i=0;i<ITEM_LIMIT;i++) uses[i]=levels[i]=LUA_NOREF;
-    for (int i=0;i<256;i++) drops[i]=LUA_NOREF;
+    for (int i=0;i<256;i++) drops[i]=placements[i]=LUA_NOREF;
     memset(requirements,0,sizeof(requirements));
 }
 void LuaItemActions_Shutdown(void) {
     for (int i=0;i<ITEM_LIMIT;i++) {
         luaL_unref(L,LUA_REGISTRYINDEX,uses[i]); luaL_unref(L,LUA_REGISTRYINDEX,levels[i]);
     }
-    for (int i=0;i<256;i++) luaL_unref(L,LUA_REGISTRYINDEX,drops[i]);
+    for (int i=0;i<256;i++) {
+        luaL_unref(L,LUA_REGISTRYINDEX,drops[i]);
+        luaL_unref(L,LUA_REGISTRYINDEX,placements[i]);
+    }
 }
 void LuaItemActions_Define(int id, int table, bool block) {
     lua_getfield(L,table,"on_use");
     if (!lua_isnil(L,-1)) luaL_checktype(L,-1,LUA_TFUNCTION);
     lua_pop(L,1);
     if (block) {
+        lua_getfield(L,table,"on_place");
+        if (!lua_isnil(L,-1)) luaL_checktype(L,-1,LUA_TFUNCTION);
+        luaL_unref(L,LUA_REGISTRYINDEX,placements[id]);
+        placements[id]=luaL_ref(L,LUA_REGISTRYINDEX);
         lua_getfield(L,table,"harvest_level");
         int level=lua_isnil(L,-1)?0:luaL_checkinteger(L,-1); lua_pop(L,1);
         if (level<0 || level>255) luaL_error(L,"harvest_level must be 0..255");
@@ -77,6 +84,17 @@ bool LuaItemActions_Use(Player *player, const InventoryAction *block, Entity *en
     else handled=lua_toboolean(L,-1);
     lua_settop(L,top); return handled;
 }
+void LuaItemActions_Placed(Player *player, Vector3 position, int blockId) {
+    if (!luaRunning || blockId<1 || blockId>255 || placements[blockId]<0) return;
+    int top=lua_gettop(L);
+    lua_rawgeti(L,LUA_REGISTRYINDEX,placements[blockId]);
+    LuaBindings_PushPlayer(player);
+    LuaMetadata_PushBlock(L,position);
+    if (lua_pcall(L,2,0,0)!=LUA_OK)
+        TraceLog(LOG_WARNING,"Block on_place: %s",lua_tostring(L,-1));
+    lua_settop(L,top);
+}
+
 typedef struct DropOutput { ItemStack *stacks; int capacity, count; } DropOutput;
 static int ReadDrops(lua_State *state) {
     DropOutput *out=lua_touserdata(state,lua_upvalueindex(1));

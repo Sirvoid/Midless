@@ -1,3 +1,4 @@
+#include "blockstates.h"
 #include "version.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
@@ -34,7 +35,7 @@ int serverPacketDataLength;
 int serverPacketLengths[256] = {
     3,  //map init (protocol version)
     0, //load chunk
-    15,  //setblock
+    16,  //setblock
     19, //spawnEntity
     18, //teleportEntity
     65, //Message
@@ -295,7 +296,7 @@ unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 positi
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[2]);
     ServerPacket_WriteByte(packet, 2);
-    ServerPacket_WriteByte(packet, blockId);
+    ServerPacket_WriteUShort(packet, ServerBlockStates_WireId(blockId, position));
     ServerPacket_WriteInt(packet, (int)position.x);
     ServerPacket_WriteInt(packet, (int)position.y);
     ServerPacket_WriteInt(packet, (int)position.z);
@@ -305,12 +306,12 @@ unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 positi
 
 unsigned char* ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, unsigned short count) {
     serverPacketWriterIndex = 0;
-    serverPacketLastDynamicLength = 3 + count * 13;
+    serverPacketLastDynamicLength = 3 + count * 14;
     unsigned char *packet = MemAlloc(serverPacketLastDynamicLength);
     ServerPacket_WriteByte(packet, 8);
     ServerPacket_WriteUShort(packet, count);
     for (int i = 0; i < count; i++) {
-        ServerPacket_WriteByte(packet, updates[i].blockId);
+        ServerPacket_WriteUShort(packet, ServerBlockStates_WireId(updates[i].blockId, updates[i].position));
         ServerPacket_WriteInt(packet, (int)updates[i].position.x);
         ServerPacket_WriteInt(packet, (int)updates[i].position.y);
         ServerPacket_WriteInt(packet, (int)updates[i].position.z);
@@ -393,7 +394,7 @@ unsigned char *ServerPacket_CreateDefineBlock(int id, const BlockDefinition *def
     unsigned char *packet = MemAlloc(DEFINE_BLOCK_PACKET_SIZE);
     if (!packet) return NULL;
     ServerPacket_WriteByte(packet, PACKET_DEFINE_BLOCK);
-    ServerPacket_WriteByte(packet, (unsigned char)id);
+    ServerPacket_WriteUShort(packet, id);
     ServerPacket_WriteString(packet, definition->name);
     for (int i = 0; i < 6; i++) ServerPacket_WriteByte(packet, definition->textures[i]);
     ServerPacket_WriteByte(packet, definition->modelType);
@@ -402,6 +403,9 @@ unsigned char *ServerPacket_CreateDefineBlock(int id, const BlockDefinition *def
     ServerPacket_WriteByte(packet, definition->lightType);
     for (int i = 0; i < 3; i++) ServerPacket_WriteByte(packet, definition->min[i]);
     for (int i = 0; i < 3; i++) ServerPacket_WriteByte(packet, definition->max[i]);
+    uint8_t geometry[BLOCK_GEOMETRY_BYTES];
+    BlockGeometry_Encode(geometry, &definition->geometry);
+    ServerPacket_WriteArray(packet, geometry, sizeof(geometry));
     return packet;
 }
 

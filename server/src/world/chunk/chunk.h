@@ -18,6 +18,7 @@
 
 typedef struct Chunk{
     unsigned short data[CHUNK_SIZE];
+    unsigned char states[CHUNK_SIZE]; // Derived cache; never saved.
     unsigned char skyMask[CHUNK_SKY_MASK_SIZE];
     Vector3 position; //Position of the chunk in chunk unit
     Vector3 blockPosition; //Position of the chunk in block unit

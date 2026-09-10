@@ -5,6 +5,8 @@
 
 typedef struct BlockShape {
     BoundingBox bounds;
+    int collisionCount, selectionCount;
+    BoundingBox collision[BLOCK_MODEL_MAX_BOXES], selection[BLOCK_MODEL_MAX_BOXES];
     bool solid, targetable, liquid;
 } BlockShape;
 

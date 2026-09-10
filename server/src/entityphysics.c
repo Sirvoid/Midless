@@ -1,3 +1,4 @@
+#include "blockstates.h"
 #include <math.h>
 #include "entityphysics.h"
 #include "world/world.h"
@@ -95,8 +96,7 @@ static bool QueryBlock(void *context, Vector3 cell, BlockShape *shape) {
     Vector3 chunk = {floorf(cell.x / CHUNK_SIZE_X), floorf(cell.y / CHUNK_SIZE_Y), floorf(cell.z / CHUNK_SIZE_Z)};
     if (!ServerWorld_GetChunkAt(chunk)) return false;
     int id = ServerWorld_GetBlock(cell);
-    const BlockDefinition *definition = id >= 0 && id < 256 && serverWorld.hasBlockDefinition[id] ? &serverWorld.blockDefinitions[id] : NULL;
-    *shape = BlockShape_Get(id, definition, cell);
+    *shape = ServerBlockStates_Shape(id, cell);
     return true;
 }
 

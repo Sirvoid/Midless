@@ -1,3 +1,4 @@
+#include "../../blockstates.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  * 
@@ -73,7 +74,12 @@ void ServerChunk_Decompress(Chunk *chunk, unsigned short *compressed, int compre
 }
 
 unsigned short* ServerChunk_CreateCompressedData(Chunk *chunk, int *compressedLength) {
-    return ChunkData_CreateCompressed(chunk->data, compressedLength);
+    unsigned short wire[CHUNK_SIZE];
+    for(int i=0;i<CHUNK_SIZE;i++) {
+        chunk->states[i]=ServerBlockStates_Resolve(chunk,i);
+        wire[i]=chunk->data[i] | (chunk->states[i]<<8);
+    }
+    return ChunkData_CreateCompressed(wire, compressedLength);
 }
 
 bool ServerChunk_PlayerInChunk(Chunk* chunk, Player* player) {
@@ -100,6 +106,7 @@ void ServerChunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
             BlockTimer_Stop(chunk, index);
         }
         chunk->data[index] = blockId;
+        chunk->states[index] = 0;
     }
 }
 

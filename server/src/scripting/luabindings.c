@@ -1,3 +1,4 @@
+#include "blockstates.h"
 #include "luaitemactions.h"
 #include "../serverinventory.h"
 #include "luadigging.h"
@@ -276,6 +277,7 @@ static int LuaBindings_DefineBlock(void) {
     LuaDigging_Define(blockId, 2, true);
     LuaItemActions_Define(blockId, 2, true);
     LuaMetadata_DefineBlock(blockId, 2);
+    ServerBlockStates_Define(L, blockId, 2, &definition);
     lua_getfield(L, 2, "item_metadata");
     if (!lua_isnil(L, -1)) {
         lua_newtable(L); lua_pushvalue(L, -2); lua_setfield(L, -2, "metadata");

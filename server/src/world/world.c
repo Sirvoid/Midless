@@ -1,3 +1,4 @@
+#include "../blockstates.h"
 #include "../serverinventory.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
@@ -156,6 +157,7 @@ bool ServerWorld_IsBlockDefined(int id) {
 }
 
 void ServerWorld_DefineBlock(int id, const BlockDefinition *definition) {
+    if (id<1 || id>255) return;
     if (!BlockDefinition_Validate(id, definition)) return;
     serverWorld.blockDefinitions[id] = *definition;
     serverWorld.hasBlockDefinition[id] = true;
@@ -168,6 +170,7 @@ void ServerWorld_DefineBlock(int id, const BlockDefinition *definition) {
 
 void ServerWorld_RemoveBlockDefinition(int id) {
     if (id < 1 || id > 255 || !serverWorld.hasBlockDefinition[id]) return;
+    ServerBlockStates_Remove(id);
     serverWorld.hasBlockDefinition[id] = false;
     serverWorld.blockDefinitions[id] = (BlockDefinition){0};
     if (!serverWorld.players) return;

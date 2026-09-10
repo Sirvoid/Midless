@@ -26,7 +26,7 @@ Texture2D ClientTextures_Get(int id) {
     return textures[id].gpu;
 }
 void ClientTextures_UpdateLiquidTints(void) {
-    for(int i=0;i<256;i++) if(blockDefinitions[i].colliderType==BLOCK_COLLIDER_LIQUID) {
+    for(int i=0;i<BLOCK_RUNTIME_COUNT;i++) if(blockDefinitions[i].colliderType==BLOCK_COLLIDER_LIQUID) {
         blockDefinitions[i].liquidTint=terrainSamples[blockDefinitions[i].textures[BLOCK_FACE_TOP]];
         blockDefinitions[i].liquidTint.a=105;
     }

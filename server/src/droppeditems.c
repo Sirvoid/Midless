@@ -1,3 +1,4 @@
+#include "blockstates.h"
 #include <math.h>
 #include <stdlib.h>
 #include "droppeditems.h"
@@ -22,9 +23,7 @@ static Chunk *GetChunk(Vector3 position) {
 
 static BlockShape GetShape(Vector3 cell) {
     int id = ServerWorld_GetBlock(cell);
-    const BlockDefinition *definition = id >= 0 && id < 256 && serverWorld.hasBlockDefinition[id]
-        ? &serverWorld.blockDefinitions[id] : NULL;
-    return BlockShape_Get(id, definition, cell);
+    return ServerBlockStates_Shape(id, cell);
 }
 
 static bool SegmentHitsBox(Vector3 start, Vector3 end, BoundingBox bounds) {
@@ -56,7 +55,8 @@ static bool ClearPath(Vector3 start, Vector3 end) {
         Vector3 cell = {x,y,z};
         if (!GetChunk(cell)) return false;
         BlockShape shape = GetShape(cell);
-        if (shape.solid && SegmentHitsBox(start, end, shape.bounds)) return false;
+        for(int box=0;box<shape.collisionCount;box++)
+            if (shape.solid && SegmentHitsBox(start, end, shape.collision[box])) return false;
     }
     return true;
 }
@@ -70,10 +70,12 @@ static bool ClearSpawn(Vector3 position) {
         Vector3 cell = {x,y,z};
         if (!GetChunk(cell)) return false;
         BlockShape shape = GetShape(cell);
-        BoundingBox block = shape.bounds;
-        if (shape.solid && bounds.min.x < block.max.x && bounds.max.x > block.min.x &&
-            bounds.min.y < block.max.y && bounds.max.y > block.min.y &&
-            bounds.min.z < block.max.z && bounds.max.z > block.min.z) return false;
+        for(int box=0;box<shape.collisionCount;box++) {
+            BoundingBox block = shape.collision[box];
+            if (shape.solid && bounds.min.x < block.max.x && bounds.max.x > block.min.x &&
+                bounds.min.y < block.max.y && bounds.max.y > block.min.y &&
+                bounds.min.z < block.max.z && bounds.max.z > block.min.z) return false;
+        }
     }
     return true;
 }

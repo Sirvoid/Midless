@@ -1,3 +1,4 @@
+#include "blockstates.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  * 
@@ -42,9 +43,11 @@ void ServerPlayer_Destroy(Player *player) {
 
 void ServerPlayer_DefineBlock(Player *player, int id, const BlockDefinition *definition) {
     if (!player || player->disconnected) return;
-    unsigned char *packet = ServerPacket_CreateDefineBlock(id, definition);
-    if (!packet) return;
-    ServerNetwork_Send(player, packet);
+    for(int state=0;state<ServerBlockStates_Count(id);state++) {
+        const BlockDefinition *d=state?ServerBlockStates_Definition(id,state):definition;
+        unsigned char *packet = ServerPacket_CreateDefineBlock(id | (state<<8), d);
+        if(packet) ServerNetwork_Send(player, packet);
+    }
 }
 
 void ServerPlayer_RemoveBlockDefinition(Player *player, int id) {
