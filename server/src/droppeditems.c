@@ -8,6 +8,7 @@
 #include "packet.h"
 #include "world/world.h"
 #include "items.h"
+#include "textcolors.h"
 
 #define PICKUP_RADIUS 1.5f
 #define MERGE_RADIUS 0.75f
@@ -218,9 +219,12 @@ void ServerDrops_Replicate(Entity *entity) {
         } else if (!visible && entity->drop.viewers[id] && player && !player->disconnected) {
             ServerNetwork_Send(player, ServerPacket_CreateDespawnEntity(entity));
         }
+        if (visible && (!entity->drop.viewers[id] || entity->nametagDirty))
+            ServerNetwork_Send(player, ServerNametag_CreatePacket(entity));
         entity->drop.viewers[id] = visible;
     }
     entity->announced = true;
+    entity->nametagDirty = false;
     entity->dirty = false;
 }
 

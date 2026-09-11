@@ -25,6 +25,7 @@
 #include "inventoryprotocol.h"
 #include "items.h"
 #include "hudbars.h"
+#include "textcolors.h"
 
 
 unsigned char *serverPacketData;
@@ -63,6 +64,8 @@ int serverPacketLengths[256] = {
     HUD_BAR_DEFINE_SIZE, // 27
     HUD_BAR_STATE_SIZE, // 28
     HUD_BAR_REMOVE_SIZE, // 29
+    TEXT_COLOR_PACKET_SIZE, // 30
+    NAMETAG_PACKET_SIZE, // 31
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -198,6 +201,7 @@ void ServerPacket_HandleIdentification(void) {
     ServerTextures_SendTerrain(serverPacketPlayer);
     ServerTextures_SendBreaking(serverPacketPlayer);
     ServerHudBars_Send(serverPacketPlayer);
+    ServerTextColors_Send(serverPacketPlayer);
     ServerWorld_SendEntityModels(serverPacketPlayer);
     ServerWorld_AddPlayer(serverPacketPlayer);
     if (serverPacketPlayer->entityId < 0) {
@@ -232,12 +236,13 @@ void ServerPacket_HandleMessage(void) {
         return;
     }
     
-    int nameLen = TextLength(serverPacketPlayer->name);
+    char name[PACKET_STRING_SIZE * 2 + 1];
+    int nameLen = TextColor_Escape(name, serverPacketPlayer->name);
     char* sentMessage = MemAlloc(nameLen + 3 + 64 + 1);
     
     //username
     sentMessage[0] = '<';
-    memcpy(&sentMessage[1], serverPacketPlayer->name, nameLen);
+    memcpy(&sentMessage[1], name, nameLen);
     sentMessage[nameLen + 1] = '>';
     sentMessage[nameLen + 2] = ' ';
     

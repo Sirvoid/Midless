@@ -6,6 +6,7 @@
 #include "luametadata.h"
 #include "../world/world.h"
 #include "../entityphysics.h"
+#include "../textcolors.h"
 
 extern lua_State *L;
 #define ENTITY_HANDLE "midless.Entity"
@@ -30,6 +31,7 @@ Entity *LuaEntities_Check(lua_State *state, int index) {
     return e;
 }
 static Entity *Check(lua_State *state) { return LuaEntities_Check(state, 1); }
+static int SetNametag(lua_State *state) { return ServerNametag_Set(state, Check(state)); }
 void LuaEntities_Push(Entity *e) {
     Handle *h = lua_newuserdata(L, sizeof(*h));
     *h = (Handle){e->id, e->generation};
@@ -281,6 +283,7 @@ void LuaEntities_Loaded(Entity *e) {
 }
 void LuaEntities_Init(void) {
     static const luaL_Reg methods[] = {
+        {"set_nametag", SetNametag},
         {"get_id", GetId}, {"is_valid", IsValid}, {"get_position", GetPosition},
         {"get_metadata", GetMetadata}, {"set_metadata", SetMetadata},
         {"reset_metadata", ResetMetadata}, {"get_inventory", GetInventory},

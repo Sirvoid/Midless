@@ -41,6 +41,8 @@ void Packet_HandleMapInit(void);
 void Packet_HandleLoadChunk(void);
 void Packet_HandleSetBlock(void);
 void Packet_HandleSpawnEntity(void);
+void Packet_HandleTextColor(void);
+void Packet_HandleNametag(void);
 void Packet_HandleTeleportEntity(void);
 void Packet_HandleMessage(void);
 void Packet_HandleDespawnEntity(void);

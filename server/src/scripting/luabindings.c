@@ -2,6 +2,7 @@
 #include "luaitemactions.h"
 #include "../serverinventory.h"
 #include "../hudbars.h"
+#include "../textcolors.h"
 #include "luadigging.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
@@ -623,9 +624,11 @@ static int SetPlayerSpawnPoint(void) {
     player->spawnPoint = position;
     return 0;
 }
+static int SetPlayerNametag(void) { return ServerNametag_Set(L, LuaBindings_CheckPlayerEntity()); }
 static int SetPlayerHudBar(void) { return ServerHudBars_Set(LuaBindings_CheckPlayer()); }
 static const struct LuaMethod playerLib[] = {
     {"set_hud_bar", SetPlayerHudBar},
+    {"set_nametag", SetPlayerNametag},
     {"get_hp", GetPlayerHP},
     {"set_hp", SetPlayerHP},
     {"get_spawn_point", GetPlayerSpawnPoint},
@@ -721,6 +724,9 @@ static const struct LuaMethod midlessLib[] = {
     {"define_recipe", Crafting_Register},
     {"define_texture", LuaBindings_DefineTexture},
     {"define_hud_bar", ServerHudBars_Define},
+    {"define_text_color", ServerTextColors_Define},
+    {"remove_text_color", ServerTextColors_Remove},
+    {"escape_text", ServerTextColors_Escape},
     {"remove_hud_bar", ServerHudBars_Remove},
     {"define_player_metadata", LuaMetadata_DefinePlayer},
     {"register_on_player_metadata_change", LuaMetadata_RegisterPlayerChange},
@@ -811,6 +817,7 @@ void LuaBindings_Init(void) {
 }
 
 void LuaBindings_Shutdown(void) {
+    ServerTextColors_Reset();
     ServerHudBars_Reset();
     LuaDigging_Shutdown();
     LuaItemActions_Shutdown();

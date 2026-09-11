@@ -35,6 +35,7 @@ void ServerWorld_AddPlayer(void *player) {
         int entityId = ServerWorld_AddEntity(1, 0, position, i);
         if (entityId < 0) return;
         newPlayer->entityId = entityId;
+        TextColor_Escape(serverWorld.entities[entityId].nametag.text, newPlayer->name);
         serverWorld.players[i] = newPlayer;
         newPlayer->id = i;
         ServerPlayer_ResetMovement(newPlayer);
@@ -48,7 +49,9 @@ void ServerWorld_AddPlayer(void *player) {
     if (newPlayer->entityId < 0) return;
     ServerEntities_Send(newPlayer);
 
-    ServerWorld_SendMessage(TextFormat("%s joined the game!", newPlayer->name));
+    char name[PACKET_STRING_SIZE * 2 + 1];
+    TextColor_Escape(name, newPlayer->name);
+    ServerWorld_SendMessage(TextFormat("%s joined the game!", name));
 }
 
 void ServerWorld_RemovePlayer(void *player) {

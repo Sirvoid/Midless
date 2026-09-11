@@ -28,6 +28,7 @@
 #include "../inventoryclient.h"
 #include "../digging.h"
 #include "../gui/hudbars.h"
+#include "../gui/formattedtext.h"
 
 
 unsigned char *packetData;
@@ -227,6 +228,33 @@ void Packet_HandleSetBlock(void) {
     int oldBlockId = World_GetBlock(position);
     if (byPlayer && blockId == 0 && oldBlockId != 0) Particle_SpawnBlockBreak(position, oldBlockId);
     World_SetBlock(position, blockId, false);
+}
+
+void Packet_HandleTextColor(void) {
+    if (packetDataLength != TEXT_COLOR_PACKET_SIZE) return;
+    Color color;
+    color.r = Packet_ReadByte(); color.g = Packet_ReadByte();
+    color.b = Packet_ReadByte(); color.a = Packet_ReadByte();
+    unsigned char code = Packet_ReadByte();
+    if (TextColor_ValidCode(code)) textColors[code] = color;
+}
+
+void Packet_HandleNametag(void) {
+    if (packetDataLength != NAMETAG_PACKET_SIZE) return;
+    int id = Packet_ReadUShort();
+    const unsigned char *text = Packet_ReadBytes(NAMETAG_TEXT_SIZE);
+    if (!text || !memchr(text, 0, NAMETAG_TEXT_SIZE)) return;
+    Nametag tag = {0};
+    memcpy(tag.text, text, NAMETAG_TEXT_SIZE);
+    if (strchr(tag.text, '\n') || strchr(tag.text, '\r')) return;
+    tag.color.r = Packet_ReadByte(); tag.color.g = Packet_ReadByte();
+    tag.color.b = Packet_ReadByte(); tag.color.a = Packet_ReadByte();
+    int visible = Packet_ReadByte();
+    tag.visible = visible != 0;
+    tag.offset = Packet_ReadInt() / 64.0f;
+    if (visible > 1 || tag.offset < -16 || tag.offset > 16) return;
+    if (world.entities && id < WORLD_MAX_ENTITIES && world.entities[id].type)
+        world.entities[id].nametag = tag;
 }
 
 void Packet_HandleSpawnEntity(void) {

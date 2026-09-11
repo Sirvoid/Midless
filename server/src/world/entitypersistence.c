@@ -21,6 +21,7 @@ typedef struct SavedEntity {
     Metadata metadata;
     char model[65];
     uint16_t heldBlock;
+    Nametag nametag;
 } SavedEntity;
 
 static bool ChunkEntity(const Entity *entity) {
@@ -88,6 +89,7 @@ static bool ReadRecords(const Chunk *chunk, SavedEntity **records, int *count) {
     *records = saved; *count = total;
     for (unsigned i = 0; i < total; i++) {
         SavedEntity *e = &saved[i];
+        e->nametag = (Nametag){.color = WHITE, .visible = true};
         uint32_t type = Binary_ReadVarUInt(&in), length = Binary_ReadVarUInt(&in);
         const uint8_t *bytes = Binary_Read(&in, length);
         if (in.failed || type >= types) return false;
@@ -113,7 +115,19 @@ static bool ReadRecords(const Chunk *chunk, SavedEntity **records, int *count) {
             if (!e->stack.itemId || !e->stack.count || e->stack.count > Item_GetMaxStack(e->stack.itemId) ||
                 !isfinite(e->age) || e->age < 0 || !isfinite(e->pickupDelay) || e->pickupDelay < 0) return false;
         }
-        if (record.offset + 2 == record.size) e->heldBlock = Binary_ReadU16(&record);
+        if (record.offset < record.size) e->heldBlock = Binary_ReadU16(&record);
+        if (record.offset < record.size) {
+            const uint8_t *text = Binary_Read(&record, NAMETAG_TEXT_SIZE);
+            if (!text || !memchr(text, 0, NAMETAG_TEXT_SIZE)) return false;
+            memcpy(e->nametag.text, text, NAMETAG_TEXT_SIZE);
+            e->nametag.color.r = Binary_ReadU8(&record); e->nametag.color.g = Binary_ReadU8(&record);
+            e->nametag.color.b = Binary_ReadU8(&record); e->nametag.color.a = Binary_ReadU8(&record);
+            int visible = Binary_ReadU8(&record);
+            e->nametag.visible = visible != 0;
+            e->nametag.offset = Binary_ReadFloat(&record);
+            if (visible > 1 || !isfinite(e->nametag.offset) || fabsf(e->nametag.offset) > 16 ||
+                strchr(e->nametag.text, '\n') || strchr(e->nametag.text, '\r')) return false;
+        }
         if (!Binary_End(&record) || !SamePosition(ChunkPosition(e->position), chunk->position) ||
             !EntityBody_Validate(&e->body)) return false;
     }
@@ -132,7 +146,11 @@ static void WriteRecord(BinaryWriter *out, int type, const SavedEntity *e) {
         ItemStack_Write(&record, e->stack);
         Binary_Float(&record, e->age); Binary_Float(&record, e->pickupDelay);
     }
-    if (e->heldBlock > 255) Binary_U16(&record, e->heldBlock);
+    Binary_U16(&record, e->heldBlock);
+    Binary_Write(&record, e->nametag.text, NAMETAG_TEXT_SIZE);
+    Binary_U8(&record, e->nametag.color.r); Binary_U8(&record, e->nametag.color.g);
+    Binary_U8(&record, e->nametag.color.b); Binary_U8(&record, e->nametag.color.a);
+    Binary_U8(&record, e->nametag.visible); Binary_Float(&record, e->nametag.offset);
     if (record.failed) out->failed = true;
     Binary_VarUInt(out, type); Binary_VarUInt(out, record.size); Binary_Write(out, record.data, record.size);
     free(record.data);
@@ -215,6 +233,7 @@ bool EntityPersistence_Activate(Chunk *chunk) {
         Entity *e = &serverWorld.entities[id];
         e->position = saved->position; e->rotation = saved->rotation;
         e->body = saved->body; e->model = ModelId(saved->model); e->heldBlock = saved->heldBlock;
+        e->nametag = saved->nametag;
         e->metadata = saved->metadata; saved->metadata = (Metadata){0};
         e->drop.stack = saved->stack; e->drop.age = saved->age; e->drop.pickupDelay = saved->pickupDelay;
         restored[restoredCount++] = id;
@@ -246,7 +265,7 @@ static bool Snapshot(const Chunk *chunk, BinaryWriter *out) {
         const Entity *entity = live[i];
         // Borrow metadata only while writing. No intermediate array or payload copies.
         SavedEntity record = {.position = entity->position, .rotation = entity->rotation,
-            .body = entity->body, .heldBlock = entity->heldBlock, .metadata = entity->metadata,
+            .body = entity->body, .heldBlock = entity->heldBlock, .metadata = entity->metadata, .nametag = entity->nametag,
             .stack = entity->drop.stack, .age = entity->drop.age, .pickupDelay = entity->drop.pickupDelay};
         strcpy(record.name, names[types[pendingCount + i]]);
         if (entity->model) {

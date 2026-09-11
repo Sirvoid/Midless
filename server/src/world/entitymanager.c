@@ -3,6 +3,7 @@
 #include "../droppeditems.h"
 #include "../networkhandler.h"
 #include "../packet.h"
+#include "../textcolors.h"
 #include "../scripting/luaentities.h"
 
 static uint64_t nextGeneration;
@@ -31,6 +32,7 @@ int ServerWorld_AddEntity(int type, int model, Vector3 position, int ownerPlayer
             .ownerPlayerId = ownerPlayerId, .definitionId = -1, .scriptRef = -2,
             .type = type, .model = model, .position = position};
         e->body = EntityBody_Default();
+        e->nametag = (Nametag){.color = WHITE, .visible = true};
         ServerPhysics_InvalidateIndex();
         return id;
     }
@@ -71,11 +73,16 @@ void ServerEntities_Update(float dt) {
         if (!e->announced) {
             ServerWorld_BroadcastExcluding(ServerPacket_CreateSpawnEntity(e), e->ownerPlayerId);
             e->announced = true;
+            e->nametagDirty = true;
             e->dirty = true;
         }
         if (e->dirty) {
             ServerWorld_BroadcastExcluding(ServerPacket_CreateTeleportEntity(e, e->position, e->rotation), e->ownerPlayerId);
             e->dirty = false;
+        }
+        if (e->nametagDirty) {
+            ServerWorld_BroadcastExcluding(ServerNametag_CreatePacket(e), e->ownerPlayerId);
+            e->nametagDirty = false;
         }
     }
 }
@@ -86,6 +93,7 @@ void ServerEntities_Send(Player *player) {
         if (!e->active || e->pendingRemoval || e->ownerPlayerId == player->id || !e->announced ||
             e->type == ENTITY_TYPE_DROPPED_ITEM) continue;
         ServerNetwork_Send(player, ServerPacket_CreateSpawnEntity(e));
+        ServerNetwork_Send(player, ServerNametag_CreatePacket(e));
         ServerNetwork_Send(player, ServerPacket_CreateTeleportEntity(e, e->position, e->rotation));
     }
 }

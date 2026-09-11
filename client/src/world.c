@@ -30,6 +30,7 @@
 #include "packet.h"
 #include "entity.h"
 #include "entitymodel.h"
+#include "nametag.h"
 #include "localserver.h"
 #include "particle.h"
 #include "cloud.h"
@@ -413,6 +414,7 @@ void World_Draw(Vector3 camPosition) {
     ChunkMesh_FinishDrawing();
     rlEnableBackfaceCulling();
     rlEnableDepthMask();
+    Nametags_Draw(player.camera);
 }
 
 int World_GetBlock(Vector3 blockPos) {

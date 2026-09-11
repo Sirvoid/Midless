@@ -15,6 +15,7 @@
 #include "player.h"
 #include "networkhandler.h"
 #include "packet.h"
+#include "formattedtext.h"
 
 char* chatLines[64];
 int currentLine = 0;
@@ -47,12 +48,7 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
     //Draw Background
     if (chatEditMode) DrawRectangle(offset.x, offset.y - 184 + 46, chatWidth, 184, uiColor);
 
-    Color textColor = WHITE;
-    Color shadowColor = BLACK;
-    if (!chatEditMode) {
-        textColor.a = 150; 
-        shadowColor.a = 150;
-    }
+    float opacity = chatEditMode ? 1.0f : 150.0f / 255;
 
     //Draw Lines
     int lineAdded = 0;
@@ -60,25 +56,21 @@ void Chat_Draw(Vector2 offset, Color uiColor) {
     int index = currentLine == 0 ? 63 : currentLine - 1;
     while (lineAdded < 13) {
         if (chatLines[index]) {
-            int textLength = TextLength(chatLines[index]);
-            int startPos = 0;
-            char drawLines[8][132] = {0};
-            int drawLinesCnt = 0;
-            for (int i = 0; i < textLength && drawLinesCnt < 8; i++) {
-                const char* sub = TextSubtext(chatLines[index], startPos, i - startPos + 1);
-                int textWidth = MeasureText(sub, fontSize);
-                if (textWidth >= chatWidth - fontSize - 4 || i == textLength - 1) {
-                    TextCopy(drawLines[drawLinesCnt], sub);
-                    drawLinesCnt++;
-                    startPos = i + 1;
-                }
+            int capacity = strlen(chatLines[index]) + 1;
+            TextGlyph *glyphs = MemAlloc(capacity * sizeof(*glyphs));
+            if (!glyphs) break;
+            int lines;
+            float width;
+            int count = FormattedText_Layout(chatLines[index], WHITE, fontSize, chatWidth - fontSize - 4,
+                glyphs, capacity, &lines, &width);
+            for (int i = 0; i < count; i++) {
+                int row = lineAdded + lines - 1 - glyphs[i].line;
+                if (row >= 13) continue;
+                FormattedText_DrawGlyph(glyphs[i], (Vector2){offset.x + 4 + glyphs[i].x,
+                    offset.y - row * fontSize}, fontSize, opacity);
             }
-            for (int i = drawLinesCnt - 1; i >= 0; i--) {
-                if (!drawLines[i]) continue;
-                DrawText(drawLines[i], offset.x + 4 + 1, offset.y - lineAdded * fontSize + 1, fontSize, shadowColor);
-                DrawText(drawLines[i], offset.x + 4, offset.y - lineAdded * fontSize, fontSize, textColor);
-                lineAdded++;
-            }
+            lineAdded += lines;
+            MemFree(glyphs);
         }
 
         index--;

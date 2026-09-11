@@ -469,6 +469,52 @@ player:send_message("Hello!")
 
 
 
+# Text colors
+
+Chat and nametags use the same color codes. Put `&` followed by a code before
+the text to color. Standard codes are `0`–`9` and `a`–`f` (uppercase also works).
+For example, `&cRed &fWhite` changes from red to white.
+Use `&&` for a literal ampersand.
+
+```lua
+midless.define_text_color("g", "#FFD166")
+player:send_message("&gWelcome! &fEnjoy your stay.")
+midless.remove_text_color("g")
+```
+
+Colors accept `#RRGGBB` or `#RRGGBBAA`. Alpha `00` removes the definition.
+The code must be one printable ASCII character other than `&`, `%`, or space.
+Custom codes are case-sensitive. A definition can override a standard code;
+removing it restores that code's default color.
+
+Escape text when its ampersands should display literally:
+
+```lua
+local literal = midless.escape_text("Hello &cworld") -- "Hello &&cworld"
+player:send_message("&ePlayer said: &f" .. midless.escape_text(message))
+```
+
+# Nametags
+
+Players default to their username. Other entities have an empty tag until one
+is assigned. Both support the same method:
+
+```lua
+player:set_nametag({text = "&c[Admin] &fAlex"})
+entity:set_nametag({
+    text = "&gVillage Merchant",
+    color = "#FFFFFF",
+    visible = true,
+    offset = 0.5,
+})
+entity:set_nametag({visible = false})
+entity:set_nametag({visible = true})
+```
+
+Entity tags save with their entities and are restored before `on_load`.
+
+---
+
 # Player HP
 
 Players start with 20 HP. HP saves automatically between sessions.

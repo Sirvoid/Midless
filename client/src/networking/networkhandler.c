@@ -28,6 +28,7 @@
 #include "hudbarprotocol.h"
 #include "../gui/hudbars.h"
 #include "inventoryclient.h"
+#include "formattedtext.h"
 
 PacketHandlerEntry packets[256];
 int networkConnectedToServer = 0;
@@ -86,6 +87,8 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleDefineHudBar, HUD_BAR_DEFINE_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleSetHudBar, HUD_BAR_STATE_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleRemoveHudBar, HUD_BAR_REMOVE_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleTextColor, TEXT_COLOR_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleNametag, NAMETAG_PACKET_SIZE};
 }
 
 void Network_Connect(void) {
@@ -108,6 +111,7 @@ void Network_Disconnect(void) {
 }
 
 static void Network_PerformDisconnect(void) {
+    memset(textColors, 0, sizeof(textColors));
     ClientHudBars_Reset();
     ClientInventory_Reset();
     for (int i = 0; i < hmlen(world.chunks); i++) world.chunks[i].value->modified = false;
@@ -161,7 +165,7 @@ void Network_ProcessIncomingPackets(void) {
         Network_PerformDisconnect();
         return;
     }
-    if (reset) { ClientHudBars_Reset(); ClientInventory_Reset(); EntityModel_ResetDefinitions(); ClientTextures_Reset(); Block_ResetDefinitions(); }
+    if (reset) { memset(textColors, 0, sizeof(textColors)); ClientHudBars_Reset(); ClientInventory_Reset(); EntityModel_ResetDefinitions(); ClientTextures_Reset(); Block_ResetDefinitions(); }
     const int maxPacketsPerFrame = 1024;
     const double terrainPacketBudgetSeconds = 0.002;
     IncomingPacket gameplayPackets[maxPacketsPerFrame];

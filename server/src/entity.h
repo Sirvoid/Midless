@@ -11,10 +11,13 @@
 #include "raylib.h"
 #include <stdint.h>
 #include "entitybody.h"
+#include "textcolor.h"
 #include "droppeditem.h"
 #include "world/chunk/chunkmetadata.h"
 
 typedef struct Entity{
+    Nametag nametag;
+    bool nametagDirty;
     EntityBody body;
     DroppedItem drop;
     int id;
