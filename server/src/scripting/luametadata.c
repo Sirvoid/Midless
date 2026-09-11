@@ -921,6 +921,39 @@ void LuaMetadata_DefineItem(int id, int definition) {
     }
     itemSchemas[id] = schema;
 }
+void LuaMetadata_ItemBar(int id, int definition, ItemBar *bar) {
+    *bar = (ItemBar){0};
+    lua_getfield(L, definition, "inventory_bar");
+    if (lua_isnil(L, -1)) { lua_pop(L, 1); return; }
+    luaL_checktype(L, -1, LUA_TTABLE);
+    int table = lua_gettop(L);
+    lua_getfield(L, table, "field");
+    size_t length; const char *name = luaL_checklstring(L, -1, &length);
+    if (!length || length > 64 || memchr(name, 0, length)) luaL_error(L, "invalid inventory_bar field");
+    int schema = itemSchemas[id], target = -1;
+    if (schema >= 0) for (int i = 0; i < schemas[schema]->count; i++)
+        if (!strcmp(name, schemas[schema]->fields[i].name)) target = i;
+    if (target < 0 || schemas[schema]->fields[target].type == FIELD_BOOL || schemas[schema]->fields[target].type > FIELD_FLOAT)
+        luaL_error(L, "inventory_bar.field must reference numeric item metadata");
+    lua_pop(L, 1);
+    lua_getfield(L, table, "max");
+    double maximum = luaL_checknumber(L, -1);
+    if (!isfinite(maximum) || !isfinite((float)maximum) || (float)maximum <= 0)
+        luaL_error(L, "inventory_bar.max must be finite and positive");
+    bar->maximum = maximum; lua_pop(L, 1);
+    lua_getfield(L, table, "hide_when_full");
+    if (!lua_isnil(L, -1)) luaL_checktype(L, -1, LUA_TBOOLEAN);
+    bar->hideWhenFull = lua_isnil(L, -1) || lua_toboolean(L, -1);
+    lua_pop(L, 2);
+    Schema *layout = schemas[schema];
+    bar->version = layout->version; bar->count = target + 1;
+    bar->defaultValue = layout->fields[target].defaultNumber;
+    for (int i = 0; i <= target; i++) {
+        Field *field = &layout->fields[i];
+        bar->fields[i] = field->type <= FIELD_BOOL ? field->bits + (field->type == FIELD_INT ? 32 : 0) :
+            field->type == FIELD_FLOAT ? 65 : 66;
+    }
+}
 void LuaMetadata_ReadItem(lua_State *state, int index, ItemStack *stack) {
     index = lua_absindex(state, index);
     int schema = stack->itemId < ITEM_LIMIT ? itemSchemas[stack->itemId] : -1;

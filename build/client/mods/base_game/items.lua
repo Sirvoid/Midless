@@ -34,6 +34,7 @@ for _, tier in ipairs({
             dig_speed = {[kind.group] = tier.speed},
             harvest_levels = {[kind.group] = tier.level},
             metadata = {{name = "durability", type = "uint", bits = 16, default = tier.uses}},
+            inventory_bar = {field = "durability", max = tier.uses, hide_when_full = true},
             on_dig = function(player, block, stack)
                 stack.metadata.durability = stack.metadata.durability - 1
                 if stack.metadata.durability <= 0 then

@@ -107,6 +107,11 @@ void ServerItems_Send(struct Player *player) {
         memcpy(data + 3, serverItems[id].identifier, 65); memcpy(data + 68, serverItems[id].name, 65);
         data[133] = serverItems[id].maxStack ? serverItems[id].maxStack : 64;
         data[134] = serverItems[id].texture;
+        BinaryWriter bar = {0};
+        ItemBar_Write(&bar, &serverItems[id].bar);
+        if (bar.failed) { free(bar.data); free(data); return; }
+        memcpy(data + 135, bar.data, ITEM_BAR_PACKET_SIZE);
+        free(bar.data);
         ServerNetwork_Send(player, data);
     }
 }
@@ -139,6 +144,7 @@ int ServerItems_Define(void) {
     LuaDigging_Define(id, 2, false);
     LuaItemActions_Define(id, 2, false);
     LuaMetadata_DefineItem(id, 2);
+    LuaMetadata_ItemBar(id, 2, &definition.bar);
     serverItems[id] = definition; Item_SetMaxStack(id, max);
     for (int p = 0; p < WORLD_MAX_PLAYERS; p++) if (serverWorld.players[p]) ServerItems_Send(serverWorld.players[p]);
     return 0;

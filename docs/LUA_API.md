@@ -281,6 +281,11 @@ midless.define_item("my_mod:pickaxe", {
     dig_speed = {stone = 6},
     harvest_levels = {stone = 2},
     metadata = {{name = "durability", type = "uint", bits = 8, default = 100}},
+    inventory_bar = {
+        field = "durability",
+        max = 100,
+        hide_when_full = true,
+    },
     on_dig = function(player, block, stack)
         stack.metadata.durability = stack.metadata.durability - 1
         player:set_selected_stack(stack.metadata.durability > 0 and stack or nil)

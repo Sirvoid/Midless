@@ -9,6 +9,9 @@
 static ItemDefinition definitions[ITEM_LIMIT];
 static struct { Mesh mesh; unsigned texture; } models[ITEM_LIMIT];
 static Material material;
+bool ClientItems_Bar(ItemStack stack, float *fraction) {
+    return stack.itemId < ITEM_LIMIT && ItemBar_Fraction(&definitions[stack.itemId].bar, &stack, fraction);
+}
 
 static const Vector3 spriteRotationDegrees = {-25.0f, 270.0f, 0.0f};
 static const Vector3 thirdPersonSpriteRotationDegrees = {180.0f, 90.0f, 0.0f};

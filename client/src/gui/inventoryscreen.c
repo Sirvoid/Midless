@@ -9,10 +9,22 @@
 static void DrawStack(ItemStack stack, Rectangle bounds) {
     if (!stack.count) return;
     BlockItemRenderer_Draw(stack.itemId, (Rectangle){bounds.x + 3, bounds.y + 3, bounds.width - 6, bounds.height - 6});
+    float fraction;
+    bool bar = ClientItems_Bar(stack, &fraction);
+    if (bar) {
+        float height = fmaxf(2, bounds.height * 0.065f);
+        Rectangle track = {bounds.x + 4, bounds.y + bounds.height - height - 3, bounds.width - 8, height};
+        DrawRectangleRec(track, BLACK);
+        track.width *= fraction;
+        Color color = {(unsigned char)(255 * fminf(1, 2 * (1 - fraction))),
+            (unsigned char)(255 * fminf(1, 2 * fraction)), 0, 255};
+        DrawRectangleRec(track, color);
+    }
     int fontSize = bounds.width >= 40 ? 18 : 12;
     const char *count = TextFormat("%i", stack.count);
     int x = (int)(bounds.x + bounds.width - MeasureText(count, fontSize) - 4);
     int y = (int)(bounds.y + bounds.height - fontSize - 3);
+    if (bar) y -= (int)fmaxf(2, bounds.height * 0.065f) + 2;
     DrawText(count, x + 1, y + 1, fontSize, BLACK);
     DrawText(count, x, y, fontSize, WHITE);
 }

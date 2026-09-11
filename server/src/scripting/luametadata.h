@@ -4,6 +4,8 @@
 #include "../world/chunk/chunkmetadata.h"
 #include "inventory.h"
 #include "raylib.h"
+#include "itemdefinition.h"
+void LuaMetadata_ItemBar(int id, int definition, ItemBar *bar);
 
 bool LuaMetadata_StateField(int id, const char *name, bool *boolean, int *bits);
 bool LuaMetadata_StateValue(int id, const Metadata *value, const char *name, int64_t *out);

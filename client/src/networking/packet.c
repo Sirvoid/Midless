@@ -502,6 +502,8 @@ void Packet_HandleDefineItem(void) {
     memcpy(item.name, Packet_ReadBytes(sizeof(item.name)), sizeof(item.name));
     item.maxStack = Packet_ReadByte();
     item.texture = Packet_ReadByte();
+    BinaryReader bar = {Packet_ReadBytes(ITEM_BAR_PACKET_SIZE), ITEM_BAR_PACKET_SIZE};
+    if (!ItemBar_Read(&bar, &item.bar)) return;
     if (id < 1 || id >= ITEM_LIMIT || !memchr(item.identifier, 0, sizeof(item.identifier)) ||
         !memchr(item.name, 0, sizeof(item.name)) || !item.maxStack || item.maxStack > 64) return;
     item.defined = true;
