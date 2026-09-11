@@ -19,7 +19,12 @@
 #include "networkhandler.h"
 #include "block.h"
 
+static uint64_t nextMeshIdentity;
+
 static void Chunk_Init(Chunk *chunk, Vector3 pos) {
+    chunk->meshIdentity = ++nextMeshIdentity;
+    chunk->meshRevision = 0;
+    chunk->meshPending = false;
     chunk->mesh = (ChunkMesh){0};
     chunk->meshTransparent = (ChunkMesh){0};
     chunk->position = pos;
@@ -168,6 +173,7 @@ void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood) {
                 }
 
                 neighbour->neighbours[j] = NULL;
+                World_QueueChunk(neighbour, false);
                 if (i < 6) {
                     neighbour->incompleteLightFaces |= 1u << j;
                     neighbour->incompleteSunlightFaces |= 1u << j;

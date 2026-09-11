@@ -31,6 +31,7 @@
 #include "worldgenerator.h"
 #include "worldgen.h"
 #include "../utils.h"
+#include "streamprofile.h"
 #include "../items.h"
 
 World serverWorld;
@@ -69,7 +70,7 @@ void ServerWorld_Init(void) {
     memset(serverWorld.players, 0, sizeof(Player *) * WORLD_MAX_PLAYERS);
     serverWorld.entities = MemAlloc(sizeof(Entity) * WORLD_MAX_ENTITIES);
     memset(serverWorld.entities, 0, sizeof(Entity) * WORLD_MAX_ENTITIES);
-    serverWorld.maxDrawDistance = 8;
+    serverWorld.maxDrawDistance = 32;
 
     lastUpdateMilliseconds = GetTimeMilliseconds();
     lastTimeSyncMilliseconds = lastUpdateMilliseconds;
@@ -98,9 +99,12 @@ void ServerWorld_Shutdown(void) {
 }
 
 void ServerWorld_Update(void) {
+    static StreamProfile chunksProfile, playersProfile, simulationProfile;
+    double stageStart = GetTime();
     LuaMetadata_FlushChanges();
     EntityPersistence_EnsureChunks();
     ServerChunkManager_Update();
+    StreamProfile_Add(&chunksProfile, "server chunk update", GetTime() - stageStart);
 
     long long nowMilliseconds = GetTimeMilliseconds();
     long long elapsedMilliseconds = nowMilliseconds - lastUpdateMilliseconds;
@@ -117,8 +121,11 @@ void ServerWorld_Update(void) {
         lastTimeSyncMilliseconds = nowMilliseconds;
     }
 
+    stageStart = GetTime();
     ServerPlayerManager_Update();
+    StreamProfile_Add(&playersProfile, "server player streaming", GetTime() - stageStart);
     ServerLighting_Update();
+    stageStart = GetTime();
     ServerTextures_Update();
     InventoryWindow_Update();
     ServerInventory_UpdateDigging();
@@ -129,6 +136,7 @@ void ServerWorld_Update(void) {
         LuaBindings_InvokeStep(dt);
         ServerEntities_Update(dt);
     }
+    StreamProfile_Add(&simulationProfile, "server simulation", GetTime() - stageStart);
 }
 
 void ServerWorld_SendMessage(const char *message) {

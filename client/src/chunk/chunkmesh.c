@@ -10,6 +10,9 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "rlgl.h"
+#if defined(PLATFORM_DESKTOP)
+#include "external/glad.h"
+#endif
 #include "chunkmesh.h"
 #include "world.h"
 #include "player.h"
@@ -89,6 +92,36 @@ void ChunkMesh_Unload(ChunkMesh *mesh) {
     mesh->vaoId = 0;
     mesh->vertexCapacity = 0;
     mesh->indexCapacity = 0;
+}
+
+void ChunkMesh_UnloadBatch(ChunkMesh **meshes, int count) {
+#if defined(PLATFORM_DESKTOP)
+    if (count <= 32 && glDeleteVertexArrays && glDeleteBuffers) {
+        unsigned int arrays[32], buffers[32 * MAX_CHUNKMESH_VERTEX_BUFFERS];
+        int arrayCount = 0, bufferCount = 0;
+        for (int i = 0; i < count; i++) {
+            ChunkMesh *mesh = meshes[i];
+            if (!mesh->vboId) continue;
+            if (mesh->vaoId) arrays[arrayCount++] = mesh->vaoId;
+            for (int j = 0; j < MAX_CHUNKMESH_VERTEX_BUFFERS; j++) {
+                if (mesh->vboId[j]) buffers[bufferCount++] = mesh->vboId[j];
+            }
+        }
+        // Drop references first, then release the buffers in one driver call.
+        rlDisableVertexArray();
+        if (arrayCount) glDeleteVertexArrays(arrayCount, arrays);
+        if (bufferCount) glDeleteBuffers(bufferCount, buffers);
+        for (int i = 0; i < count; i++) {
+            ChunkMesh *mesh = meshes[i];
+            RL_FREE(mesh->vboId);
+            mesh->vboId = NULL;
+            mesh->vaoId = 0;
+            mesh->vertexCapacity = mesh->indexCapacity = 0;
+        }
+        return;
+    }
+#endif
+    for (int i = 0; i < count; i++) ChunkMesh_Unload(meshes[i]);
 }
 
 void ChunkMesh_PrepareDrawing(Material material) {

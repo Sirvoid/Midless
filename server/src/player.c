@@ -1,4 +1,5 @@
 #include "lighting.h"
+#include "world/chunkmanager.h"
 #include "blockstates.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
@@ -86,6 +87,7 @@ Player *ServerPlayer_Create(void *peer, bool isWeb) {
 void ServerPlayer_Destroy(Player *player) {
     if (player == NULL) return;
     for (int i=0;i<player->metadataCount;i++) Metadata_Free(&player->metadata[i].value);
+    arrfree(player->chunkRequests);
     MemFree(player->name);
     MemFree(player);
 }
@@ -111,70 +113,108 @@ void ServerPlayer_Teleport(Player *player, Vector3 position) {
     Entity *entity = &serverWorld.entities[player->entityId];
     ServerWorld_TeleportEntity(player->entityId, position, entity->rotation);
     ServerPlayer_ResetMovement(player);
+    // Detach the old view immediately; saving its chunks remains budgeted.
+    ServerWorld_RemovePlayerFromChunks(player);
+    player->chunkRequestDistance = -1;
+    player->pendingChunkCount = 0;
+    player->lightingChunkCount = 0;
+    player->chunkRetryTime = 0;
+    ServerChunkManager_CancelUnusedRequests();
+    unsigned char *reset = MemAlloc(RESET_CHUNKS_PACKET_SIZE);
+    if (reset) { reset[0] = 35; ServerNetwork_Send(player, reset); }
+    ServerPlayer_LoadChunks(player);
     Entity localEntity = *entity;
     localEntity.id = USHRT_MAX;
     Vector3 localPosition = {position.x - 0.5f, position.y, position.z - 0.5f};
     ServerNetwork_Send(player, ServerPacket_CreateTeleportEntity(&localEntity, localPosition, entity->rotation));
 }
 
-void ServerPlayer_LoadChunks(Player* player) {
+static int CompareChunkRequests(const void *a, const void *b) {
+    const ChunkRequest *first = a, *second = b;
+    return (first->distanceSquared > second->distanceSquared) -
+           (first->distanceSquared < second->distanceSquared);
+}
 
-    Entity entity = serverWorld.entities[player->entityId];
-    double loadDeadline = GetTime() + 0.008;
-
-    if (player->chunkRequestPending) return;
-
-    Vector3 playerChunkPos = (Vector3) {(int)floor(entity.position.x / CHUNK_SIZE_X), (int)floor(entity.position.y / CHUNK_SIZE_Y), (int)floor(entity.position.z / CHUNK_SIZE_Z)};
-
-    int loadingHeight = fmin(player->drawDistance, 4);
-    while (true) {
-        bool foundChunk = false;
-        float closestDistanceSquared = INFINITY;
-        Vector3 closestPosition = {0};
-
-        for (int y = -loadingHeight; y <= loadingHeight; y++) {
-            for (int x = -player->drawDistance; x <= player->drawDistance; x++) {
-                for (int z = -player->drawDistance; z <= player->drawDistance; z++) {
-                    float distanceSquared = (float)(x*x + y*y + z*z);
-                    float loadingRadius = player->drawDistance + 3;
-                    if (distanceSquared >= loadingRadius * loadingRadius ||
-                        distanceSquared >= closestDistanceSquared) continue;
-
-                    Vector3 chunkPos = {
-                        playerChunkPos.x + x,
-                        playerChunkPos.y + y,
-                        playerChunkPos.z + z
-                    };
-                    Chunk *chunk = ServerWorld_GetChunkAt(chunkPos);
-                    if (chunk != NULL && ServerChunk_PlayerInChunk(chunk, player)) continue;
-
-                    foundChunk = true;
-                    closestDistanceSquared = distanceSquared;
-                    closestPosition = chunkPos;
-                }
+static void PrepareChunkRequests(Player *player, Vector3 center) {
+    arrsetlen(player->chunkRequests, 0);
+    player->chunkRequestCursor = 0;
+    player->pendingChunkCount = 0;
+    player->lightingChunkCount = 0;
+    player->chunkRequestCenter = center;
+    player->chunkRequestDistance = player->drawDistance;
+    int height = player->drawDistance < 4 ? player->drawDistance : 4;
+    int radius = player->drawDistance + 3;
+    for (int y = -height; y <= height; y++) {
+        for (int x = -player->drawDistance; x <= player->drawDistance; x++) {
+            for (int z = -player->drawDistance; z <= player->drawDistance; z++) {
+                int distance = x*x + y*y + z*z;
+                if (distance >= radius*radius) continue;
+                Vector3 position = {center.x + x, center.y + y, center.z + z};
+                Chunk *chunk = ServerWorld_GetChunkAt(position);
+                if (chunk && ServerChunk_PlayerInChunk(chunk, player)) continue;
+                arrput(player->chunkRequests, ((ChunkRequest){position, distance}));
             }
         }
+    }
+    if (arrlen(player->chunkRequests) > 1)
+        qsort(player->chunkRequests, arrlen(player->chunkRequests), sizeof(ChunkRequest), CompareChunkRequests);
+}
 
-        if (!foundChunk) return;
+void ServerPlayer_LoadChunks(Player *player) {
+    Vector3 position = serverWorld.entities[player->entityId].position;
+    Vector3 center = {floorf(position.x / 16), floorf(position.y / 16), floorf(position.z / 16)};
+    if (player->chunkRequestDistance != player->drawDistance ||
+        !Vector3Equals(center, player->chunkRequestCenter)) PrepareChunkRequests(player, center);
 
-        Chunk *chunk = ServerWorld_GetChunkAt(closestPosition);
-        if (chunk == NULL) {
-            if (ServerWorld_QueueChunk(closestPosition)) {
-                player->chunkRequestPending = true;
-                player->pendingChunkPosition = closestPosition;
-            }
-            return;
+    double deadline = GetTime() + 0.002;
+    // Generated chunks move to a separate lighting queue, freeing loader slots.
+    for (int i = 0; i < player->pendingChunkCount;) {
+        Chunk *chunk = ServerWorld_GetChunkAt(player->pendingChunks[i]);
+        if (!chunk) {
+            if (GetTime() >= player->chunkRetryTime) ServerWorld_QueueChunk(player->pendingChunks[i]);
+            i++;
+            continue;
         }
-        ServerChunk_AddPlayer(chunk, player);
+        if (player->lightingChunkCount == PLAYER_LIGHT_REQUESTS) break;
+        ServerLighting_Prioritize(chunk);
+        player->lightingChunks[player->lightingChunkCount++] = player->pendingChunks[i];
+        player->pendingChunkCount--;
+        memmove(player->pendingChunks + i, player->pendingChunks + i + 1,
+            (player->pendingChunkCount - i) * sizeof(Vector3));
+    }
+    for (int i = 0; i < player->lightingChunkCount;) {
+        Chunk *chunk = ServerWorld_GetChunkAt(player->lightingChunks[i]);
+        if (!chunk) {
+            if (GetTime() >= player->chunkRetryTime) ServerWorld_QueueChunk(player->lightingChunks[i]);
+            i++;
+            continue;
+        }
+        if (!ServerLighting_IsReady(chunk)) { i++; continue; }
+        if (!ServerChunk_PlayerInChunk(chunk, player)) {
+            int length = 0;
+            unsigned short *data = ServerChunk_CreateCompressedData(chunk, &length);
+            if (!data) { i++; continue; }
+            ServerChunk_AddPlayer(chunk, player);
+            ServerNetwork_Send(player, ServerPacket_CreateLoadChunk(data, length, chunk->position, chunk->skyMask));
+            ServerLighting_Send(chunk, player);
+            MemFree(data);
+        }
+        player->lightingChunkCount--;
+        memmove(player->lightingChunks + i, player->lightingChunks + i + 1,
+            (player->lightingChunkCount - i) * sizeof(Vector3));
+        if (GetTime() >= deadline) break;
+    }
+    if (GetTime() >= player->chunkRetryTime) player->chunkRetryTime = GetTime() + 2.0;
 
-        int compressedLength = 0;
-        unsigned short *compressedChunk = ServerChunk_CreateCompressedData(chunk, &compressedLength);
-        ServerNetwork_Send(player, ServerPacket_CreateLoadChunk(
-            compressedChunk, compressedLength, closestPosition, chunk->skyMask));
-        ServerLighting_Send(chunk,player);
-        MemFree(compressedChunk);
-
-        if (GetTime() >= loadDeadline) return;
+    while (player->lightingChunkCount < PLAYER_LIGHT_REQUESTS &&
+           player->pendingChunkCount < PLAYER_CHUNK_REQUESTS &&
+           player->chunkRequestCursor < arrlen(player->chunkRequests) && GetTime() < deadline) {
+        Vector3 next = player->chunkRequests[player->chunkRequestCursor].position;
+        Chunk *chunk = ServerWorld_GetChunkAt(next);
+        if (chunk && ServerChunk_PlayerInChunk(chunk, player)) { player->chunkRequestCursor++; continue; }
+        if (!ServerWorld_QueueChunk(next)) break;
+        player->pendingChunks[player->pendingChunkCount++] = next;
+        player->chunkRequestCursor++;
     }
 }
 

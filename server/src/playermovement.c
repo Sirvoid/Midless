@@ -158,7 +158,12 @@ static bool FindLanding(Vector3 from, Vector3 to, float *height) {
     return false;
 }
 
-static void CorrectPosition(Player *player) {
+static void CorrectPosition(Player *player, const char *reason) {
+    double now = GetTime();
+    if (now >= player->movementLogTime) {
+        TraceLog(LOG_WARNING, "Movement correction for player %d: %s", player->id, reason);
+        player->movementLogTime = now + 2.0;
+    }
     Entity entity = serverWorld.entities[player->entityId];
     entity.id = USHRT_MAX;
     Vector3 position = {entity.position.x - 0.5f, entity.position.y, entity.position.z - 0.5f};
@@ -171,9 +176,13 @@ void ServerPlayer_UpdatePositionRotation(Player *player, Vector3 position, Vecto
     if (!player->movementReady) ServerPlayer_ResetMovement(player);
     Vector3 previous = serverWorld.entities[player->entityId].position;
     double now = GetTime();
-    float elapsed = fmax(0, now - player->movementTime);
+    // Streaming may delay processing a batch of packets. Refill credit using
+    // server arrival times, so that queued movement retains its original pacing.
+    double sampleTime = player->movementReceivedTime > 0 ? player->movementReceivedTime : now;
+    player->movementReceivedTime = 0;
+    float elapsed = fmax(0, sampleTime - player->movementTime);
     if (now >= player->impulseExpires) player->impulseAllowance = (Vector3){0};
-    player->movementTime = now;
+    player->movementTime = fmax(player->movementTime, sampleTime);
     player->horizontalAllowance = fminf(PLAYER_HORIZONTAL_ALLOWANCE, player->horizontalAllowance + elapsed * PLAYER_HORIZONTAL_SPEED);
     player->upAllowance = fminf(PLAYER_UP_ALLOWANCE, player->upAllowance + elapsed * PLAYER_UP_SPEED);
     player->downAllowance = fminf(PLAYER_DOWN_ALLOWANCE, player->downAllowance + elapsed * PLAYER_DOWN_SPEED);
@@ -184,7 +193,7 @@ void ServerPlayer_UpdatePositionRotation(Player *player, Vector3 position, Vecto
         horizontal > player->horizontalAllowance + player->impulseAllowance.x ||
         delta.y > player->upAllowance + player->impulseAllowance.y ||
         -delta.y > player->downAllowance + player->impulseAllowance.z) {
-        CorrectPosition(player);
+        CorrectPosition(player, "speed allowance or invalid coordinates");
         return;
     }
 
@@ -203,7 +212,7 @@ void ServerPlayer_UpdatePositionRotation(Player *player, Vector3 position, Vecto
         }
     }
     if (!clear) {
-        CorrectPosition(player);
+        CorrectPosition(player, "collision or unloaded terrain");
         return;
     }
 

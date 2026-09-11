@@ -239,6 +239,10 @@ void Packet_HandleTextColor(void) {
     unsigned char code = Packet_ReadByte();
     if (TextColor_ValidCode(code)) textColors[code] = color;
 }
+void Packet_HandleResetChunks(void) {
+    World_ClearChunks();
+}
+
 void Packet_HandleChunkLight(void) {
     if (packetDataLength<CHUNK_LIGHT_HEADER_SIZE) return;
     int x=Packet_ReadInt(), y=Packet_ReadInt(), z=Packet_ReadInt();
@@ -262,9 +266,8 @@ void Packet_HandleChunkLight(void) {
     chunk->incompleteLightFaces=chunk->incompleteSunlightFaces=63;
     Chunk_ReconcileLighting(chunk);
     World_QueueChunk(chunk,false);
-    // Meshes sample the full neighborhood for corner lighting.
-    for (int i=0; i<26; i++) if (chunk->neighbours[i]) {
-        chunk->neighbours[i]->isLightDirty=true;
+    // Mesh snapshots sample only the six shared faces, not diagonal chunks.
+    for (int i=0; i<6; i++) if (chunk->neighbours[i]) {
         World_QueueChunk(chunk->neighbours[i],false);
     }
 }

@@ -41,6 +41,7 @@ void Packet_WriteInt(unsigned char* packet, int value);
 void Packet_HandleMapInit(void);
 void Packet_HandleLoadChunk(void);
 void Packet_HandleChunkLight(void);
+void Packet_HandleResetChunks(void);
 void Packet_HandleSetBlock(void);
 void Packet_HandleSpawnEntity(void);
 void Packet_HandleEntityTexture(void);

@@ -203,5 +203,7 @@ void Worldgen_EvalY(WGEval *e, float y);
 float Worldgen_Eval(WGEval *e, int field);
 void Worldgen_Features(Chunk *chunk);
 void Worldgen_ClearFeatures(void);
+void Worldgen_ClearSkyCache(void);
+bool Worldgen_CachedSkyMask(Chunk *chunk);
 
 #endif

@@ -3,6 +3,7 @@
 
 void ServerChunkManager_Init(void);
 void ServerChunkManager_Update(void);
+void ServerChunkManager_CancelUnusedRequests(void);
 void ServerChunkManager_Shutdown(void);
 
 #endif

@@ -7,11 +7,19 @@
 #include "../packet.h"
 #include "../items.h"
 #include "binarydata.h"
+#include "chunk/chunkfile.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define MAX_SAVED_ENTITIES WORLD_MAX_ENTITIES
+
+bool EntityPersistence_IsSaving(Entity *entity) {
+    if (entity->ownerPlayerId >= 0) return false;
+    Vector3 position = {floorf(entity->position.x / 16), floorf(entity->position.y / 16), floorf(entity->position.z / 16)};
+    Chunk *chunk = ServerWorld_GetChunkAt(position);
+    return chunk && chunk->savePending;
+}
 typedef struct SavedEntity {
     char name[65]; // Empty name denotes an engine dropped item.
     Vector3 position, rotation;
@@ -324,6 +332,20 @@ bool EntityPersistence_Save(Chunk *chunk) {
         ok = ServerChunk_SaveFile(&snapshot);
     } else {
         TraceLog(LOG_ERROR, "Could not snapshot chunk entities; keeping the live chunk for retry");
+    }
+    free(entities.data);
+    return ok;
+}
+
+bool EntityPersistence_Encode(Chunk *chunk, BinaryWriter *out) {
+    if (chunk->loadFailed) return false;
+    BinaryWriter entities = {0};
+    bool ok = Snapshot(chunk, &entities);
+    if (ok) {
+        Chunk snapshot = *chunk;
+        snapshot.savedEntities = entities.data;
+        snapshot.savedEntitiesSize = entities.size;
+        ok = ChunkFile_Encode(&snapshot, out);
     }
     free(entities.data);
     return ok;

@@ -23,9 +23,11 @@
 #include "logger.h"
 #include "utils.h"
 #include "runtimepaths.h"
+#include "platform.h"
 
 int main(void) {
     if (!RuntimePaths_Init()) return 1;
+    Platform_BeginTiming();
 
     #if !defined(SERVER_HEADLESS)
         InitWindow(400, 400, "Server");
@@ -47,6 +49,7 @@ int main(void) {
         ServerWorld_Shutdown();
         LuaBindings_Shutdown();
         Lua_Stop();
+        Platform_EndTiming();
         return 1;
     }
 
@@ -104,5 +107,6 @@ int main(void) {
     CloseWindow();
     #endif
     
+    Platform_EndTiming();
     return 0;
 }

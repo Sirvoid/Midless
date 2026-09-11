@@ -11,6 +11,7 @@
 #include "stb_ds.h"
 #include "chunklightning.h"
 #include "block.h"
+#include "world.h"
 
 static const int lightDirectionX[6] = {-1, 1, 0, 0, 0, 0};
 static const int lightDirectionY[6] = {0, 0, 1, -1, 0, 0};
@@ -79,7 +80,15 @@ void Chunk_SetLightLevel(Chunk *chunk, int index, int level, bool sunlight) {
         if (chunk->lightData[index] == level) return;
         chunk->lightData[index] = level;
     }
-    chunk->isLightDirty = true;
+    if (!chunk->isLightDirty) {
+        chunk->isLightDirty = true;
+        World_QueueChunk(chunk, false);
+    }
+
+    for (int face = 0; face < 6; face++) {
+        if (chunk->neighbours[face] && Chunk_IndexIsOnFace(index, face))
+            World_QueueChunk(chunk->neighbours[face], false);
+    }
 }
 
 int Chunk_GetLightLevel(Chunk *chunk, int index, bool sunlight) {
@@ -197,6 +206,30 @@ void Chunk_SpreadLight(LightQueue *queue, bool sunlight) {
 
 }
 
+static int Chunk_FaceIndex(int face, int cell) {
+    int row = cell / 16, column = cell % 16;
+    switch (face) {
+        case 0: return row * 256 + column * 16;
+        case 1: return row * 256 + column * 16 + 15;
+        case 2: return 15 * 256 + cell;
+        case 3: return cell;
+        case 4: return row * 256 + 15 * 16 + column;
+        default: return row * 256 + column;
+    }
+}
+
+static bool Chunk_CanLightNeighbor(Chunk *chunk, int index, Chunk *neighbor, int nextIndex, int face, bool sunlight) {
+    int level = Chunk_GetLightLevel(chunk, index, sunlight);
+    int next = Chunk_GetLightLevel(neighbor, nextIndex, sunlight);
+    if (level <= next) return false;
+    const Block *source = Block_GetDefinition(chunk->data[index]);
+    if (source->lightType != BLOCK_LIGHT_EMIT && !(source->lightPassFaces & (1 << face))) return false;
+    const Block *target = Block_GetDefinition(neighbor->data[nextIndex]);
+    if (Block_BlocksLight(target)) return false;
+    int loss = sunlight && face == 3 && target->renderType == BLOCK_RENDER_TRANSPARENT ? 0 : 1;
+    return level > next + loss;
+}
+
 static void Chunk_ReconcileLightBank(Chunk *chunk, Chunk *neighbor, int face, bool sunlight) {
     int oppositeFace = face ^ 1;
     unsigned char bit = (unsigned char)(1u << face);
@@ -207,11 +240,12 @@ static void Chunk_ReconcileLightBank(Chunk *chunk, Chunk *neighbor, int face, bo
     if (((*chunkFlags & bit) == 0) && ((*neighborFlags & oppositeBit) == 0)) return;
 
     LightQueue queue = {0};
-    for (int i = 0; i < CHUNK_SIZE; i++) {
-        if (Chunk_IndexIsOnFace(i, face) && Chunk_GetLightLevel(chunk, i, sunlight) != 0)
+    for (int cell = 0; cell < CHUNK_SIZE_XZ; cell++) {
+        int i = Chunk_FaceIndex(face, cell), j = Chunk_FaceIndex(oppositeFace, cell);
+        if (Chunk_CanLightNeighbor(chunk, i, neighbor, j, face, sunlight))
             Chunk_LightQueueAdd(&queue, i, chunk);
-        if (Chunk_IndexIsOnFace(i, oppositeFace) && Chunk_GetLightLevel(neighbor, i, sunlight) != 0)
-            Chunk_LightQueueAdd(&queue, i, neighbor);
+        if (Chunk_CanLightNeighbor(neighbor, j, chunk, i, oppositeFace, sunlight))
+            Chunk_LightQueueAdd(&queue, j, neighbor);
     }
 
     *chunkFlags &= (unsigned char)~bit;

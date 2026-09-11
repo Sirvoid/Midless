@@ -24,6 +24,7 @@
 #include "rotation.h"
 #include "player.h"
 #include "chunkmeshgeneration.h"
+#include "chunkmeshworker.h"
 #include "chunklightning.h"
 #include "screens.h"
 #include "networkhandler.h"
@@ -41,6 +42,73 @@
 
 World world;
 
+static Vector3 meshQueueCenter;
+static bool meshQueueNeedsRebuild = true;
+static Chunk **retiredChunks;
+
+static void World_FreeRetiredChunks(double deadline) {
+    while (arrlen(retiredChunks) && GetTime() < deadline) {
+        Chunk *chunk = arrpop(retiredChunks);
+        // These came from a server-owned world. They are already detached,
+        // so no neighbor updates or client-side saves are needed.
+        Chunk_Unload(chunk);
+        Chunk_Destroy(chunk);
+    }
+    if (!arrlen(retiredChunks)) arrfree(retiredChunks);
+}
+
+bool World_CleanupChunks(void) {
+    double deadline = GetTime() + 0.016;
+    while (arrlen(retiredChunks) && GetTime() < deadline) {
+        Chunk *chunks[16];
+        ChunkMesh *meshes[32];
+        int count = 0;
+        while (count < 16 && arrlen(retiredChunks)) {
+            Chunk *chunk = arrpop(retiredChunks);
+            chunks[count] = chunk;
+            meshes[count * 2] = &chunk->mesh;
+            meshes[count * 2 + 1] = &chunk->meshTransparent;
+            count++;
+        }
+        ChunkMesh_UnloadBatch(meshes, count * 2);
+        for (int i = 0; i < count; i++) Chunk_Destroy(chunks[i]);
+    }
+    if (!arrlen(retiredChunks)) arrfree(retiredChunks);
+    return arrlen(retiredChunks) == 0;
+}
+
+int World_RemainingCleanupChunks(void) {
+    return arrlen(retiredChunks);
+}
+
+static bool MeshQueueCloser(Chunk *a, Chunk *b) {
+    return Vector3DistanceSqr(a->position, meshQueueCenter) <
+           Vector3DistanceSqr(b->position, meshQueueCenter);
+}
+
+static void MeshQueueDown(int index) {
+    int count = arrlen(world.generateChunksQueue);
+    Chunk *chunk = world.generateChunksQueue[index];
+    while (index * 2 + 1 < count) {
+        int child = index * 2 + 1;
+        if (child + 1 < count && MeshQueueCloser(world.generateChunksQueue[child + 1],
+                                                world.generateChunksQueue[child])) child++;
+        if (!MeshQueueCloser(world.generateChunksQueue[child], chunk)) break;
+        world.generateChunksQueue[index] = world.generateChunksQueue[child];
+        index = child;
+    }
+    world.generateChunksQueue[index] = chunk;
+}
+
+static void MeshQueuePrepare(void) {
+    Vector3 center = Player_GetChunkPosition();
+    if (!Vector3Equals(center, meshQueueCenter)) meshQueueNeedsRebuild = true;
+    if (!meshQueueNeedsRebuild) return;
+    meshQueueCenter = center;
+    for (int i = (int)arrlen(world.generateChunksQueue) / 2 - 1; i >= 0; i--) MeshQueueDown(i);
+    meshQueueNeedsRebuild = false;
+}
+
 void World_Init(void) {
     world.material = LoadMaterialDefault();
     world.loadChunks = false;
@@ -50,7 +118,7 @@ void World_Init(void) {
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++) world.entities[i].type = 0; //type 0 = none
 
-    ChunkMeshGeneration_Init();
+    ChunkMeshWorker_Init();
     Particle_Clear();
     Cloud_Init();
 }
@@ -67,13 +135,20 @@ void World_LoadSingleplayer(void) {
 
 void World_UpdateChunksWithBudget(double budgetMs) {
     double endTime = GetTime() + budgetMs / 1000.0;
+    double cleanupDeadline = fmin(endTime, GetTime() + 0.001);
+    World_FreeRetiredChunks(cleanupDeadline);
 
-    while (arrlen(world.generateChunksQueue) > 0) {
-        World_ReadChunksQueues();
-
-        if (GetTime() >= endTime)
-            break;
+    // Refill before uploads, then alternate completions and submissions so
+    // workers do not sit idle while the main thread spends its upload budget.
+    while (world.loadChunks && arrlen(world.generateChunksQueue) > 0 &&
+           GetTime() < endTime) {
+        if (ChunkMeshWorker_HasSpace()) {
+            int count = arrlen(world.generateChunksQueue);
+            World_ReadChunksQueues();
+            if (arrlen(world.generateChunksQueue) == count) break;
+        } else if (!ChunkMeshWorker_ReceiveOne()) break;
     }
+    if (GetTime() < endTime) ChunkMeshWorker_Receive(endTime);
 }
 
 void World_Update(void) { 
@@ -109,46 +184,33 @@ void World_Update(void) {
 }
 
 void World_ReadChunksQueues(void) {
-
-        if (world.loadChunks == true) {
-
-            int index = World_GetClosestChunkIndex(world.generateChunksQueue, Player_GetChunkPosition());
-
-            if (index != -1) {
-                Chunk *chunk = world.generateChunksQueue[index];
-
-                if(!chunk->isBuilt) {
-                    for (int i = 0; i < 6; i++) {
-                        if (chunk->neighbours[i] == NULL) continue;
-                        World_QueueChunk(chunk->neighbours[i], false);
-                    }
-                }
-
-                ChunkMeshGeneration_Build(chunk);
-
-                arrdel(world.generateChunksQueue, index);
-
-                chunk->isGenerating = false;
-
-                for (int i = 0; i < hmlen(world.chunks); i++) {
-                    Chunk *lightDirtyChunk = world.chunks[i].value;
-                    if (lightDirtyChunk->isBuilt && lightDirtyChunk->isLightDirty)
-                        World_QueueChunk(lightDirtyChunk, false);
-                }
-            }
-            
-        }  
+    if (!world.loadChunks) return;
+    if (!arrlen(world.generateChunksQueue)) return;
+    MeshQueuePrepare();
+    Chunk *chunk = world.generateChunksQueue[0];
+    if (!ChunkMeshWorker_Submit(chunk)) return;
+    arrdelswap(world.generateChunksQueue, 0);
+    if (arrlen(world.generateChunksQueue)) MeshQueueDown(0);
+    chunk->isGenerating = false;
 }
 
 void World_QueueChunk(Chunk *chunk, bool immediate) {
-    if (!chunk->isLightGenerated) return;
+    // A queued chunk has no snapshot yet, so it already includes later edits.
+    if (chunk->isGenerating) return;
+    chunk->meshRevision++;
+    if (!world.loadChunks || !chunk->isLightGenerated || chunk->meshPending) return;
 
     if (chunk->isGenerating == false) {
-        if(!immediate) {
-            arrput(world.generateChunksQueue, chunk);
-        } else {
-            arrins(world.generateChunksQueue, 0, chunk);
+        MeshQueuePrepare();
+        arrput(world.generateChunksQueue, chunk);
+        int index = arrlen(world.generateChunksQueue) - 1;
+        while (index > 0) {
+            int parent = (index - 1) / 2;
+            if (!MeshQueueCloser(chunk, world.generateChunksQueue[parent])) break;
+            world.generateChunksQueue[index] = world.generateChunksQueue[parent];
+            index = parent;
         }
+        world.generateChunksQueue[index] = chunk;
     }
     chunk->isGenerating = true;
     
@@ -203,6 +265,7 @@ void World_RemoveChunk(Chunk *currentChunk) {
         for(int i = 0; i < arrlen(world.generateChunksQueue); i++) {
             if(world.generateChunksQueue[i] == currentChunk) {
                 arrdel(world.generateChunksQueue, i);
+                meshQueueNeedsRebuild = true;
             }
         }
     }
@@ -252,17 +315,43 @@ void World_Reload(void) {
     world.loadChunks = true;
 }
 
+void World_ClearChunks(void) {
+    ChunkMeshWorker_CancelQueued();
+    bool loading = world.loadChunks;
+    world.loadChunks = false;
+    arrfree(world.generateChunksQueue);
+    world.generateChunksQueue = NULL;
+    meshQueueNeedsRebuild = true;
+
+    if (networkConnectedToServer) {
+        int oldCount = hmlen(world.chunks);
+        int retiredCount = arrlen(retiredChunks);
+        if (oldCount) {
+            (void)arrsetlen(retiredChunks, retiredCount + oldCount);
+            for (int i = 0; i < oldCount; i++)
+                retiredChunks[retiredCount + i] = world.chunks[i].value;
+        }
+        hmfree(world.chunks);
+        world.chunks = NULL;
+        world.loadChunks = loading;
+        return;
+    }
+
+    for (int i = hmlen(world.chunks) - 1; i >= 0; i--) {
+        World_RemoveChunk(world.chunks[i].value);
+    }
+
+    world.loadChunks = loading;
+}
+
 void World_Clear(void) {
     world.loadChunks = false;
     Particle_Clear();
     Player_ClearEntityModel();
 
-    arrfree(world.generateChunksQueue);
-    world.generateChunksQueue = NULL;
-
-    for (int i = hmlen(world.chunks) - 1; i >= 0; i--) {
-        World_RemoveChunk(world.chunks[i].value);
-    }
+    World_ClearChunks();
+    // Shutdown/disconnect must release everything before the graphics context.
+    World_FreeRetiredChunks(INFINITY);
 
     for(int i = 0; i < WORLD_MAX_ENTITIES; i++) {
         World_RemoveEntity(i);
@@ -280,7 +369,7 @@ void World_Shutdown(void) {
     UnloadMaterial(world.material);
     MemFree(world.entities);
     world.entities = NULL;
-    ChunkMeshGeneration_Shutdown();
+    ChunkMeshWorker_Shutdown();
 }
 
 void World_ApplyTexture(Texture2D texture) {
@@ -459,18 +548,13 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
     
     Chunk_SetBlock(chunk, blockPosInChunk, blockId);
 
-    if (blockId == 0) {
-        World_QueueChunk(chunk, immediate);
-        for (int i = 0; i < 26; i++) {
-            if (chunk->neighbours[i] == NULL) continue;
-            World_QueueChunk(chunk->neighbours[i], immediate);
-        }
-    } else {
-        for (int i = 0; i < 26; i++) {
-            if (chunk->neighbours[i] == NULL) continue;
-            World_QueueChunk(chunk->neighbours[i], immediate);
-        }
-        World_QueueChunk(chunk, immediate); 
+    World_QueueChunk(chunk, immediate);
+    bool boundary[6] = {blockPosInChunk.x == 0, blockPosInChunk.x == 15,
+                        blockPosInChunk.y == 15, blockPosInChunk.y == 0,
+                        blockPosInChunk.z == 15, blockPosInChunk.z == 0};
+    for (int face = 0; face < 6; face++) {
+        if (boundary[face] && chunk->neighbours[face])
+            World_QueueChunk(chunk->neighbours[face], immediate);
     }
 
 }

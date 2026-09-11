@@ -14,6 +14,9 @@
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "../scripting/luabindings.h"
+#include "streamprofile.h"
+#include "chunksave.h"
+#include "platform.h"
 
 typedef struct PendingWorldBlock {
     Vector3 position;
@@ -28,17 +31,28 @@ typedef struct GeneratedBlockUpdate {
 typedef struct ChunkLoadResult {
     Vector3 position;
     Chunk *chunk;
+    double generationSeconds;
 } ChunkLoadResult;
 
 static Vector3 *loadRequests;
 static ChunkLoadResult *loadResults;
 static pthread_mutex_t loaderMutex;
 static pthread_cond_t loaderCondition;
-static pthread_t loaderThread;
+#define CHUNK_LOAD_WORKERS 6
+#define CHUNK_LOAD_RESULTS 32
+
+typedef struct ChunkLoader {
+    pthread_t thread;
+    bool started, busy;
+    Vector3 position;
+} ChunkLoader;
+
+static ChunkLoader loaders[CHUNK_LOAD_WORKERS];
 static bool loaderRunning;
 static bool loaderStarted;
-static bool loaderBusy;
-static Vector3 loaderPosition;
+
+static unsigned int unloadCursor;
+static bool backgroundSaving;
 
 static bool PositionInLoadRadius(Player *player, Vector3 chunkPosition) {
     Entity entity = serverWorld.entities[player->entityId];
@@ -114,11 +128,20 @@ static void FlushGeneratedBlockUpdates(void) {
     }
 }
 
-static void *ChunkLoaderRun(void *unused) {
-    (void)unused;
+// Called with loaderMutex held. Reserve room for jobs already being generated.
+static bool ResultQueueFull(void) {
+    int count = arrlen(loadResults);
+    for (int i = 0; i < CHUNK_LOAD_WORKERS; i++) {
+        if (loaders[i].busy) count++;
+    }
+    return count >= CHUNK_LOAD_RESULTS;
+}
+
+static void *ChunkLoaderRun(void *data) {
+    ChunkLoader *loader = data;
     while (true) {
         pthread_mutex_lock(&loaderMutex);
-        while (loaderRunning && arrlen(loadRequests) == 0) {
+        while (loaderRunning && (arrlen(loadRequests) == 0 || ResultQueueFull())) {
             pthread_cond_wait(&loaderCondition, &loaderMutex);
         }
         if (!loaderRunning) {
@@ -127,29 +150,37 @@ static void *ChunkLoaderRun(void *unused) {
         }
         Vector3 position = loadRequests[0];
         arrdel(loadRequests, 0);
-        loaderBusy = true;
-        loaderPosition = position;
+        loader->busy = true;
+        loader->position = position;
         pthread_mutex_unlock(&loaderMutex);
 
+        double start = GetTime();
         Chunk *chunk = ServerChunk_Create(position);
         if (chunk != NULL) ServerChunk_Generate(chunk);
-        ChunkLoadResult result = {.position = position, .chunk = chunk};
+        ChunkLoadResult result = {.position = position, .chunk = chunk,
+                                 .generationSeconds = GetTime() - start};
 
         pthread_mutex_lock(&loaderMutex);
         arrput(loadResults, result);
-        loaderBusy = false;
+        loader->busy = false;
         pthread_mutex_unlock(&loaderMutex);
     }
 }
 
 static void ProcessLoadedChunks(void) {
+    static StreamProfile profile;
     pthread_mutex_lock(&loaderMutex);
-    ChunkLoadResult *results = loadResults;
-    loadResults = NULL;
+    ChunkLoadResult *results = NULL;
+    int count = arrlen(loadResults);
+    if (count > 8) count = 8;
+    for (int i = 0; i < count; i++) arrput(results, loadResults[i]);
+    if (count) arrdeln(loadResults, 0, count);
+    pthread_cond_broadcast(&loaderCondition);
     pthread_mutex_unlock(&loaderMutex);
 
     for (int i = 0; i < arrlen(results); i++) {
         ChunkLoadResult *result = &results[i];
+        StreamProfile_Add(&profile, "generation/load", result->generationSeconds);
         Chunk *chunk = result->chunk;
         if (chunk != NULL && ServerWorld_GetChunkAt(result->position) == NULL) {
             hmput(serverWorld.chunks, ServerChunk_GetPackedPos(result->position), chunk);
@@ -165,47 +196,60 @@ static void ProcessLoadedChunks(void) {
             chunk = ServerWorld_GetChunkAt(result->position);
         }
 
-        unsigned short *compressedData = NULL;
-        int compressedLength = 0;
-        for (int playerIndex = 0; playerIndex < WORLD_MAX_PLAYERS; playerIndex++) {
-            Player *player = serverWorld.players[playerIndex];
-            if (player == NULL) continue;
-            if (player->chunkRequestPending &&
-                Vector3Equals(player->pendingChunkPosition, result->position)) {
-                player->chunkRequestPending = false;
-            }
-            if (chunk == NULL || !PositionInLoadRadius(player, result->position) ||
-                ServerChunk_PlayerInChunk(chunk, player)) continue;
 
-            if (!compressedData) compressedData = ServerChunk_CreateCompressedData(chunk, &compressedLength);
-            if (!compressedData) continue;
-            ServerChunk_AddPlayer(chunk, player);
-            ServerNetwork_Send(player, ServerPacket_CreateLoadChunk(
-                compressedData, compressedLength, chunk->position, chunk->skyMask));
-            ServerLighting_Send(chunk,player);
-        }
-        MemFree(compressedData);
     }
     arrfree(results);
 }
 
 void ServerChunkManager_Init(void) {
     serverWorld.chunks = NULL;
+    unloadCursor = 0;
+    backgroundSaving = ChunkSave_Init();
+    if (!backgroundSaving) TraceLog(LOG_WARNING, "Disk worker unavailable; using synchronous chunk saves");
     serverWorld.pendingBlocks = NULL;
     serverWorld.generatedBlockUpdates = NULL;
     pthread_mutex_init(&loaderMutex, NULL);
     pthread_cond_init(&loaderCondition, NULL);
     loaderRunning = true;
-    loaderStarted = pthread_create(&loaderThread, NULL, ChunkLoaderRun, NULL) == 0;
+    loaderStarted = false;
+    int workerCount = Platform_ProcessorCount() - 2;
+    if (workerCount < 1) workerCount = 1;
+    if (workerCount > CHUNK_LOAD_WORKERS) workerCount = CHUNK_LOAD_WORKERS;
+    for (int i = 0; i < CHUNK_LOAD_WORKERS; i++) {
+        loaders[i] = (ChunkLoader){0};
+        if (i >= workerCount) continue;
+        loaders[i].started = pthread_create(&loaders[i].thread, NULL, ChunkLoaderRun, &loaders[i]) == 0;
+        loaderStarted |= loaders[i].started;
+    }
     if (!loaderStarted) loaderRunning = false;
+}
+
+static void FinishShutdownSave(Chunk *chunk, bool success, const BinaryWriter *snapshot) {
+    chunk->savedOnShutdown = success;
 }
 
 void ServerChunkManager_Shutdown(void) {
     pthread_mutex_lock(&loaderMutex);
     loaderRunning = false;
-    pthread_cond_signal(&loaderCondition);
+    pthread_cond_broadcast(&loaderCondition);
     pthread_mutex_unlock(&loaderMutex);
-    if (loaderStarted) pthread_join(loaderThread, NULL);
+    for (int i = 0; i < CHUNK_LOAD_WORKERS; i++)
+        if (loaders[i].started) pthread_join(loaders[i].thread, NULL);
+    // Complete older snapshots first, then capture the final stopped world.
+    ChunkSave_Flush(NULL);
+    if (backgroundSaving) {
+        for (int i = 0; i < hmlen(serverWorld.chunks); i++) {
+            Chunk *chunk = serverWorld.chunks[i].value;
+            InventoryWindow_UnloadChunk(chunk->position);
+            if (!ChunkSave_Queue(chunk)) {
+                ChunkSave_Flush(FinishShutdownSave);
+                // An oversized snapshot or allocation failure uses the synchronous fallback.
+                ChunkSave_Queue(chunk);
+            }
+        }
+        ChunkSave_Flush(FinishShutdownSave);
+    }
+    ChunkSave_Shutdown();
 
     for (int i = 0; i < arrlen(loadResults); i++) {
         ServerChunk_Destroy(loadResults[i].chunk);
@@ -215,20 +259,19 @@ void ServerChunkManager_Shutdown(void) {
     loadResults = NULL;
     loadRequests = NULL;
     loaderStarted = false;
-    loaderBusy = false;
+    memset(loaders, 0, sizeof(loaders));
     pthread_cond_destroy(&loaderCondition);
     pthread_mutex_destroy(&loaderMutex);
 
     for (int i = hmlen(serverWorld.chunks) - 1; i >= 0; i--) {
         Chunk *chunk = serverWorld.chunks[i].value;
         long int key = ServerChunk_GetPackedPos(chunk->position);
-        ServerWorld_RemoveChunk(chunk);
-        // A failed write retains the chunk during play. Shutdown still releases
-        // its memory after the save error has been reported.
-        if (hmgeti(serverWorld.chunks, key) >= 0) {
-            (void)hmdel(serverWorld.chunks, key);
-            ServerChunk_Destroy(chunk);
-        }
+        // Every chunk is leaving. Do not queue lighting work for its neighbors.
+        InventoryWindow_UnloadChunk(chunk->position);
+        if (!chunk->savedOnShutdown) EntityPersistence_Save(chunk);
+        EntityPersistence_Unload(chunk);
+        (void)hmdel(serverWorld.chunks, key);
+        ServerChunk_Destroy(chunk);
     }
     hmfree(serverWorld.chunks);
     serverWorld.chunks = NULL;
@@ -238,11 +281,68 @@ void ServerChunkManager_Shutdown(void) {
     serverWorld.generatedBlockUpdates = NULL;
 }
 
+void ServerChunkManager_CancelUnusedRequests(void) {
+    pthread_mutex_lock(&loaderMutex);
+    for (int i = arrlen(loadRequests) - 1; i >= 0; i--) {
+        bool wanted = false;
+        for (int p = 0; p < WORLD_MAX_PLAYERS; p++) {
+            Player *player = serverWorld.players[p];
+            if (player && !player->disconnected && PositionInLoadRadius(player, loadRequests[i])) {
+                wanted = true;
+                break;
+            }
+        }
+        if (!wanted) arrdel(loadRequests, i);
+    }
+    pthread_mutex_unlock(&loaderMutex);
+}
+
+static bool ChunkWanted(Chunk *chunk) {
+    if (arrlen(chunk->players)) return true;
+    for (int i = 0; serverWorld.players && i < WORLD_MAX_PLAYERS; i++) {
+        Player *player = serverWorld.players[i];
+        if (player && !player->disconnected && PositionInLoadRadius(player, chunk->position)) return true;
+    }
+    return false;
+}
+
+static void FinishChunkSave(Chunk *chunk, bool success, const BinaryWriter *saved) {
+    if (!success || ChunkWanted(chunk)) return;
+    // The live chunk remains available during writing. Never unload edits or
+    // entity changes that happened after the snapshot, even if a player left again.
+    BinaryWriter current = {0};
+    bool unchanged = EntityPersistence_Encode(chunk, &current) && current.size == saved->size &&
+                     memcmp(current.data, saved->data, current.size) == 0;
+    free(current.data);
+    if (!unchanged) return;
+    EntityPersistence_Unload(chunk);
+    (void)hmdel(serverWorld.chunks, ServerChunk_GetPackedPos(chunk->position));
+    ServerLighting_Removed(chunk->position);
+    ServerChunk_Destroy(chunk);
+}
+
 void ServerChunkManager_Update(void) {
+    ServerChunkManager_CancelUnusedRequests();
     ProcessLoadedChunks();
     FlushGeneratedBlockUpdates();
-    for (int i = 0; i < hmlen(serverWorld.chunks); i++) {
-        Chunk *chunk = serverWorld.chunks[i].value;
+    bool playersConnected = false;
+    for (int i = 0; serverWorld.players && i < WORLD_MAX_PLAYERS; i++) {
+        Player *player = serverWorld.players[i];
+        if (player && !player->disconnected) { playersConnected = true; break; }
+    }
+    double workSeconds = playersConnected ? 0.002 : 0.008;
+    ChunkSave_PollUntil(FinishChunkSave, GetTime() + workSeconds);
+    // Keep the bounded disk queue supplied instead of limiting throughput to
+    // two chunks per server tick. Idle servers can spend more time draining it.
+    double unloadDeadline = GetTime() + workSeconds;
+    int checked = 0, removed = 0;
+    int count = hmlen(serverWorld.chunks);
+    while (checked < count && checked < 256 && removed < CHUNK_SAVE_JOBS) {
+        int remaining = hmlen(serverWorld.chunks);
+        if (!remaining) break;
+        unloadCursor %= remaining;
+        Chunk *chunk = serverWorld.chunks[unloadCursor++].value;
+        checked++;
         for (int j = arrlen(chunk->players) - 1; j >= 0; j--) {
             Player *player = chunk->players[j];
             Entity entity = serverWorld.entities[player->entityId];
@@ -256,7 +356,25 @@ void ServerChunkManager_Update(void) {
                 ServerChunk_RemovePlayer(chunk, j);
             }
         }
-        if (arrlen(chunk->players) == 0) ServerWorld_RemoveChunk(chunk);
+        if (arrlen(chunk->players) == 0) {
+            bool wanted = false;
+            for (int p = 0; p < WORLD_MAX_PLAYERS; p++) {
+                Player *player = serverWorld.players[p];
+                if (player && !player->disconnected && PositionInLoadRadius(player, chunk->position)) {
+                    wanted = true;
+                    break;
+                }
+            }
+            if (!wanted) {
+                if (chunk->savePending) continue;
+                if (backgroundSaving) {
+                    InventoryWindow_UnloadChunk(chunk->position);
+                    if (!ChunkSave_Queue(chunk)) break;
+                } else ServerWorld_RemoveChunk(chunk);
+                removed++;
+            }
+        }
+        if (GetTime() >= unloadDeadline) break;
     }
 }
 
@@ -290,6 +408,7 @@ Chunk *ServerWorld_AddChunk(Vector3 position) {
 }
 
 void ServerWorld_RemoveChunk(Chunk *chunk) {
+    if (chunk->savePending) return;
     long int packedPosition = ServerChunk_GetPackedPos(chunk->position);
     if (ServerWorld_GetChunkAt(chunk->position) != chunk) return;
     // Closing may create a dropped cursor stack; include it in this save.
@@ -314,9 +433,11 @@ bool ServerWorld_QueueChunk(Vector3 position) {
     if (!loaderStarted) return false;
     if (ServerWorld_GetChunkAt(position) != NULL) return true;
     pthread_mutex_lock(&loaderMutex);
-    if (loaderBusy && Vector3Equals(loaderPosition, position)) {
-        pthread_mutex_unlock(&loaderMutex);
-        return true;
+    for (int i = 0; i < CHUNK_LOAD_WORKERS; i++) {
+        if (loaders[i].busy && Vector3Equals(loaders[i].position, position)) {
+            pthread_mutex_unlock(&loaderMutex);
+            return true;
+        }
     }
     for (int i = 0; i < arrlen(loadRequests); i++) {
         if (Vector3Equals(loadRequests[i], position)) {
@@ -330,8 +451,12 @@ bool ServerWorld_QueueChunk(Vector3 position) {
             return true;
         }
     }
+    if (arrlen(loadRequests) >= 128) {
+        pthread_mutex_unlock(&loaderMutex);
+        return false;
+    }
     arrput(loadRequests, position);
-    pthread_cond_signal(&loaderCondition);
+    pthread_cond_broadcast(&loaderCondition);
     pthread_mutex_unlock(&loaderMutex);
     return true;
 }

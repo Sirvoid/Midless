@@ -40,6 +40,7 @@ static int FloorDivide(int a, int b) {
 
 void Worldgen_Reset(int seed) {
     Worldgen_ClearFeatures();
+    Worldgen_ClearSkyCache();
     memset(&worldgen, 0, sizeof(worldgen));
     worldgen.bounded = true;
     worldgen.material = worldgen.skyField = worldgen.ceiling = -1;
@@ -68,7 +69,7 @@ typedef struct TerrainColumn {
     int biome;
 } TerrainColumn;
 static void InitializeTerrainColumn(TerrainColumn *column, int x, int z) {
-    memset(column, 0, sizeof(*column));
+    column->biome = 0;
     Worldgen_EvalInit(&column->eval, (Vector3){x, 0, z}, (Vector3){x, 0, z});
     float temperature =
         worldgen.temperature < 0 ? 0 : Worldgen_Eval(&column->eval, worldgen.temperature);
@@ -383,6 +384,7 @@ void Worldgen_Generate(Chunk *chunk) {
 }
 
 void Worldgen_SkyMask(Chunk *chunk) {
+    if (Worldgen_CachedSkyMask(chunk)) return;
     if (worldgen.skyField >= 0) {
         memset(chunk->skyMask, 255, sizeof(chunk->skyMask));
         for (int z = 0; z < CHUNK_SIZE_Z; z++)

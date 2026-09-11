@@ -31,6 +31,11 @@ const BlockMeshTemplate *BlockMesh_GetTemplate(int blockId);
 //Add a block face to a given mesh.
 void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords, unsigned char *colors, BlockFace face, int x, int y, int z, const Block *block, int translucent, int light, int sunlight);
 
+// Stateless face emission for mesh workers. All buffers belong to the caller.
+void BlockMesh_WriteFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords,
+    unsigned char *colors, int vertex, const BlockMeshTemplate *model, int face,
+    int x, int y, int z, bool sprite, int light, int sunlight);
+
 //Get facing direction of a block face.
 Vector3 BlockMesh_GetDirection(BlockFace face);
 

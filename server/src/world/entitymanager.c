@@ -1,3 +1,4 @@
+#include "entitypersistence.h"
 #include "world.h"
 #include "../spawnmanager.h"
 #include "../entityphysics.h"
@@ -67,7 +68,7 @@ void ServerEntities_Update(float dt) {
     uint64_t cutoff = nextGeneration;
     for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
         Entity *e = &serverWorld.entities[id];
-        if (e->active && !e->pendingRemoval && e->generation <= cutoff) LuaEntities_Step(e, dt);
+        if (e->active && !e->pendingRemoval && e->generation <= cutoff && !EntityPersistence_IsSaving(e)) LuaEntities_Step(e, dt);
     }
     ServerPhysics_Update(dt);
     ServerDrops_Update(dt);

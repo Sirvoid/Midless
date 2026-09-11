@@ -1,3 +1,4 @@
+#include "world/entitypersistence.h"
 #include "blockstates.h"
 #include <math.h>
 #include <stdlib.h>
@@ -196,6 +197,7 @@ void ServerDrops_Update(float dt) {
     for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
         Entity *entity = &serverWorld.entities[id];
         if (!entity->active || entity->pendingRemoval || entity->type != ENTITY_TYPE_DROPPED_ITEM) continue;
+        if (EntityPersistence_IsSaving(entity)) continue;
         entity->drop.age += dt;
         entity->drop.pickupDelay = fmaxf(0, entity->drop.pickupDelay-dt);
         if (DROPPED_ITEM_LIFETIME > 0 && entity->drop.age >= DROPPED_ITEM_LIFETIME) {

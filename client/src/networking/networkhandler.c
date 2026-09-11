@@ -38,9 +38,11 @@ void (*networkClientDisconnect)(void);
 typedef struct IncomingPacket {
     unsigned char *data;
     int length;
+    unsigned int terrainGeneration;
 } IncomingPacket;
 static IncomingPacket *queuedData, *terrainQueuedData;
 static int queuedTextureBytes;
+static unsigned int terrainGeneration;
 static bool resetDefinitionsPending, disconnectPending, acceptingIncoming;
 static pthread_mutex_t networkQueueMutex = PTHREAD_MUTEX_INITIALIZER;
 int packetCount;
@@ -92,6 +94,7 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandlePlayerImpulse, PLAYER_IMPULSE_PACKET_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleEntityTexture, SET_ENTITY_TEXTURE_PACKET_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleChunkLight, PACKET_VARIABLE_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleResetChunks, RESET_CHUNKS_PACKET_SIZE};
 }
 
 void Network_Connect(void) {
@@ -141,9 +144,14 @@ static void Network_PerformDisconnect(void) {
     #endif
 }
 
+static bool IsChunkPacket(unsigned char opcode) {
+    return opcode == 1 || opcode == 2 || opcode == 7 || opcode == 8 || opcode == 34 || opcode == 35;
+}
+
 static void Network_ExecutePacket(IncomingPacket packet) {
     pthread_mutex_lock(&networkQueueMutex);
     bool stopping = disconnectPending;
+    if (IsChunkPacket(packet.data[0]) && packet.terrainGeneration != terrainGeneration) stopping = true;
     if(packet.data[0]==PACKET_TEXTURE_BEGIN || packet.data[0]==PACKET_TEXTURE_DATA) {
         queuedTextureBytes-=packet.length;
         if(queuedTextureBytes<0) queuedTextureBytes=0;
@@ -170,7 +178,9 @@ void Network_ProcessIncomingPackets(void) {
     }
     if (reset) { memset(textColors, 0, sizeof(textColors)); ClientHudBars_Reset(); ClientInventory_Reset(); EntityModel_ResetDefinitions(); ClientTextures_Reset(); Block_ResetDefinitions(); }
     const int maxPacketsPerFrame = 1024;
-    const double terrainPacketBudgetSeconds = 0.002;
+    const int maxTerrainPacketsPerFrame = 64;
+    const int maxTerrainBytesPerFrame = 256 * 1024;
+    const double terrainPacketBudgetSeconds = 0.004;
     IncomingPacket gameplayPackets[maxPacketsPerFrame];
     IncomingPacket terrainPackets[maxPacketsPerFrame];
     int gameplayPacketCount = 0;
@@ -183,7 +193,7 @@ void Network_ProcessIncomingPackets(void) {
     if (gameplayPacketCount > 0) arrdeln(queuedData, 0, gameplayPacketCount);
 
     terrainPacketCount = arrlen(terrainQueuedData);
-    if (terrainPacketCount > maxPacketsPerFrame) terrainPacketCount = maxPacketsPerFrame;
+    if (terrainPacketCount > maxTerrainPacketsPerFrame) terrainPacketCount = maxTerrainPacketsPerFrame;
     for (int i = 0; i < terrainPacketCount; i++) terrainPackets[i] = terrainQueuedData[i];
     if (terrainPacketCount > 0) arrdeln(terrainQueuedData, 0, terrainPacketCount);
     pthread_mutex_unlock(&networkQueueMutex);
@@ -193,9 +203,12 @@ void Network_ProcessIncomingPackets(void) {
     }
 
     int terrainProcessedCount = 0;
+    int terrainBytes = 0;
     double terrainDeadline = GetTime() + terrainPacketBudgetSeconds;
     for (; terrainProcessedCount < terrainPacketCount; terrainProcessedCount++) {
-        if (terrainProcessedCount > 0 && GetTime() >= terrainDeadline) break;
+        if (terrainProcessedCount > 0 && (GetTime() >= terrainDeadline ||
+            terrainBytes + terrainPackets[terrainProcessedCount].length > maxTerrainBytesPerFrame)) break;
+        terrainBytes += terrainPackets[terrainProcessedCount].length;
         Network_ExecutePacket(terrainPackets[terrainProcessedCount]);
     }
 
@@ -238,9 +251,21 @@ void Network_Receive(unsigned char *data, int dataLength) {
         queuedTextureBytes+=dataLength;
     }
     // Keep light maps behind their chunk data, including across the terrain budget.
-    bool modifiesTerrain = opcode == 0 || opcode == 1 || opcode == 2 || opcode == 7 || opcode == 8 || opcode == 34 ||
+    if (opcode == 35) {
+        terrainGeneration++;
+        // Remove obsolete terrain even when it is waiting behind the frame budget.
+        // Generation tags also invalidate packets already extracted by the main thread.
+        int kept = 0;
+        for (int i = 0; i < arrlen(terrainQueuedData); i++) {
+            if (IsChunkPacket(terrainQueuedData[i].data[0]))
+                MemFree(terrainQueuedData[i].data);
+            else terrainQueuedData[kept++] = terrainQueuedData[i];
+        }
+        if (terrainQueuedData) (void)arrsetlen(terrainQueuedData, kept);
+    }
+    bool modifiesTerrain = opcode == 35 || opcode == 0 || opcode == 1 || opcode == 2 || opcode == 7 || opcode == 8 || opcode == 34 ||
                            opcode == PACKET_DEFINE_BLOCK || opcode == PACKET_REMOVE_BLOCK_DEFINITION;
-    IncomingPacket packet = {nextData, dataLength};
+    IncomingPacket packet = {nextData, dataLength, terrainGeneration};
     if (modifiesTerrain) arrput(terrainQueuedData, packet);
     else arrput(queuedData, packet);
     pthread_mutex_unlock(&networkQueueMutex);

@@ -1,4 +1,5 @@
 #include "../../blockstates.h"
+#include "../../lighting.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  * 
@@ -43,6 +44,7 @@ Chunk *ServerChunk_Create(Vector3 pos) {
 
 void ServerChunk_Destroy(Chunk *chunk) {
     if (chunk == NULL) return;
+    ServerLighting_Forget(chunk);
 
     arrfree(chunk->players);
     ChunkMetadata_Free(chunk);

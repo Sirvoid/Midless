@@ -19,7 +19,10 @@
 typedef struct Chunk{
     unsigned char lightData[CHUNK_SIZE];
     unsigned char lightFlags[CHUNK_SIZE];
-    bool lightDirty, lightReady;
+    bool lightDirty, lightReady, lightPriority;
+    unsigned int lightRevision;
+    struct Chunk *lightPrevious, *lightNext;
+    struct Chunk *lightColumnNext;
     unsigned short data[CHUNK_SIZE];
     unsigned char states[CHUNK_SIZE]; // Derived cache; never saved.
     unsigned char skyMask[CHUNK_SKY_MASK_SIZE];
@@ -35,6 +38,8 @@ typedef struct Chunk{
     unsigned int savedEntitiesSize;
     bool entitiesActivated; // Main-thread guard against loading the same records twice.
     bool loadFailed;
+    bool savePending;
+    bool savedOnShutdown;
 } Chunk;
 
 //Allocate and initialize a chunk.

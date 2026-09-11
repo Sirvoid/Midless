@@ -54,6 +54,9 @@ void World_AddChunk(Vector3 position);
 void World_RemoveChunk(Chunk *currentChunk);
 //Remove all world objects while keeping the world initialized.
 void World_Clear(void);
+bool World_CleanupChunks(void);
+int World_RemainingCleanupChunks(void);
+void World_ClearChunks(void);
 //Shutdown the world system.
 void World_Shutdown(void);
 //Reload chunks.

@@ -1,6 +1,7 @@
 #include "worldgen.h"
 #include <math.h>
 #include <pthread.h>
+#include <string.h>
 #define __clang__ true
 #include "stb_ds.h"
 
@@ -9,6 +10,7 @@ typedef struct OriginCache {
     Vector3 *value;
 } OriginCache;
 static OriginCache *originCaches[WG_MAX_FEATURES];
+static int evictionCursor[WG_MAX_FEATURES];
 static pthread_mutex_t originCacheMutex = PTHREAD_MUTEX_INITIALIZER;
 
 // The caller holds originCacheMutex while freeing or using an origin array.
@@ -18,6 +20,7 @@ static void ClearOriginCache(int featureIndex) {
     }
     hmfree(originCaches[featureIndex]);
     originCaches[featureIndex] = NULL;
+    evictionCursor[featureIndex] = 0;
 }
 
 void Worldgen_ClearFeatures(void) {
@@ -82,19 +85,10 @@ static void ExecuteFeatureCommands(Chunk *chunk, WGFeature *feature, Vector3 ori
     }
 }
 
-static Vector3 *GetFeatureOrigins(int featureIndex, Vector3 chunkPosition) {
-    long int key = ServerChunk_GetPackedPos(chunkPosition);
-    int cacheIndex = hmgeti(originCaches[featureIndex], key);
-    if (cacheIndex >= 0)
-        return originCaches[featureIndex][cacheIndex].value;
+static Vector3 *GenerateFeatureOrigins(int featureIndex, Vector3 chunkPosition) {
     Vector3 *origins = NULL;
     Vector3 chunkOrigin = {chunkPosition.x * CHUNK_SIZE_X, chunkPosition.y * CHUNK_SIZE_Y,
                            chunkPosition.z * CHUNK_SIZE_Z};
-    /* A bounded cache prevents exploration from retaining every origin forever.
-     * Eviction does not change output: candidates are pure field evaluations. */
-    if (hmlen(originCaches[featureIndex]) >= 4096) {
-        ClearOriginCache(featureIndex);
-    }
     for (int z = CHUNK_SIZE_Z - 1; z >= 0; z--)
         for (int x = CHUNK_SIZE_X - 1; x >= 0; x--) {
             WGEval context;
@@ -106,16 +100,48 @@ static Vector3 *GetFeatureOrigins(int featureIndex, Vector3 chunkPosition) {
                     arrput(origins, context.position);
             }
         }
-    hmput(originCaches[featureIndex], key, origins);
     return origins;
+}
+
+static void CopyFeatureOrigins(int featureIndex, Vector3 position, Vector3 **anchors) {
+    long int key = ServerChunk_GetPackedPos(position);
+    pthread_mutex_lock(&originCacheMutex);
+    int index = hmgeti(originCaches[featureIndex], key);
+    Vector3 *generated = NULL;
+    if (index < 0) {
+        pthread_mutex_unlock(&originCacheMutex);
+        generated = GenerateFeatureOrigins(featureIndex, position);
+        pthread_mutex_lock(&originCacheMutex);
+        // Another worker may have produced these same anchors in the meantime.
+        index = hmgeti(originCaches[featureIndex], key);
+        if (index < 0) {
+            int count = hmlen(originCaches[featureIndex]);
+            if (count >= 4096) {
+                int victim = evictionCursor[featureIndex]++ % count;
+                arrfree(originCaches[featureIndex][victim].value);
+                long int oldKey = originCaches[featureIndex][victim].key;
+                (void)hmdel(originCaches[featureIndex], oldKey);
+                evictionCursor[featureIndex] %= 4096;
+            }
+            hmput(originCaches[featureIndex], key, generated);
+            generated = NULL; // Ownership transferred to the cache.
+            index = hmgeti(originCaches[featureIndex], key);
+        }
+    }
+    Vector3 *origins = originCaches[featureIndex][index].value;
+    int count = arrlen(origins);
+    (void)arrsetlen(*anchors, count);
+    if (count) memcpy(*anchors, origins, count * sizeof(Vector3));
+    pthread_mutex_unlock(&originCacheMutex);
+    arrfree(generated);
 }
 
 void Worldgen_Features(Chunk *chunk) {
     if (!worldgen.featureCount)
         return;
-    // Hold the lock while using cached origin arrays so another generation
-    // request cannot evict them until this chunk has finished placement.
-    pthread_mutex_lock(&originCacheMutex);
+    // Copy anchors while locked. Placement only touches this worker's chunk,
+    // and another worker may safely evict the cache while we place features.
+    Vector3 *anchors = NULL;
     for (int featureIndex = 0; featureIndex < worldgen.featureCount; featureIndex++) {
         WGFeature *feature = &worldgen.features[featureIndex];
         for (int y = feature->paddingMin[1]; y <= feature->paddingMax[1]; y++)
@@ -123,10 +149,11 @@ void Worldgen_Features(Chunk *chunk) {
                 for (int z = feature->paddingMin[2]; z <= feature->paddingMax[2]; z++) {
                     Vector3 originChunkPosition = {chunk->position.x + x, chunk->position.y + y,
                                                    chunk->position.z + z};
-                    Vector3 *origins = GetFeatureOrigins(featureIndex, originChunkPosition);
-                    for (int i = 0; i < arrlen(origins); i++)
-                        ExecuteFeatureCommands(chunk, feature, origins[i]);
+                    CopyFeatureOrigins(featureIndex, originChunkPosition, &anchors);
+                    int count = arrlen(anchors);
+                    for (int i = 0; i < count; i++)
+                        ExecuteFeatureCommands(chunk, feature, anchors[i]);
                 }
     }
-    pthread_mutex_unlock(&originCacheMutex);
+    arrfree(anchors);
 }

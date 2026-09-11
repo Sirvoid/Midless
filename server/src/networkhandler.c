@@ -125,6 +125,7 @@ void ServerNetwork_ProcessIncomingPackets(void) {
         serverPacketData = packet.data;
         serverPacketDataLength = packet.length;
         serverPacketReaderIndex = 1;
+        if (serverPacketData[0] == 1) serverPacketPlayer->movementReceivedTime = packet.receivedAt;
         if (!serverPacketPlayer->disconnected &&
             (serverPacketData[0] == 0 || serverPacketPlayer->entityId >= 0)) {
             (*serverPacketHandlers[serverPacketData[0]].handler)();
@@ -170,6 +171,7 @@ void ServerNetwork_Receive(void *playerData, unsigned char* data, int dataLength
     memcpy(packet.data, data, dataLength);
     packet.player = playerData;
     packet.length = dataLength;
+    packet.receivedAt = GetTime();
     arrput(serverIncomingPackets, packet);
     player->pendingPackets++;
 

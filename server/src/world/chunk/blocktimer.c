@@ -28,6 +28,7 @@ void BlockTimer_Stop(Chunk *chunk, int index) {
 void BlockTimer_Update(float dt) {
     for (int c = 0; c < hmlen(serverWorld.chunks); c++) {
         Chunk *chunk = serverWorld.chunks[c].value;
+        if (chunk->savePending) continue;
         BlockTimer due[CHUNK_SIZE];
         int count = 0;
         for (int i = 0; i < chunk->timerCount; i++) {

@@ -20,6 +20,11 @@
 #define PLAYER_METADATA_GROUPS 16
 typedef struct PlayerMetadata { char name[65]; Metadata value; } PlayerMetadata;
 
+typedef struct ChunkRequest { Vector3 position; float distanceSquared; } ChunkRequest;
+
+#define PLAYER_CHUNK_REQUESTS 16
+#define PLAYER_LIGHT_REQUESTS 32
+
 typedef struct Player {
     Vector3 spawnPoint;
     Vector3 savedPosition;
@@ -43,6 +48,8 @@ typedef struct Player {
     Vector3 impulseAllowance; // Extra horizontal/up/down distance, consumed by accepted moves.
     double impulseExpires;
     double movementTime;
+    double movementReceivedTime;
+    double movementLogTime;
     double nextMeleeAttack;
     float horizontalAllowance, upAllowance, downAllowance, fallPeak;
     unsigned char id;
@@ -59,8 +66,14 @@ typedef struct Player {
     bool isWeb;
     bool disconnected;
     int pendingPackets;
-    bool chunkRequestPending;
-    Vector3 pendingChunkPosition;
+    ChunkRequest *chunkRequests;
+    int chunkRequestCursor, chunkRequestDistance;
+    Vector3 chunkRequestCenter;
+    Vector3 pendingChunks[PLAYER_CHUNK_REQUESTS];
+    int pendingChunkCount;
+    Vector3 lightingChunks[PLAYER_LIGHT_REQUESTS];
+    int lightingChunkCount;
+    double chunkRetryTime;
 } Player;
 
 Player *ServerPlayer_Create(void *peer, bool isWeb);

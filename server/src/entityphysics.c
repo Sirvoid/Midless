@@ -1,3 +1,4 @@
+#include "world/entitypersistence.h"
 #include "blockstates.h"
 #include <math.h>
 #include "entityphysics.h"
@@ -158,6 +159,7 @@ void ServerPhysics_Update(float dt) {
         for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
             Entity *entity = &serverWorld.entities[id];
             if (!entity->active || entity->pendingRemoval || entity->ownerPlayerId >= 0) continue;
+            if (EntityPersistence_IsSaving(entity)) continue;
             if (entity->recovering && entity->body.grounded) entity->recovering = false;
             LuaMobs_Physics(entity,PHYSICS_STEP);
             if (!entity->active || entity->pendingRemoval || !entity->body.enabled) continue;

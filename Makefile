@@ -108,9 +108,9 @@ else
 	ifeq ($(PLATFORM),PLATFORM_WEB)
 		CFLAGS += -Os
 	else ifeq ($(PLATFORM_OS), WINDOWS)
-		CFLAGS += -s -Os -Wl,--subsystem,windows
+		CFLAGS += -s -O2 -fwrapv -Wl,--subsystem,windows
 	else ifeq ($(PLATFORM_OS), LINUX)
-		CFLAGS += -s -Os
+		CFLAGS += -s -O2 -fwrapv
 	endif
 endif
 
@@ -165,11 +165,11 @@ endif
 	$(CC) $(OBJS) -o $(BUILD_DIR) $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LDLIBS) $(CDIRECTIVES)
 
 ifeq ($(PLATFORM_OS),WINDOWS)
-$(OBJ_DIR)/%.o: %.c
+$(OBJ_DIR)/%.o: %.c Makefile
 	@if not exist "$(@D)" mkdir "$(@D)"
 	$(CC) -MMD -MP -c $< -o $@ $(CFLAGS) $(INCLUDE_PATHS) $(CDIRECTIVES)
 else
-$(OBJ_DIR)/%.o: %.c
+$(OBJ_DIR)/%.o: %.c Makefile
 	@mkdir -p "$(@D)"
 	$(CC) -MMD -MP -c $< -o $@ $(CFLAGS) $(INCLUDE_PATHS) $(CDIRECTIVES)
 endif

@@ -71,6 +71,7 @@ int serverPacketLengths[256] = {
     PLAYER_IMPULSE_PACKET_SIZE, // 32
     SET_ENTITY_TEXTURE_PACKET_SIZE, // 33
     PACKET_VARIABLE_SIZE, // 34
+    RESET_CHUNKS_PACKET_SIZE, // 35
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {

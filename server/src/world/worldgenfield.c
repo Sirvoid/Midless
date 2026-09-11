@@ -15,7 +15,10 @@ static uint32_t ToSeedComponent(float value) {
 }
 
 void Worldgen_EvalInit(WGEval *context, Vector3 position, Vector3 origin) {
-    memset(context, 0, sizeof(*context));
+    // Values are only read when their cache stamp matches. Clearing them too
+    // doubles the memory traffic for every column and feature evaluation.
+    memset(context->cachedVersions, 0, sizeof(context->cachedVersions));
+    context->step = context->steps = 0;
     context->position = position;
     context->origin = origin;
     context->evaluationVersion = 1;

@@ -16,6 +16,7 @@ typedef struct IncomingPacket {
     unsigned char *data;
     void *player;
     int length;
+    double receivedAt;
 } IncomingPacket;
 
 void ServerNetwork_Init(void);

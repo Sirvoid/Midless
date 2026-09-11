@@ -6,6 +6,7 @@
 
 #include <pthread.h>
 #include <unistd.h>
+#include <stdio.h>
 #include "localserver.h"
 #include "../../server/src/world/world.h"
 #include "../../server/src/player.h"
@@ -20,10 +21,14 @@ void Network_Connect(void);
 void Network_Receive(unsigned char *data, int dataLength);
 void Network_ClearQueue(void);
 void World_Clear(void);
+void World_ClearChunks(void);
+bool World_CleanupChunks(void);
+int World_RemainingCleanupChunks(void);
 
 static Player *localPlayer;
 static bool localServerRunning;
 static bool localServerThreadCreated;
+static bool localServerFinished;
 static pthread_t localServerThread;
 static pthread_mutex_t localServerStateMutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -49,9 +54,16 @@ static void *LocalServer_Run(void *unused) {
         ServerNetwork_ProcessIncomingPackets();
         ServerWorld_Update();
 
-        usleep(1000);
+        WaitTime(0.001);
     }
 
+    ServerNetwork_Shutdown();
+    ServerWorld_Shutdown();
+    LuaBindings_Shutdown();
+    Lua_Stop();
+    pthread_mutex_lock(&localServerStateMutex);
+    localServerFinished = true;
+    pthread_mutex_unlock(&localServerStateMutex);
     return NULL;
 }
 
@@ -90,6 +102,7 @@ bool LocalServer_Start(void) {
     networkClientSend = LocalServer_Send;
     networkConnectedToServer = true;
     Network_Init();
+    localServerFinished = false;
     LocalServer_SetRunning(true);
     if (pthread_create(&localServerThread, NULL, LocalServer_Run, NULL) != 0) {
         LocalServer_SetRunning(false);
@@ -109,14 +122,39 @@ bool LocalServer_Start(void) {
 void LocalServer_Stop(void) {
     if (!LocalServer_IsRunning()) return;
     LocalServer_SetRunning(false);
+    World_ClearChunks();
     if (localServerThreadCreated) {
+        double started = GetTime();
+        double serverSeconds = -1, cleanupSeconds = 0;
+        int chunks = World_RemainingCleanupChunks();
+        for (;;) {
+            pthread_mutex_lock(&localServerStateMutex);
+            bool finished = localServerFinished;
+            pthread_mutex_unlock(&localServerStateMutex);
+            if (finished && serverSeconds < 0) serverSeconds = GetTime() - started;
+            double cleanupStarted = GetTime();
+            bool cleaned = World_CleanupChunks();
+            cleanupSeconds += GetTime() - cleanupStarted;
+            if (finished && cleaned) break;
+            if (IsWindowReady()) {
+                BeginDrawing();
+                ClearBackground((Color){24, 27, 32, 255});
+                const char *message = finished ? "Cleaning up..." : "Saving world...";
+                DrawText(message, (GetScreenWidth() - MeasureText(message, 24)) / 2,
+                         GetScreenHeight() / 2 - 24, 24, RAYWHITE);
+                char elapsed[96];
+                snprintf(elapsed, sizeof(elapsed), "%d chunks left to clean up", World_RemainingCleanupChunks());
+                DrawText(elapsed,
+                         (GetScreenWidth() - MeasureText(elapsed, 18)) / 2,
+                         GetScreenHeight() / 2 + 16, 18, LIGHTGRAY);
+                EndDrawing(); // Keeps window events and presentation running while saving.
+            } else WaitTime(0.001);
+        }
+        fprintf(stderr, "Shutdown: server %.2f s, client cleanup %.2f s of work for %d chunks, total %.2f s\n",
+                 serverSeconds, cleanupSeconds, chunks, GetTime() - started);
         pthread_join(localServerThread, NULL);
         localServerThreadCreated = false;
     }
-    ServerNetwork_Shutdown();
-    ServerWorld_Shutdown();
-    LuaBindings_Shutdown();
-    Lua_Stop();
     localPlayer = NULL;
     World_Clear();
     Network_ClearQueue();

@@ -1,5 +1,5 @@
-#ifndef ISLEFORGE_BLOCKSTATES_H
-#define ISLEFORGE_BLOCKSTATES_H
+#ifndef MIDLESS_BLOCKSTATES_H
+#define MIDLESS_BLOCKSTATES_H
 #include "blockdefinition.h"
 #include "blockshape.h"
 #include "minilua.h"

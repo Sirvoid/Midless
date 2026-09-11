@@ -8,7 +8,7 @@
 #include "blockmeshgeneration.h"
 
 static BlockMeshTemplate templates[BLOCK_RUNTIME_COUNT];
-static int verticesIndex[2], textureIndex[2], colorsIndex[2], indicesIndex[2];
+static int verticesIndex[2];
 
 static const unsigned char spriteVertices[4][12] = {
     {0,0,0, 16,16,16, 0,16,0, 16,0,16},
@@ -107,9 +107,6 @@ Vector3 BlockMesh_GetDirection(BlockFace face) {
 
 void BlockMesh_ResetIndexes(void) {
     memset(verticesIndex, 0, sizeof(verticesIndex));
-    memset(textureIndex, 0, sizeof(textureIndex));
-    memset(colorsIndex, 0, sizeof(colorsIndex));
-    memset(indicesIndex, 0, sizeof(indicesIndex));
 }
 
 static unsigned char FaceColor(BlockFace face, bool sprite, int light, int sunlight) {
@@ -129,20 +126,26 @@ void BlockMesh_AddFace(unsigned char *vertices, unsigned short *indices, unsigne
                        unsigned char *colors, BlockFace face, int x, int y, int z,
                        const Block *block, int translucent, int light, int sunlight) {
     const BlockMeshTemplate *meshTemplate = &templates[block - blockDefinitions];
-    const unsigned char *source = meshTemplate->vertices[(int)face];
+    int vertex = verticesIndex[translucent] / 3;
+    BlockMesh_WriteFace(vertices, indices, texcoords, colors, vertex, meshTemplate,
+        face, x, y, z, block->modelType == BLOCK_MODEL_SPRITE, light, sunlight);
+    verticesIndex[translucent] += 12;
+}
 
-    int baseVertex = (verticesIndex[translucent] / 3) % 65536;
+void BlockMesh_WriteFace(unsigned char *vertices, unsigned short *indices, unsigned short *texcoords,
+                        unsigned char *colors, int vertex, const BlockMeshTemplate *meshTemplate,
+                        int face, int x, int y, int z, bool sprite, int light, int sunlight) {
+    const unsigned char *source = meshTemplate->vertices[face];
+    int baseVertex = vertex % 65536;
+    int index = (vertex / 4) * 6;
     static const unsigned short faceIndices[6] = {0, 1, 2, 1, 0, 3};
-    for (int i = 0; i < 6; i++) indices[indicesIndex[translucent]++] = (unsigned short)(baseVertex + faceIndices[i]);
-
-    unsigned char color = FaceColor(meshTemplate->directions[(int)face], block->modelType == BLOCK_MODEL_SPRITE, light, sunlight);
-    int offsetX = x * 15, offsetY = y * 15, offsetZ = z * 15;
+    for (int i = 0; i < 6; i++) indices[index + i] = (unsigned short)(baseVertex + faceIndices[i]);
+    unsigned char color = FaceColor(meshTemplate->directions[face], sprite, light, sunlight);
     for (int i = 0; i < 4; i++) {
-        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetX + source[i*3] * 15 / 16);
-        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetY + source[i*3+1] * 15 / 16);
-        vertices[verticesIndex[translucent]++] = (unsigned char)(offsetZ + source[i*3+2] * 15 / 16);
-        colors[colorsIndex[translucent]++] = color;
+        vertices[(vertex + i)*3] = (unsigned char)(x*15 + source[i*3]*15/16);
+        vertices[(vertex + i)*3 + 1] = (unsigned char)(y*15 + source[i*3 + 1]*15/16);
+        vertices[(vertex + i)*3 + 2] = (unsigned char)(z*15 + source[i*3 + 2]*15/16);
+        colors[vertex + i] = color;
     }
-    memcpy(&texcoords[textureIndex[translucent]], meshTemplate->texcoords[(int)face], 8 * sizeof(unsigned short));
-    textureIndex[translucent] += 8;
+    memcpy(texcoords + vertex*2, meshTemplate->texcoords[face], 8 * sizeof(unsigned short));
 }

@@ -4,47 +4,49 @@
  */
 
 #include <stddef.h>
+#include <stdlib.h>
 #include "raylib.h"
 #include "chunkmeshgeneration.h"
 #include "blockmeshgeneration.h"
 
-int chunkTriangleCount = 0;
-int chunkTransparentTriangleCount = 0;
-
-static unsigned char *vertices, *colors, *verticesT, *colorsT;
-static unsigned short *indices, *texcoords, *indicesT, *texcoordsT;
-
-void ChunkMeshGeneration_Init(void) {
-    int vertexCount = 2 * 6 * BLOCK_MODEL_MAX_BOXES * CHUNK_SIZE * 2;
-    int triangleCount = 2 * 6 * BLOCK_MODEL_MAX_BOXES * CHUNK_SIZE;
-    vertices = MemAlloc(vertexCount * 3);
-    texcoords = MemAlloc(vertexCount * 2 * sizeof(unsigned short));
-    colors = MemAlloc(vertexCount);
-    indices = MemAlloc(triangleCount * 3 * sizeof(unsigned short));
-    verticesT = MemAlloc(vertexCount * 3);
-    texcoordsT = MemAlloc(vertexCount * 2 * sizeof(unsigned short));
-    colorsT = MemAlloc(vertexCount);
-    indicesT = MemAlloc(triangleCount * 3 * sizeof(unsigned short));
+MeshBuffers *ChunkMeshGeneration_CreateBuffers(void) {
+    return calloc(1, sizeof(MeshBuffers));
 }
 
-void ChunkMeshGeneration_Shutdown(void) {
-    MemFree(vertices);
-    MemFree(texcoords);
-    MemFree(colors);
-    MemFree(indices);
-    MemFree(verticesT);
-    MemFree(texcoordsT);
-    MemFree(colorsT);
-    MemFree(indicesT);
+static bool ReserveBank(MeshBank *bank, int vertices) {
+    if (vertices <= bank->capacity) return true;
+    unsigned char *positions = malloc(vertices * 3);
+    unsigned short *texcoords = malloc(vertices * 2 * sizeof(unsigned short));
+    unsigned char *colors = malloc(vertices);
+    unsigned short *indices = malloc(vertices / 4 * 6 * sizeof(unsigned short));
+    if (!positions || !texcoords || !colors || !indices) {
+        free(positions);
+        free(texcoords);
+        free(colors);
+        free(indices);
+        return false;
+    }
+    free(bank->vertices);
+    free(bank->texcoords);
+    free(bank->colors);
+    free(bank->indices);
+    bank->vertices = positions;
+    bank->texcoords = texcoords;
+    bank->colors = colors;
+    bank->indices = indices;
+    bank->capacity = vertices;
+    return true;
+}
 
-    vertices = NULL;
-    texcoords = NULL;
-    colors = NULL;
-    indices = NULL;
-    verticesT = NULL;
-    texcoordsT = NULL;
-    colorsT = NULL;
-    indicesT = NULL;
+void ChunkMeshGeneration_FreeBuffers(MeshBuffers *buffers) {
+    if (!buffers) return;
+    for (int i = 0; i < 2; i++) {
+        free(buffers->banks[i].vertices);
+        free(buffers->banks[i].texcoords);
+        free(buffers->banks[i].colors);
+        free(buffers->banks[i].indices);
+    }
+    free(buffers);
 }
 
 static bool SameLiquidOccludes(const Block *block, const Block *next) {
@@ -63,9 +65,10 @@ static bool FaceVisible(const Block *block, const Block *next) {
     return true;
 }
 
-static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
+static void AddFace(MeshBuffers *buffers, MeshSnapshot *chunk, const Block *definitions,
+                    const BlockMeshTemplate *templates, int blockIndex, int x, int y, int z,
                     BlockFace face, const Block *block) {
-    const BlockMeshTemplate *model=BlockMesh_GetTemplate((int)(block-blockDefinitions));
+    const BlockMeshTemplate *model=&templates[block - definitions];
     int templateFace=(int)face;
     face=(BlockFace)model->directions[templateFace];
     static const int indexOffsets[6] = {-1, 1, CHUNK_SIZE_XZ, -CHUNK_SIZE_XZ, CHUNK_SIZE_X, -CHUNK_SIZE_X};
@@ -77,20 +80,20 @@ static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
     else if (face == BLOCK_FACE_FRONT) nz++;
     else nz--;
 
-    Chunk *nextChunk = chunk;
+
     int nextIndex;
     if ((unsigned)nx < CHUNK_SIZE_X && (unsigned)ny < CHUNK_SIZE_Y && (unsigned)nz < CHUNK_SIZE_Z) {
         nextIndex = blockIndex + indexOffsets[(int)face];
     } else {
-        nextChunk = chunk->neighbours[(int)face];
-        if (nextChunk == NULL) return;
-        if (nx < 0) nx = CHUNK_SIZE_X - 1; else if (nx == CHUNK_SIZE_X) nx = 0;
-        if (ny < 0) ny = CHUNK_SIZE_Y - 1; else if (ny == CHUNK_SIZE_Y) ny = 0;
-        if (nz < 0) nz = CHUNK_SIZE_Z - 1; else if (nz == CHUNK_SIZE_Z) nz = 0;
-        nextIndex = (ny * CHUNK_SIZE_Z + nz) * CHUNK_SIZE_X + nx;
+        if (!chunk->neighbors[(int)face]) return;
+        int cell;
+        if (face == BLOCK_FACE_LEFT || face == BLOCK_FACE_RIGHT) cell = y * 16 + z;
+        else if (face == BLOCK_FACE_TOP || face == BLOCK_FACE_BOTTOM) cell = z * 16 + x;
+        else cell = y * 16 + x;
+        nextIndex = CHUNK_SIZE + (int)face * CHUNK_SIZE_XZ + cell;
     }
 
-    const Block *next = &blockDefinitions[nextChunk->data[nextIndex]];
+    const Block *next = &definitions[chunk->cells[nextIndex].block];
     bool sprite = block->modelType == BLOCK_MODEL_SPRITE;
     if (!sprite && model->boundary[templateFace]) {
         if (next->geometry.enabled) { if(next->fastOpaqueCube) return; }
@@ -101,62 +104,70 @@ static void AddFace(Chunk *chunk, int blockIndex, int x, int y, int z,
     int light;
     int sunlight;
     if (sprite || block->renderType == BLOCK_RENDER_TRANSPARENT) {
-        light = chunk->lightData[blockIndex];
-        sunlight = chunk->sunlightData[blockIndex];
+        light = chunk->cells[blockIndex].light;
+        sunlight = chunk->cells[blockIndex].sky;
     } else if (!block->fullCube) {
-        int ownLight = chunk->lightData[blockIndex];
-        int ownSunlight = chunk->sunlightData[blockIndex];
-        int neighborLight = nextChunk->lightData[nextIndex];
-        int neighborSunlight = nextChunk->sunlightData[nextIndex];
+        int ownLight = chunk->cells[blockIndex].light;
+        int ownSunlight = chunk->cells[blockIndex].sky;
+        int neighborLight = chunk->cells[nextIndex].light;
+        int neighborSunlight = chunk->cells[nextIndex].sky;
         light = ownLight > neighborLight ? ownLight : neighborLight;
         sunlight = ownSunlight > neighborSunlight ? ownSunlight : neighborSunlight;
     } else {
-        light = nextChunk->lightData[nextIndex];
-        sunlight = nextChunk->sunlightData[nextIndex];
+        light = chunk->cells[nextIndex].light;
+        sunlight = chunk->cells[nextIndex].sky;
     }
 
-    if (block->renderType == BLOCK_RENDER_TRANSLUCENT) {
-        chunkTransparentTriangleCount += 2;
-        BlockMesh_AddFace(verticesT, indicesT, texcoordsT, colorsT, (BlockFace)templateFace, x, y, z, block, 1, light, sunlight);
-    } else {
-        chunkTriangleCount += 2;
-        BlockMesh_AddFace(vertices, indices, texcoords, colors, (BlockFace)templateFace, x, y, z, block, 0, light, sunlight);
-    }
+    int bankIndex = block->renderType == BLOCK_RENDER_TRANSLUCENT ? 1 : 0;
+    MeshBank *bank = &buffers->banks[bankIndex];
+    BlockMesh_WriteFace(bank->vertices, bank->indices, bank->texcoords, bank->colors,
+        bank->vertexCount, model, templateFace, x, y, z, sprite, light, sunlight);
+    bank->vertexCount += 4;
 }
 
-void ChunkMeshGeneration_Build(Chunk *chunk) {
-    BlockMesh_ResetIndexes();
-    chunkTriangleCount = 0;
-    chunkTransparentTriangleCount = 0;
-    chunk->hasTransparency = false;
-    chunk->onlyAir = true;
-
+void ChunkMeshGeneration_Compute(MeshBuffers *buffers, MeshSnapshot *chunk,
+                                 const Block *definitions, const BlockMeshTemplate *templates) {
+    buffers->valid = false;
+    // Bound output by the faces present in this snapshot, not the worst possible chunk.
+    int vertices[2] = {0};
+    for (int i = 0; i < CHUNK_SIZE; i++) {
+        int id = chunk->cells[i].block;
+        if (definitions[id].modelType == BLOCK_MODEL_GAS) continue;
+        int bank = definitions[id].renderType == BLOCK_RENDER_TRANSLUCENT ? 1 : 0;
+        vertices[bank] += templates[id].faceCount * 4;
+    }
+    if (!ReserveBank(&buffers->banks[0], vertices[0]) || !ReserveBank(&buffers->banks[1], vertices[1])) return;
+    buffers->banks[0].vertexCount = buffers->banks[1].vertexCount = 0;
+    buffers->onlyAir = true;
     for (int y = 0; y < CHUNK_SIZE_Y; y++) {
         for (int z = 0; z < CHUNK_SIZE_Z; z++) {
             int index = (y * CHUNK_SIZE_Z + z) * CHUNK_SIZE_X;
             for (int x = 0; x < CHUNK_SIZE_X; x++, index++) {
-                unsigned int blockId = chunk->data[index];
-                const Block *block = &blockDefinitions[blockId];
+                int id = chunk->cells[index].block;
+                const Block *block = &definitions[id];
                 if (block->modelType == BLOCK_MODEL_GAS) continue;
-                chunk->onlyAir = false;
-                if (block->renderType == BLOCK_RENDER_TRANSLUCENT) chunk->hasTransparency = true;
-                int faceCount = BlockMesh_GetTemplate(blockId)->faceCount;
-                for (int face = 0; face < faceCount; face++) AddFace(chunk, index, x, y, z, (BlockFace)face, block);
+                buffers->onlyAir = false;
+                for (int face = 0; face < templates[id].faceCount; face++) {
+                    AddFace(buffers, chunk, definitions, templates, index, x, y, z, (BlockFace)face, block);
+                }
             }
         }
     }
+    buffers->valid = true;
+}
 
-    chunk->mesh.vertexCount = chunkTriangleCount * 2;
-    chunk->mesh.triangleCount = chunkTriangleCount;
-    chunk->meshTransparent.vertexCount = chunkTransparentTriangleCount * 2;
-    chunk->meshTransparent.triangleCount = chunkTransparentTriangleCount;
-
-    if (chunk->mesh.triangleCount > 0) ChunkMesh_Upload(&chunk->mesh, vertices, indices, texcoords, colors);
-    else ChunkMesh_Clear(&chunk->mesh);
-    if (chunk->meshTransparent.triangleCount > 0) ChunkMesh_Upload(&chunk->meshTransparent, verticesT, indicesT, texcoordsT, colorsT);
-    else ChunkMesh_Clear(&chunk->meshTransparent);
+void ChunkMeshGeneration_Upload(MeshBuffers *buffers, Chunk *chunk) {
+    ChunkMesh *meshes[2] = {&chunk->mesh, &chunk->meshTransparent};
+    for (int i = 0; i < 2; i++) {
+        MeshBank *bank = &buffers->banks[i];
+        meshes[i]->vertexCount = bank->vertexCount;
+        meshes[i]->triangleCount = bank->vertexCount / 2;
+        if (bank->vertexCount) ChunkMesh_Upload(meshes[i], bank->vertices, bank->indices, bank->texcoords, bank->colors);
+        else ChunkMesh_Clear(meshes[i]);
+    }
+    chunk->onlyAir = buffers->onlyAir;
+    chunk->hasTransparency = buffers->banks[1].vertexCount > 0;
     chunk->isBuilt = true;
-    chunk->isLightDirty = false;
 }
 
 bool ChunkMeshGeneration_IsOpaqueFaceVisible(const Block *block, const Block *next) {

@@ -9,6 +9,7 @@
 #define MIDLESS_CLIENT_CHUNK_H
 
 #include "raylib.h"
+#include <stdint.h>
 #include "chunkmesh.h"
 #include "chunkdata.h"
 
@@ -27,6 +28,8 @@ typedef struct Chunk{
     struct Chunk *neighbours[26];
 
     //Loading/Generation flags
+    uint64_t meshIdentity, meshRevision;
+    bool meshPending;
     bool isBuilt;
     bool isGenerating;
     bool isBlockDataReady;
