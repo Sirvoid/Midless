@@ -124,7 +124,6 @@ void World_ReadChunksQueues(void) {
                     }
                 }
 
-                Chunk_Generate(chunk);
                 ChunkMeshGeneration_Build(chunk);
 
                 arrdel(world.generateChunksQueue, index);
@@ -142,6 +141,7 @@ void World_ReadChunksQueues(void) {
 }
 
 void World_QueueChunk(Chunk *chunk, bool immediate) {
+    if (!chunk->isLightGenerated) return;
 
     if (chunk->isGenerating == false) {
         if(!immediate) {
@@ -476,7 +476,7 @@ void World_SetBlock(Vector3 blockPos, int blockId, bool immediate) {
 }
 
 float World_GetSunlightStrength(void) {
-    return fmax(abs((int)(world.time - WORLD_DAY_LENGTH_SECONDS / 2.0f)) / (WORLD_DAY_LENGTH_SECONDS / 2.0f), 2/16.0f);
+    return WorldTime_Sunlight(world.time);
 }
 
 float World_GetBrightness(Vector3 position) {
@@ -558,16 +558,23 @@ void World_PlayEntityAnimation(int id, EntityAnimationType animation) {
 }
 
 void World_InvalidateBlockDefinitions(bool relight) {
-    for (int i = 0; i < hmlen(world.chunks); i++) {
-        Chunk *chunk = world.chunks[i].value;
-        if (relight) {
+    if (relight) {
+        for (int i = 0; i < hmlen(world.chunks); i++) {
+            Chunk *chunk = world.chunks[i].value;
+            if (!chunk->isLightGenerated) continue;
             memset(chunk->lightData, 0, sizeof(chunk->lightData));
             memset(chunk->sunlightData, 0, sizeof(chunk->sunlightData));
-            chunk->isLightGenerated = false;
-            chunk->incompleteLightFaces = 0;
-            chunk->incompleteSunlightFaces = 0;
             chunk->isLightDirty = true;
         }
+        for (int i = 0; i < hmlen(world.chunks); i++) {
+            Chunk *chunk = world.chunks[i].value;
+            if (!chunk->isLightGenerated) continue;
+            Chunk_DoSunlight(chunk);
+            Chunk_DoLightSources(chunk);
+        }
+    }
+    for (int i = 0; i < hmlen(world.chunks); i++) {
+        Chunk *chunk = world.chunks[i].value;
         World_QueueChunk(chunk, false);
     }
 }

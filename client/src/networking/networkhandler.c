@@ -91,6 +91,7 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleNametag, NAMETAG_PACKET_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandlePlayerImpulse, PLAYER_IMPULSE_PACKET_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleEntityTexture, SET_ENTITY_TEXTURE_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleChunkLight, PACKET_VARIABLE_SIZE};
 }
 
 void Network_Connect(void) {
@@ -236,7 +237,8 @@ void Network_Receive(unsigned char *data, int dataLength) {
         }
         queuedTextureBytes+=dataLength;
     }
-    bool modifiesTerrain = opcode == 0 || opcode == 1 || opcode == 2 || opcode == 7 || opcode == 8 ||
+    // Keep light maps behind their chunk data, including across the terrain budget.
+    bool modifiesTerrain = opcode == 0 || opcode == 1 || opcode == 2 || opcode == 7 || opcode == 8 || opcode == 34 ||
                            opcode == PACKET_DEFINE_BLOCK || opcode == PACKET_REMOVE_BLOCK_DEFINITION;
     IncomingPacket packet = {nextData, dataLength};
     if (modifiesTerrain) arrput(terrainQueuedData, packet);

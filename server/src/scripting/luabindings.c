@@ -818,6 +818,7 @@ static const struct LuaMethod midlessLib[] = {
     {"get_entities_in_radius", LuaQueries_Entities},
     {"get_players_in_radius", LuaQueries_Players},
     {"get_player_in_radius", LuaQueries_NearestPlayer},
+    {"get_light", LuaQueries_Light},
     {"register_on_player_damage", LuaDamage_RegisterPlayer},
     {"find_path", LuaQueries_FindPath},
     {"register_mob", LuaMobs_Register},

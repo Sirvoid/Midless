@@ -28,12 +28,11 @@ static void Chunk_Init(Chunk *chunk, Vector3 pos) {
     chunk->isBuilt = false;
     chunk->isBlockDataReady = false;
     chunk->isLightGenerated = false;
+    chunk->incompleteLightFaces = chunk->incompleteSunlightFaces = 0;
     chunk->isGenerating = false;
     chunk->hasTransparency = false;
     chunk->onlyAir = true;
     chunk->modified = false;
-    chunk->incompleteLightFaces = 0;
-    chunk->incompleteSunlightFaces = 0;
     chunk->isLightDirty = false;
 
     memset(chunk->lightData, 0, sizeof(chunk->lightData));
@@ -80,7 +79,7 @@ bool Chunk_LoadFile(Chunk *chunk) {
 }
 
 void Chunk_Decompress(Chunk *chunk, unsigned short *compressed, int compressedLength) {
-    ChunkData_Decompress(chunk->data, compressed, compressedLength);
+    chunk->isBlockDataReady = ChunkData_Decompress(chunk->data, compressed, compressedLength);
 }
 
 unsigned short* Chunk_CreateCompressedData(Chunk *chunk, int *compressedLength) {
@@ -101,25 +100,6 @@ void Chunk_Destroy(Chunk *chunk) {
 }
 
 
-void Chunk_Generate(Chunk *chunk) {
-    if (chunk == NULL || chunk->isLightGenerated) return;
-
-    chunk->isBlockDataReady = true;
-
-    // Initial sunlight calculated from the top down.
-    Chunk *topChunk = chunk->neighbours[BLOCK_FACE_TOP];
-    if (topChunk != NULL && !topChunk->isLightGenerated) {
-        Chunk_Generate(topChunk);
-    }
-
-    Chunk_DoSunlight(chunk);
-    Chunk_DoLightSources(chunk);
-    chunk->isLightGenerated = true;
-    Chunk_ReconcileLighting(chunk);
-}
-
-
-
 void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
     if (Chunk_IsValidPos(pos)) {
         int index = Chunk_PosToIndex(pos);
@@ -127,17 +107,13 @@ void Chunk_SetBlock(Chunk *chunk, Vector3 pos, int blockId) {
 
         chunk->data[index] = blockId;
         chunk->modified = true;
-
-        const Block *blockDef = Block_GetDefinition(blockId);
-
         Chunk_RemoveSunlight(chunk, pos);
-
-        if (blockDef->lightType == BLOCK_LIGHT_EMIT) {
-            Chunk_AddLightSource(chunk,pos, 15, false);
-        } else {
-            Chunk_RemoveLightSource(chunk,pos);
-        }
-
+        Chunk_RemoveLightSource(chunk, pos);
+        const Block *block = Block_GetDefinition(blockId);
+        if (block->lightType == BLOCK_LIGHT_EMIT)
+            Chunk_AddLightSource(chunk, pos, 15, false);
+        // A newly opened top boundary has no loaded sky cell above to reseed it.
+        if (pos.y == CHUNK_SIZE_Y - 1) Chunk_DoSunlight(chunk);
     }
 }
 
@@ -193,8 +169,8 @@ void Chunk_UpdateNeighbours(Chunk* chunk, bool leaveNeighbourhood) {
 
                 neighbour->neighbours[j] = NULL;
                 if (i < 6) {
-                    neighbour->incompleteLightFaces |= (unsigned char)(1u << j);
-                    neighbour->incompleteSunlightFaces |= (unsigned char)(1u << j);
+                    neighbour->incompleteLightFaces |= 1u << j;
+                    neighbour->incompleteSunlightFaces |= 1u << j;
                 }
             }
         }

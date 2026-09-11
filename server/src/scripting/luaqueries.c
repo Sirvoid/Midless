@@ -1,3 +1,4 @@
+#include "../lighting.h"
 #include <math.h>
 #include "luaqueries.h"
 #include "luaentities.h"
@@ -94,6 +95,16 @@ static int Nearby(bool players) {
 }
 int LuaQueries_Entities(void) { return Nearby(false); }
 int LuaQueries_Players(void) { return Nearby(true); }
+int LuaQueries_Light(void) {
+    Vector3 pos=ReadPosition(1);
+    int block,sky,level;
+    if (!ServerLighting_Get(pos,&block,&sky,&level)) { lua_pushnil(L); return 1; }
+    lua_createtable(L,0,3);
+    lua_pushinteger(L,block); lua_setfield(L,-2,"block");
+    lua_pushinteger(L,sky); lua_setfield(L,-2,"sky");
+    lua_pushinteger(L,level); lua_setfield(L,-2,"level");
+    return 1;
+}
 int LuaQueries_NearestPlayer(void) {
     Vector3 pos = ReadPosition(1);
     double radius = luaL_checknumber(L,2);

@@ -1,3 +1,4 @@
+#include "lighting.h"
 #include "blockstates.h"
 #include "scripting/luametadata.h"
 #include "world/world.h"
@@ -209,6 +210,7 @@ void ServerBlockStates_Changed(Chunk *c,int index) {
     int state=ServerBlockStates_Resolve(c,index);
     if(c->states[index]==state) return;
     c->states[index]=state;
+    ServerLighting_Changed(c);
     Vector3 local=ServerChunk_IndexToPos(index), p={c->blockPosition.x+local.x,c->blockPosition.y+local.y,c->blockPosition.z+local.z};
     if(!serverWorld.players) return;
     for(int i=0;i<WORLD_MAX_PLAYERS;i++) {

@@ -31,13 +31,11 @@ typedef struct Chunk{
     bool isGenerating;
     bool isBlockDataReady;
     bool isLightGenerated;
+    unsigned char incompleteLightFaces, incompleteSunlightFaces;
     bool fromFile;
     bool modified;
 
-    // One bit per cardinal face. Set when propagation reaches a neighbor that
-    // is unavailable and must be resumed when that neighbor loads.
-    unsigned char incompleteLightFaces;
-    unsigned char incompleteSunlightFaces;
+    // Received lighting has changed and the mesh needs rebuilding.
     bool isLightDirty;
 
     //mesh flags
@@ -45,27 +43,12 @@ typedef struct Chunk{
     bool onlyAir;
 } Chunk;
 
-typedef struct LightNode{
-    int index;
-    Chunk *chunk;
-    struct LightNode *next;
-} LightNode;
-
-typedef struct LightRemovalNode{
-    int index;
-    int val;
-    Chunk *chunk;
-    struct LightRemovalNode *next;
-} LightRemovalNode;
-
 //Allocate and initialize a chunk.
 Chunk *Chunk_Create(Vector3 pos);
 //Unload the chunk's external resources.
 void Chunk_Unload(Chunk *chunk);
 //Unload the chunk.
 void Chunk_Destroy(Chunk *chunk);
-//Generate a chunk's map & lightning.
-void Chunk_Generate(Chunk *chunk);
 //Save a chunk to a file.
 void Chunk_SaveFile(Chunk *chunk);
 //Load a chunk from a file.

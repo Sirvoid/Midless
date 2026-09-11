@@ -88,9 +88,13 @@ midless.register_on_player_attack(function(player, hit)
 end)
 
 midless.register_spawn("midless:humanoid_monster_spawn", {
+    can_spawn = function(pos)
+        local light = midless.get_light(pos)
+        return light ~= nil and light.level <= 7
+    end,
     entity = "midless:skeleton",
     interval = 5,
-    attempts = 8,
+    attempts = 16,
     chance = 0.25,
     distance = {min = 32, max = 48},
     placement = {type = "ground", ground_blocks = {"midless:grass", "midless:dirt", "midless:stone"}, vertical_range = 16, avoid_liquids = true},

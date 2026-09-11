@@ -4,6 +4,7 @@
 int LuaQueries_Raycast(void);
 int LuaQueries_Entities(void);
 int LuaQueries_Players(void);
+int LuaQueries_Light(void);
 int LuaQueries_NearestPlayer(void);
 int LuaQueries_FindPath(void);
 int LuaQueries_CanWalk(void);

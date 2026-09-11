@@ -169,7 +169,7 @@ void Chunk_SpreadLight(LightQueue *queue, bool sunlight) {
                 (unsigned)ny >= CHUNK_SIZE_Y ||
                 (unsigned)nz >= CHUNK_SIZE_Z) {
                 nextChunk = chunk->neighbours[d];
-                if (nextChunk == NULL || !nextChunk->isBlockDataReady) {
+                if (nextChunk == NULL || !nextChunk->isLightGenerated) {
                     Chunk_MarkLightFaceIncomplete(chunk, d, sunlight);
                     continue;
                 }
@@ -221,11 +221,11 @@ static void Chunk_ReconcileLightBank(Chunk *chunk, Chunk *neighbor, int face, bo
 }
 
 void Chunk_ReconcileLighting(Chunk *chunk) {
-    if (chunk == NULL || !chunk->isBlockDataReady) return;
+    if (chunk == NULL || !chunk->isLightGenerated) return;
 
     for (int face = 0; face < 6; face++) {
         Chunk *neighbor = chunk->neighbours[face];
-        if (neighbor == NULL || !neighbor->isBlockDataReady) continue;
+        if (neighbor == NULL || !neighbor->isLightGenerated) continue;
         Chunk_ReconcileLightBank(chunk, neighbor, face, false);
         Chunk_ReconcileLightBank(chunk, neighbor, face, true);
     }
@@ -258,13 +258,19 @@ void Chunk_UpdateLight(LightRemovalQueue *delQueue, LightQueue *spreadQueue, boo
                 if (ny < 0) ny = CHUNK_SIZE_Y - 1; else if (ny == CHUNK_SIZE_Y) ny = 0;
                 if (nz < 0) nz = CHUNK_SIZE_Z - 1; else if (nz == CHUNK_SIZE_Z) nz = 0;
             }
-            if (nextChunk == NULL || !nextChunk->isBlockDataReady) {
+            if (nextChunk == NULL || !nextChunk->isLightGenerated) {
                 Chunk_MarkLightFaceIncomplete(chunk, d, sunlight);
                 continue;
             }
 
             int nextIndex = (ny * CHUNK_SIZE_Z + nz) * CHUNK_SIZE_X + nx;
             int neighborLevel = Chunk_GetLightLevel(nextChunk, nextIndex, sunlight);
+            // Removing one source must not extinguish another emitter.
+            if (!sunlight && Block_GetDefinition(nextChunk->data[nextIndex])->lightType == BLOCK_LIGHT_EMIT) {
+                Chunk_SetLightLevel(nextChunk, nextIndex, 15, false);
+                Chunk_LightQueueAdd(spreadQueue, nextIndex, nextChunk);
+                continue;
+            }
 
             if (neighborLevel != 0 &&
                 (neighborLevel < lightLevel || (lightLevel != 0 && d == 3 && sunlight))) {

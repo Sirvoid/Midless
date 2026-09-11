@@ -9,6 +9,10 @@
 #define MIDLESS_CLIENT_CHUNK_LIGHTING_H
 
 #include "chunk.h"
+#include <stddef.h>
+
+typedef struct LightNode { int index; Chunk *chunk; } LightNode;
+typedef struct LightRemovalNode { int index, val; Chunk *chunk; } LightRemovalNode;
 
 typedef struct LightQueue {
     LightNode *nodes;

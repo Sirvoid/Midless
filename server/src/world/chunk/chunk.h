@@ -17,6 +17,9 @@
 #define CHUNK_SIZE_VEC3 CLITERAL(Vector3){ CHUNK_SIZE_X, CHUNK_SIZE_Y, CHUNK_SIZE_Z }
 
 typedef struct Chunk{
+    unsigned char lightData[CHUNK_SIZE];
+    unsigned char lightFlags[CHUNK_SIZE];
+    bool lightDirty, lightReady;
     unsigned short data[CHUNK_SIZE];
     unsigned char states[CHUNK_SIZE]; // Derived cache; never saved.
     unsigned char skyMask[CHUNK_SKY_MASK_SIZE];

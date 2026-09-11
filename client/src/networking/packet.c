@@ -1,4 +1,5 @@
 #include "version.h"
+#include "chunklightning.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  * 
@@ -237,6 +238,35 @@ void Packet_HandleTextColor(void) {
     color.b = Packet_ReadByte(); color.a = Packet_ReadByte();
     unsigned char code = Packet_ReadByte();
     if (TextColor_ValidCode(code)) textColors[code] = color;
+}
+void Packet_HandleChunkLight(void) {
+    if (packetDataLength<CHUNK_LIGHT_HEADER_SIZE) return;
+    int x=Packet_ReadInt(), y=Packet_ReadInt(), z=Packet_ReadInt();
+    int length=Packet_ReadUShort();
+    if (length<2 || length>CHUNK_SIZE*2 || length%2 ||
+        packetDataLength!=CHUNK_LIGHT_HEADER_SIZE+length*2) return;
+    const unsigned char *bytes=Packet_ReadBytes(length*2);
+    if (!bytes) return;
+    unsigned short compressed[CHUNK_SIZE*2],light[CHUNK_SIZE];
+    memcpy(compressed,bytes,length*2);
+    for (int i=0; i<length; i+=2)
+        if (compressed[i]>255 || compressed[i+1]==0) return;
+    if (!ChunkData_Decompress(light,compressed,length)) return;
+    Chunk *chunk=World_GetChunkAt((Vector3){x,y,z});
+    if (!chunk || !chunk->isBlockDataReady) return;
+    for (int i=0; i<CHUNK_SIZE; i++) {
+        chunk->lightData[i]=light[i]&15;
+        chunk->sunlightData[i]=light[i]>>4;
+    }
+    chunk->isLightGenerated=true; chunk->isLightDirty=true;
+    chunk->incompleteLightFaces=chunk->incompleteSunlightFaces=63;
+    Chunk_ReconcileLighting(chunk);
+    World_QueueChunk(chunk,false);
+    // Meshes sample the full neighborhood for corner lighting.
+    for (int i=0; i<26; i++) if (chunk->neighbours[i]) {
+        chunk->neighbours[i]->isLightDirty=true;
+        World_QueueChunk(chunk->neighbours[i],false);
+    }
 }
 
 void Packet_HandlePlayerImpulse(void) {

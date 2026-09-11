@@ -1,3 +1,4 @@
+#include "../lighting.h"
 #include "../blockstates.h"
 #include "../serverinventory.h"
 /**
@@ -117,6 +118,7 @@ void ServerWorld_Update(void) {
     }
 
     ServerPlayerManager_Update();
+    ServerLighting_Update();
     ServerTextures_Update();
     InventoryWindow_Update();
     ServerInventory_UpdateDigging();
@@ -161,6 +163,7 @@ void ServerWorld_DefineBlock(int id, const BlockDefinition *definition) {
     if (!BlockDefinition_Validate(id, definition)) return;
     serverWorld.blockDefinitions[id] = *definition;
     serverWorld.hasBlockDefinition[id] = true;
+    ServerLighting_Invalidate();
     ServerItems_DefineBlock(id);
     if (!serverWorld.players) return;
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
@@ -172,6 +175,7 @@ void ServerWorld_RemoveBlockDefinition(int id) {
     if (id < 1 || id > 255 || !serverWorld.hasBlockDefinition[id]) return;
     ServerBlockStates_Remove(id);
     serverWorld.hasBlockDefinition[id] = false;
+    ServerLighting_Invalidate();
     serverWorld.blockDefinitions[id] = (BlockDefinition){0};
     if (!serverWorld.players) return;
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {

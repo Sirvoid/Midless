@@ -1,4 +1,4 @@
-﻿# Midless Lua API
+# Midless Lua API
 
 - [Getting started](#getting-started)
 - [Events and timers](#events-and-timers)
@@ -170,6 +170,10 @@ midless.set_blocks({
 Air is `"midless:air"` or `0`. The second `set_blocks` argument controls block-update callbacks and defaults to `true`.
 
 Block objects expose `get_position`, `is_loaded`, `get_id`, `set_id`, metadata methods, inventory methods, and timers. Only `get_position()` and `is_loaded()` work while the chunk is unloaded.
+`midless.get_light(pos)` returns `{block = 0..15, sky = 0..15, level = 0..15}`.
+`block` is emitted light, `sky` is daylight exposure, and `level` combines emitted
+light with sky light. It returns `nil` when
+the chunk is unavailable or server lighting is still settling.
 
 ### Define blocks
 
@@ -625,7 +629,6 @@ Raycasts return the nearest `entity`, `player`, `block`, `unloaded`, or `nothing
 Rays are limited to 128 blocks. `entities` defaults to `true`; set `false` for terrain only. `ignore` accepts a non-player entity; use `ignore_player = player:get_id()` for a player.
 
 The singular `get_player_in_radius` returns the nearest living, connected, movement-ready player or `nil`; radius is 0–128.
-
 ```lua
 midless.register_on_player_attack(function(player, target)
     if target.type == "entity" then
@@ -728,7 +731,14 @@ midless.register_spawn("my_mod:wanderers", {
 })
 ```
 
-Shown numbers and booleans are defaults. Only `entity` is required. Rules have unique, nonempty names of at most 64 bytes, with at most 128 rules. There are no time or light conditions yet.
+Use `can_spawn` for light conditions:
+
+```lua
+can_spawn = function(pos)
+    local light = midless.get_light(pos)
+    return light ~= nil and light.level <= 7
+end,
+```
 
 | Setting | Limits / behavior |
 | --- | --- |

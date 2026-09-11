@@ -1,3 +1,4 @@
+#include "lighting.h"
 #include "blockstates.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
@@ -170,6 +171,7 @@ void ServerPlayer_LoadChunks(Player* player) {
         unsigned short *compressedChunk = ServerChunk_CreateCompressedData(chunk, &compressedLength);
         ServerNetwork_Send(player, ServerPacket_CreateLoadChunk(
             compressedChunk, compressedLength, closestPosition, chunk->skyMask));
+        ServerLighting_Send(chunk,player);
         MemFree(compressedChunk);
 
         if (GetTime() >= loadDeadline) return;

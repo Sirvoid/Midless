@@ -70,6 +70,7 @@ int serverPacketLengths[256] = {
     NAMETAG_PACKET_SIZE, // 31
     PLAYER_IMPULSE_PACKET_SIZE, // 32
     SET_ENTITY_TEXTURE_PACKET_SIZE, // 33
+    PACKET_VARIABLE_SIZE, // 34
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {

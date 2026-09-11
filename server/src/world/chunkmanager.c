@@ -1,4 +1,5 @@
 #include "../serverinventory.h"
+#include "../lighting.h"
 #include <math.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -62,6 +63,7 @@ static void WriteGeneratedBlock(Chunk *chunk, Vector3 blockPosition, int blockId
     if (!ServerChunk_IsValidPos(localPosition)) return;
     ServerChunk_SetBlock(chunk, localPosition, blockId);
 
+    ServerLighting_Changed(chunk);
     if (arrlen(chunk->players) > 0) {
         arrput(serverWorld.generatedBlockUpdates, ((GeneratedBlockUpdate){
             .chunk = chunk,
@@ -157,7 +159,7 @@ static void ProcessLoadedChunks(void) {
                 ServerChunk_Destroy(chunk);
                 chunk = NULL;
             }
-            if (chunk) ApplyPendingBlocks(chunk);
+            if (chunk) { ApplyPendingBlocks(chunk); ServerLighting_Changed(chunk); }
         } else {
             ServerChunk_Destroy(chunk);
             chunk = ServerWorld_GetChunkAt(result->position);
@@ -180,6 +182,7 @@ static void ProcessLoadedChunks(void) {
             ServerChunk_AddPlayer(chunk, player);
             ServerNetwork_Send(player, ServerPacket_CreateLoadChunk(
                 compressedData, compressedLength, chunk->position, chunk->skyMask));
+            ServerLighting_Send(chunk,player);
         }
         MemFree(compressedData);
     }
@@ -282,6 +285,7 @@ Chunk *ServerWorld_AddChunk(Vector3 position) {
         return NULL;
     }
     ApplyPendingBlocks(chunk);
+    ServerLighting_Changed(chunk);
     return chunk;
 }
 
@@ -293,6 +297,7 @@ void ServerWorld_RemoveChunk(Chunk *chunk) {
     if (!EntityPersistence_Save(chunk)) return;
     EntityPersistence_Unload(chunk);
     (void)hmdel(serverWorld.chunks, packedPosition);
+    ServerLighting_Removed(chunk->position);
     ServerChunk_Destroy(chunk);
 }
 
@@ -382,6 +387,7 @@ void ServerWorld_SetBlock(Vector3 blockPosition, int blockId, bool broadcast, bo
     if (previousBlock == blockId) return;
     InventoryWindow_Invalidate((Vector3){floorf(blockPosition.x), floorf(blockPosition.y), floorf(blockPosition.z)});
     ServerChunk_SetBlock(chunk, localPosition, blockId);
+    ServerLighting_Changed(chunk);
     if (broadcast) ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockId, blockPosition, byPlayer));
     if (callCallbacks) LuaBindings_InvokeBlockUpdate(blockPosition, blockId, previousBlock);
 }
