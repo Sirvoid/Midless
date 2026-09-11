@@ -11,6 +11,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "player.h"
+#include "playerimpulse.h"
 #include "world.h"
 #include "raycast.h"
 #include "screens.h"
@@ -45,6 +46,7 @@ void Player_Init(void) {
     player.camera = camera;
     
     player.velocity = (Vector3) {0, 0, 0};
+    player.impulseFlight = false;
     player.position = (Vector3) { 0, 80, 0 };
     player.speed = 0.125f / 6;
     
@@ -70,7 +72,7 @@ void Player_SetEntityModel(int type, int modelId) {
     Player_ClearEntityModel();
     player.entityType = (unsigned char)type;
     player.modelId = (unsigned char)modelId;
-    EntityModel_Create(&player.entityModel, *EntityModel_GetDefinition(modelId));
+    EntityModel_CreateTextured(&player.entityModel,modelId,player.textureOverride);
     player.hasEntityModel = true;
 }
 
@@ -86,6 +88,7 @@ void Player_Teleport(Vector3 position) {
     player.position = position;
     player.animation.lastPosition = position;
     player.velocity = (Vector3){0};
+    player.impulseFlight = false;
     player.canJump = false;
 
     player.camera.position = position;
@@ -234,7 +237,9 @@ void Player_CheckInputs() {
         if (player.liquidSubmersion > 0.0f) {
             moveVel = Vector3Scale(moveVel, WATER_MOVE_SCALE);
         }
-        player.velocity = Vector3Add(player.velocity, moveVel);
+        // A launch carries its own momentum; movement input must not accelerate
+        // without bound while airborne drag is suspended.
+        if (!player.impulseFlight) player.velocity = Vector3Add(player.velocity, moveVel);
         
         float wheel = GetMouseWheelMove();
         if (wheel > 0.35f) ClientInventory_Scroll(-1);
@@ -281,6 +286,13 @@ void Player_CheckInputs() {
 
 
 
+void Player_ApplyImpulse(Vector3 impulse) {
+    if (!PlayerImpulse_Valid(impulse)) return;
+    player.velocity = PlayerImpulse_Add(player.velocity, impulse);
+    if (impulse.x != 0 || impulse.y != 0 || impulse.z != 0) player.impulseFlight = true;
+    if (impulse.y > 0) player.canJump = false;
+}
+
 void Player_Update(void) {
     ClientInventory_Update();
     
@@ -326,6 +338,7 @@ void Player_Update(void) {
         if (Player_TestCollision((Vector3){ 0 })) {
             if (player.velocity.y != 0 || Player_TestCollision((Vector3){0,0.51f,0})) {
                 player.position.x -= velXdt.x / steps;
+                if (player.impulseFlight) player.velocity.x = 0;
             } else {
                 player.position.y += 0.1f / steps;
             }
@@ -338,6 +351,7 @@ void Player_Update(void) {
         if (Player_TestCollision((Vector3){ 0 })) {
             if (player.velocity.y != 0 || Player_TestCollision((Vector3){0,0.51f,0})) {
                 player.position.z -= velXdt.z / steps;
+                if (player.impulseFlight) player.velocity.z = 0;
             } else {
                 player.position.y += 0.1f / steps;
                 break;
@@ -347,10 +361,11 @@ void Player_Update(void) {
 
     World_LoadChunks();
 
+    if (player.canJump || player.liquidSubmersion > 0.0f) player.impulseFlight = false;
     if (player.liquidSubmersion > 0.0f) {
         float drag = powf(WATER_DRAG, frameScale);
         player.velocity = Vector3Scale(player.velocity, drag);
-    } else {
+    } else if (!player.impulseFlight) {
         player.velocity.x -= player.velocity.x / 6.0f;
         player.velocity.z -= player.velocity.z / 6.0f;
     }

@@ -29,9 +29,11 @@ typedef struct Player{
     RaycastResult rayResult;
     int blockSelected;
     bool canJump;
+    bool impulseFlight; // Preserve launch momentum until ground/water contact.
     float liquidSubmersion;
     unsigned char entityType;
     unsigned char modelId;
+    unsigned short textureOverride;
     bool hasEntityModel;
     PlayerCameraMode cameraMode;
     EntityModel entityModel;
@@ -51,6 +53,7 @@ void Player_Draw(void);
 void Player_SetEntityModel(int type, int modelId);
 void Player_ClearEntityModel(void);
 void Player_Teleport(Vector3 position);
+void Player_ApplyImpulse(Vector3 impulse);
 
 bool Player_TestCollision(Vector3 offset);
 float Player_GetLiquidSubmersion(void);

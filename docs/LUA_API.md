@@ -1,1145 +1,220 @@
-﻿
+﻿# Midless Lua API
 
-# Midless Lua API
-
-This document is a practical Lua API reference for quick lookup and mod
-development.
-
-## Quick start
-
-1. [Getting started with mod files](#getting-started)
-2. [World APIs](#world)
-3. [Messages and chat](#messages)
-4. [Events](#events)
-5. [Players](#players)
-6. [Entities](#entities)
-7. [Blocks](#blocks)
-8. [Textures](#textures)
-9. [World Generation](#world-generation)
-10. [Vectors](#vectors)
-11. [Items and inventories](#items)
-12. [Block breaking](#block-breaking)
-13. [Player HP and metadata](#player-hp)
-14. [HUD bars](#hud-bars)
-15. [Examples](#example-mod)
+- [Getting started](#getting-started)
+- [Events and timers](#events-and-timers)
+- [Players](#players)
+- [World and blocks](#world-and-blocks)
+- [Items and digging](#items-and-digging)
+- [Metadata](#metadata)
+- [Inventories and crafting](#inventories-and-crafting)
+- [Entities](#entities)
+- [Mobs and spawning](#mobs-and-spawning)
+- [Textures and models](#textures-and-models)
+- [World generation](#world-generation)
+- [Vectors](#vectors)
 
 ## Getting started
 
-Put standalone `.lua` files or mod folders inside `mods/`:
-
-```text
-mods/
-    commands.lua
-    base_game/
-        init.lua
-        items.lua
-        blocks.lua
-        recipes.lua
-        mobs/
-            init.lua
-```
-
-A mod folder must have `init.lua`. It receives its folder path as `...`:
+Put a `.lua` file or a mod folder in `mods/`. A folder needs an `init.lua`, which receives its path as `...`:
 
 ```lua
--- mods/base_game/init.lua
+-- mods/my_mod/init.lua
 local path = ...
 dofile(path .. "/items.lua")
 dofile(path .. "/blocks.lua")
-dofile(path .. "/recipes.lua")
-dofile(path .. "/mobs/init.lua")
+midless.define_texture("my_mod:gem", path .. "/textures/gem.png")
 ```
 
-Only the folder's `init.lua` loads automatically. Load the other scripts in the
-order you need. Top-level files and folders load alphabetically by name; use
-`register_on_ready` for setup that depends on other mods. Texture paths still
-start from the server's working directory:
+Only `init.lua` loads automatically inside a mod folder. Top-level files and folders load alphabetically; load your other scripts in the order they need. Use `midless.register_on_ready` for setup that depends on other mods.
+
+The API uses the global `midless` table. Use namespaced identifiers such as `"my_mod:stone"`. File paths are relative to the server's working directory unless absolute.
+
+Positions and directions use `{x = 10, y = 20, z = 30}` or `vector.new(10, 20, 30)`.
+
+## Events and timers
+
+Register a callback with `midless.register_on_...(function(...) ... end)`:
+
+| Registration | Callback arguments | Behavior |
+| --- | --- | --- |
+| `register_on_ready` | none | Server ready; useful for mod dependencies. |
+| `register_on_step` | `dt` | Every simulation update; `dt` is seconds. |
+| `register_on_player_join` | `player` | Player joins. |
+| `register_on_player_leave` | `player` | Player leaves. |
+| `register_on_player_message` | `player, message` | Return `true` to hide the message from chat. |
+| `register_on_player_land` | `player, distance` | Player lands; use distance for custom fall damage. |
+| `register_on_player_click` | `player, button` | Button is `"left"` or `"right"`. |
+| `register_on_player_attack` | `player, target` | Targeted attack; return `true` to stop later handlers. |
+| `register_on_player_damage` | `player, amount, context` | Before damage; see [Damage](#damage). |
+| `register_on_hp_change` | `player, old_hp, new_hp` | After HP changes. |
+| `register_on_block_update` | `pos, blockId, previousBlockId` | Block changes. |
+| `register_on_dig_time` | `player, block, stack, seconds` | Adjust or cancel digging; see [Items and digging](#items-and-digging). |
+
+Metadata listeners also take the field name:
 
 ```lua
-midless.define_texture("base_game:pickaxe", path .. "/textures/pickaxe.png")
+midless.register_on_player_metadata_change("my_mod:air", function(player, old, new)
+    print(new)
+end)
 ```
 
-The API is available through the global `midless` table.
-
----
-
-## Positions
-
-Positions use tables:
+Use a step callback for timers. `midless.sleep(milliseconds)` blocks the server.
 
 ```lua
-local pos = {x = 10, y = 20, z = 30}
+local elapsed = 0
+midless.register_on_step(function(dt)
+    elapsed = elapsed + dt
+    if elapsed >= 5 then
+        elapsed = elapsed - 5
+        midless.broadcast("Five seconds!")
+    end
+end)
 ```
 
-You can also use the `vector` library:
+## Players
 
-```lua
-local pos = vector.new(10, 20, 30)
-```
+### Lookup and methods
 
----
+| Call | Result or action |
+| --- | --- |
+| `midless.get_players()` | All players. |
+| `midless.get_player_by_name(name)` | Case-sensitive lookup; `nil` if not found. |
+| `midless.get_player_by_id(id)` | Look up by runtime ID. |
+| `player:is_valid()` | Connected and ready for movement. Check retained handles before use. |
+| `player:get_id()` / `player:get_name()` | Runtime ID / username. |
+| `player:get_position()` | Position. |
+| `player:get_eye_position()` | Eye position. |
+| `player:get_look_direction()` | Look direction. |
+| `player:teleport(pos)` | Move instantly. |
+| `player:apply_impulse(velocity)` | Add velocity in blocks/second. |
+| `player:get_spawn_point()` / `player:set_spawn_point(pos)` | Persistent spawn point. |
+| `player:get_hp()` / `player:set_hp(hp)` | Persistent HP. |
+| `player:damage(amount, context)` | Apply damage; returns HP lost. |
+| `player:send_message(text)` | Private chat message. |
+| `player:set_model(name)` | Change model. |
+| `player:get_texture()` / `player:set_texture(name)` | Texture override; `nil` restores the model default. |
+| `player:set_nametag(options)` | Set text, color, visibility, or offset. |
+| `player:get_inventory(name)` | Main inventory when name is omitted. |
+| `player:get_selected_slot()` | Selected slot in the main inventory, starting at 1. |
+| `player:get_selected_stack()` | Selected stack copy, or `nil`. |
+| `player:set_selected_stack(stack)` | Replace selected stack; `nil` clears it. |
+| `player:get_metadata(field)` | Read a declared field. |
+| `player:set_metadata(field, value)` / `player:reset_metadata(field)` | Change a field / restore its default. |
+| `player:set_hud_bar(name, options)` | Update a HUD bar's value or visibility. |
+| `player:show_inventory(layout)` | Open an inventory screen. |
+| `player:close_inventory()` | `true` if closed, `false` if blocked. |
 
+The default spawn is just above the highest solid or liquid surface at X/Z `(0, 0)`.
 
+Players start with 20 HP. HP must be an integer from 0 to 65535. **Zero HP does not automatically kill or respawn a player**; handle that in your mod.
 
-# World
-
-## Get a block
-
-```lua
-local block = midless.get_block({x = 10, y = 20, z = 10})
-if block:is_loaded() then
-    local id = block:get_id() -- "midless:air" is air
-    local position = block:get_position()
-    block:set_id("midless:stone")
-end
-```
-
-Returns a block object at the given position. Use `:get_id()` when you need the
-identifier. `get_position()` and `is_loaded()` work even when the chunk is
-unloaded; other methods require a loaded chunk. The object also exposes
-`get_metadata`, `set_metadata`, `reset_metadata`, and `get_inventory`.
-See [metadata](#metadata).
-
-## Set a block
-
-```lua
-midless.set_block(pos, blockId)
-```
-
-Example:
-
-```lua
-midless.set_block({x = 10, y = 20, z = 10}, "midless:stone")
-```
-
-Use `"midless:air"` (or `0`) to place air.
-
-## Set multiple blocks
-
-```lua
-midless.set_blocks(updates, callCallbacks)
-```
-
-Example:
-
-```lua
-midless.set_blocks({
-    {pos = {x = 10, y = 20, z = 10}, blockId = 1},
-    {pos = {x = 11, y = 20, z = 10}, blockId = 1},
-    {pos = {x = 12, y = 20, z = 10}, blockId = 0},
-}, false)
-```
-
-`callCallbacks` controls whether `on_block_update` is called. It defaults to `true`.
-
----
-
-
-
-# Messages
-
-## Broadcast
-
-Send a message to every player:
+### Chat and nametags
 
 ```lua
 midless.broadcast("Hello everyone!")
+player:send_message("&cRed &fWhite")
+player:set_nametag({text = "&c[Admin] &fAlex"})
+entity:set_nametag({text = "Merchant", color = "#FFFFFF", visible = true, offset = 0.5})
 ```
 
-## Private message
-
-```lua
-player:send_message("Hello!")
-```
-
----
-
-
-
-# Events
-
-Events let mods react to things happening in the game.
-
-## Server ready
-
-```lua
-midless.register_on_ready(function()
-    print("Server ready!")
-end)
-```
-
-## Server step
-
-Called every simulation update.
-
-```lua
-midless.register_on_step(function(dt)
-    -- dt = elapsed time in seconds
-end)
-```
-
-## Player joins
-
-```lua
-midless.register_on_player_join(function(player)
-    player:send_message("Welcome!")
-end)
-```
-
-## Player leaves
-
-```lua
-midless.register_on_player_leave(function(player)
-    print(player:get_name() .. " left")
-end)
-```
-
-## Player message
-
-```lua
-midless.register_on_player_message(function(player, message)
-    print(player:get_name() .. ": " .. message)
-end)
-```
-
-Return `true` to stop the message from appearing in chat:
-
-```lua
-midless.register_on_player_message(function(player, message)
-    if message:sub(1, 1) == "!" then
-        return true
-    end
-
-    return false
-end)
-```
-
-## Player lands
-
-```lua
-midless.register_on_player_land(function(player, distance)
-    local damage = math.max(0, math.floor(distance - 3))
-    if damage > 0 then
-        player:set_hp(math.max(0, player:get_hp() - damage))
-    end
-end)
-```
-
-
-## Player click
-
-```lua
-midless.register_on_player_click(function(player, button)
-    if button == "left" then
-        print("Left click")
-    elseif button == "right" then
-        print("Right click")
-    end
-end)
-```
-
-## Block update
-
-```lua
-midless.register_on_block_update(function(pos, blockId, previousBlockId)
-    print("Block changed!")
-end)
-```
-
----
-
-
-
-# Vectors
-
-Create a vector:
-
-```lua
-local v = vector.new(1, 2, 3)
-```
-
-Zero vector:
-
-```lua
-local v = vector.new()
-```
-
-Copy:
-
-```lua
-local copy = vector.new(v)
-```
-
-## Add
-
-```lua
-vector.add(a, b)
-```
-
-## Subtract
-
-```lua
-vector.subtract(a, b)
-```
-
-## Multiply
-
-```lua
-vector.multiply(v, 5)
-```
-
-## Length
-
-```lua
-vector.length(v)
-```
-
-## Distance
-
-```lua
-vector.distance(a, b)
-```
-
-## Normalize
-
-```lua
-vector.normalize(v)
-```
-
-## Direction
-
-```lua
-vector.direction(from, to)
-```
-
-## Dot product
-
-```lua
-vector.dot(a, b)
-```
-
-## Cross product
-
-```lua
-vector.cross(a, b)
-```
-
-Example:
-
-```lua
-local spawnPos = vector.add(
-    player:get_eye_position(),
-    vector.multiply(player:get_look_direction(), 3)
-)
-```
-
-This gets a position three blocks in front of the player.
-
----
-
-
-
-# Timers
-
-`midless.sleep()` exists:
-
-```lua
-midless.sleep(1000)
-```
-
-However, it blocks the server.
-
-For gameplay timers, use `register_on_step` instead:
-
-```lua
-local timer = 0
-
-midless.register_on_step(function(dt)
-    timer = timer + dt
-
-    if timer >= 5 then
-        timer = 0
-        print("Five seconds!")
-    end
-end)
-```
-
----
-
-
-
-# Players
-
-## Get all players
-
-```lua
-local players = midless.get_players()
-```
-
-Example:
-
-```lua
-for _, player in ipairs(midless.get_players()) do
-    print(player:get_name())
-end
-```
-
-## Find player by name
-
-```lua
-local player = midless.get_player_by_name("Sirvoid")
-```
-
-Returns `nil` if the player was not found.
-
-Names are case-sensitive.
-
-## Find player by ID
-
-```lua
-local player = midless.get_player_by_id(id)
-```
-
----
-
-
-
-# Player Methods
-
-## ID
-
-```lua
-local id = player:get_id()
-```
-
-## Name
-
-```lua
-local name = player:get_name()
-```
-
-## Position
-
-```lua
-local pos = player:get_position()
-```
-
-## Eye position
-
-```lua
-local pos = player:get_eye_position()
-```
-
-## Look direction
-
-```lua
-local direction = player:get_look_direction()
-```
-
-## Teleport
-
-```lua
-player:teleport({x = 0, y = 80, z = 0})
-```
-
-## Spawn point
-
-```lua
-player:set_spawn_point({x = 10, y = 70, z = 20})
-local spawn = player:get_spawn_point()
-player:teleport(spawn)
-```
-
-The spawn point saves with the player and defaults to just above the highest
-solid or liquid surface in the world column at block X/Z `(0, 0)`
-
-## Change model
-
-```lua
-player:set_model(modelName)
-```
-
-## Send message
-
-```lua
-player:send_message("Hello!")
-```
-
----
-
-
-
-# Text colors
-
-Chat and nametags use the same color codes. Put `&` followed by a code before
-the text to color. Standard codes are `0`–`9` and `a`–`f` (uppercase also works).
-For example, `&cRed &fWhite` changes from red to white.
-Use `&&` for a literal ampersand.
+Chat and nametags share color codes: `&0`–`&9` and `&a`–`&f` (uppercase also works). Use `&&` for a literal ampersand, or `midless.escape_text(text)` to escape user text.
 
 ```lua
 midless.define_text_color("g", "#FFD166")
-player:send_message("&gWelcome! &fEnjoy your stay.")
 midless.remove_text_color("g")
 ```
 
-Colors accept `#RRGGBB` or `#RRGGBBAA`. Alpha `00` removes the definition.
-The code must be one printable ASCII character other than `&`, `%`, or space.
-Custom codes are case-sensitive. A definition can override a standard code;
-removing it restores that code's default color.
+Custom codes are case-sensitive, single printable ASCII characters except `&`, `%`, or space. Colors accept `#RRGGBB` or `#RRGGBBAA`; alpha `00` removes a definition. Overriding a standard code is allowed; removal restores its default.
 
-Escape text when its ampersands should display literally:
+Players default to their username; entities default to an empty nametag. Entity tags save and are restored before `on_load`. Set `{visible = false}` to hide a tag.
 
-```lua
-local literal = midless.escape_text("Hello &cworld") -- "Hello &&cworld"
-player:send_message("&ePlayer said: &f" .. midless.escape_text(message))
-```
+### HUD bars
 
-# Nametags
-
-Players default to their username. Other entities have an empty tag until one
-is assigned. Both support the same method:
+Use a registered **9×9 PNG**:
 
 ```lua
-player:set_nametag({text = "&c[Admin] &fAlex"})
-entity:set_nametag({
-    text = "&gVillage Merchant",
-    color = "#FFFFFF",
-    visible = true,
-    offset = 0.5,
+midless.define_texture("my_mod:heart", "textures/heart.png")
+midless.define_hud_bar("my_mod:health", {
+    texture = "my_mod:heart", max = 20,
+    icons = 10,   -- Default 10; range 1–16.
+    priority = 0, -- Lower numbers first; default 0.
 })
-entity:set_nametag({visible = false})
-entity:set_nametag({visible = true})
-```
-
-Entity tags save with their entities and are restored before `on_load`.
-
----
-
-# Player HP
-
-Players start with 20 HP. HP saves automatically between sessions.
-
-```lua
-local hp = player:get_hp()
-player:set_hp(math.max(0, hp - 3))
-player:set_hp(20)
-```
-
-HP must be a whole number from 0 to 65535. Setting it to 0 does not automatically
-kill or respawn the player; your mod controls that behavior. You do not need to
-declare a metadata field for HP.
-
-
-
-# HUD bars
-
-Define a bar using a registered **16x16 PNG**. `max` belongs to the definition:
-
-```lua
-midless.define_texture("survival:heart", "textures/heart.png")
-midless.define_hud_bar("survival:health", {
-    texture = "survival:heart",
-    max = 20,
-    icons = 10,     -- default 10; 1 to 16
-    priority = 0,   -- default 0; lower numbers appear first
-})
-
 midless.register_on_player_join(function(player)
-    player:set_hud_bar("survival:health", {
-        value = player:get_hp(),
-        visible = true,
-    })
+    player:set_hud_bar("my_mod:health", {value = player:get_hp(), visible = true})
 end)
-
-midless.register_on_hp_change(function(player, old_hp, new_hp)
-    player:set_hud_bar("survival:health", {value = new_hp})
+midless.register_on_hp_change(function(player, old, new)
+    player:set_hud_bar("my_mod:health", {value = new})
 end)
 ```
 
-Visible bars pack two per row above the hotbar, from bottom-left to bottom-right,
-then upward. Hiding a bar closes its gap automatically. Equal priorities use
-registration order (removed IDs may be reused).
+Bars pack two per row above the hotbar, left to right and then upward. Hidden bars leave no gap. Equal priorities use registration order; removed IDs may be reused. `midless.remove_hud_bar(name)` removes a bar for everyone.
 
-Remove a bar for everyone with:
+## World and blocks
 
-```lua
-midless.remove_hud_bar("survival:breathing")
-```
-
-# Player metadata
-
-Declare your mod's player fields once, before players join:
+### Read and change blocks
 
 ```lua
-midless.define_player_metadata("base_game", {
-    {name = "air", type = "uint", bits = 5, default = 20},
-    {name = "spawned", type = "bool", default = false},
-})
-```
-
-Use `namespace:field` to read, change, or reset a value:
-
-```lua
-local air = player:get_metadata("base_game:air")
-player:set_metadata("base_game:air", math.max(0, air - 1))
-player:reset_metadata("base_game:air") -- back to 20
-```
-
-Values save automatically with the player's inventories and survive rejoining.
-The `midless` namespace is reserved for built-in player fields.
-
-## Player metadata changes
-
-Listen for changes to any player metadata field:
-
-```lua
-midless.register_on_player_metadata_change("base_game:air", function(player, old_value, new_value)
-    if new_value == 0 then
-        player:set_hp(math.max(0, player:get_hp() - 1))
-    end
-end)
-```
-
-For HP, use the shortcut:
-
-```lua
-midless.register_on_hp_change(function(player, old_hp, new_hp)
-    if old_hp > 0 and new_hp == 0 then
-        -- Handle death here.
-    end
-end)
-```
-
-The HP shortcut listens to `midless:hp`. Both `set_hp` and `set_metadata` trigger
-it, as does resetting HP when that changes its value.
-
-You can also attach `on_change` when declaring a player metadata field:
-
-```lua
-midless.define_player_metadata("example", {
-    {
-        name = "level", type = "uint", bits = 8, default = 1,
-        on_change = function(player, old_level, new_level)
-            player:send_message("Level: " .. new_level)
-        end,
-    },
-})
-```
-
-Callbacks run after a successful value change, in registration order. Setting
-the same value, reading defaults, and loading saves do not trigger them.
-
-# Selected item
-
-```lua
-local stack = player:get_selected_stack() -- nil when empty
-local slot = player:get_selected_slot()   -- slot in player:get_inventory(), 1-based
-
-player:set_selected_stack({id = "midless:stone", count = 10})
-player:set_selected_stack(nil) -- empty the selected slot
-```
-
-Stacks are copies. Write the stack back after changing its count or metadata:
-
-```lua
-local stack = player:get_selected_stack()
-if stack then
-    stack.count = stack.count - 1
-    player:set_selected_stack(stack.count > 0 and stack or nil)
+local pos = {x = 10, y = 20, z = 10}
+local b = midless.get_block(pos)
+if b:is_loaded() then
+    print(b:get_id())
+    b:set_id("midless:stone")
 end
+midless.set_block(pos, "midless:air")
+midless.set_blocks({
+    {pos = {x = 10, y = 20, z = 10}, blockId = "midless:stone"},
+    {pos = {x = 11, y = 20, z = 10}, blockId = 0},
+}, false)
 ```
 
-## Item use
+Air is `"midless:air"` or `0`. The second `set_blocks` argument controls block-update callbacks and defaults to `true`.
 
-Add `on_use` to `define_item` or `define_block` to handle right-clicking with its item:
+Block objects expose `get_position`, `is_loaded`, `get_id`, `set_id`, metadata methods, inventory methods, and timers. Only `get_position()` and `is_loaded()` work while the chunk is unloaded.
 
-```lua
-on_use = function(player, stack, target)
-    if target.type == "block" then
-        local block = target.block
-        local normal = target.normal -- clicked face: {x, y, z}
-        player:send_message("Used on " .. block:get_id())
-    elseif target.type == "entity" then
-        local entity = target.entity
-        player:send_message("Used on entity " .. entity:get_id())
-    else -- target.type == "nothing"
-        player:send_message("Used in the air")
-    end
-    return true
-end,
-```
-
-Return `true` to consume the action, or `false`/`nil` to allow normal placement.
-
-## Harvest requirements
-
-A block's `harvest_level` specifies the required tool level for its `dig_group`:
+### Define blocks
 
 ```lua
-midless.define_block("example:ore", {
-    name = "Ore",
-    textures = {all = 7},
+midless.define_block("my_mod:stone", {
+    name = "Stone",
+    textures = {all = 1},
     hardness = 3,
     dig_group = "stone",
-    harvest_level = 2,
-    drops = {{id = "example:gem", count = 1}},
 })
 ```
 
-Set `harvest_levels` on a tool, alongside its digging speeds:
+`textures` accepts terrain atlas tiles for `all`, `sides`, `left`, `right`, `top`, `bottom`, `front`, and `back`.
+
+| Field | Constants |
+| --- | --- |
+| `model` | `block.model.GAS`, `SOLID` (default), `SPRITE` |
+| `render` | `block.render.OPAQUE`, `TRANSPARENT`, `TRANSLUCENT` |
+| `collider` | `block.collider.NONE`, `SOLID`, `LIQUID` |
+| `light` | `block.light.NONE`, `EMIT` |
+
+Use the full prefix for each constant, such as `block.render.TRANSPARENT`.
+
+### Shapes and states
+
+Geometry uses integer coordinates from 0 to 16. For a single shape, use `bounds`:
 
 ```lua
--- Fields in define_item:
-dig_speed = {stone = 6},
-harvest_levels = {stone = 2},
+bounds = {min = {0, 0, 0}, max = {16, 8, 16}}, -- Half block.
 ```
 
-Levels range from 0 to 255. The default is 0; empty hands and missing tool groups
-also have level 0. A weaker tool can still break the block, but receives no block
-loot.
-
-## Custom block drops
-
-Without `drops`, a block drops one of its own items. Use an empty list for no loot,
-or a list of item names and stacks:
+For multiple shapes, use 1–8 `boxes`, each with `min < max` and optional `textures`:
 
 ```lua
-drops = {},
-
--- Or:
-drops = {
-    "midless:stone", -- one item
-    {id = "example:gem", count = 2, metadata = {quality = 3}},
+boxes = {
+    {min = {0, 0, 0}, max = {16, 8, 16}},
+    {min = {0, 8, 8}, max = {16, 16, 16}},
 },
 ```
 
-For random drops or metadata-dependent loot, use a function:
+For state-dependent shapes, declare metadata, named `models`, and `variants`:
 
 ```lua
-drops = function(player, block, stack)
-    -- stack is the tool, or nil for empty hands.
-    -- The block and its metadata still exist here.
-    if math.random(10) == 1 then
-        return {{id = "example:gem", count = 1}}
-    end
-    return {"midless:stone"}
-end,
-```
-
-The function runs when digging finishes, after the harvest requirement passes.
-Return a list, including `{}` for nothing. Each stack must fit its item's stack
-limit; use multiple entries for larger quantities.
-
-## Tool durability example
-
-These fields belong in the tool's `define_item`:
-
-```lua
-max_stack = 1,
-metadata = {
-    {name = "durability", type = "uint", bits = 8, default = 100},
-},
-on_dig = function(player, block, stack)
-    stack.metadata.durability = stack.metadata.durability - 1
-    if stack.metadata.durability <= 0 then
-        player:set_selected_stack(nil)
-    else
-        player:set_selected_stack(stack)
-    end
-end,
-```
-
-`on_dig` runs after a successful break, including when the tool was too weak to
-receive block loot.
-
-
-
-# Entities
-
-Entities are custom objects controlled by Lua.
-
-## Define an entity
-
-```lua
-midless.define_entity("my_mod:example", {
-    save = true, -- default; false prevents this entity from saving.
-    model = "my_mod:cube",
-
-    on_spawn = function(self)
-        print("Spawned!")
-    end,
-
-    on_step = function(self, dt)
-        -- Called every simulation update
-    end,
-
-    on_remove = function(self)
-        print("Removed!")
-    end,
-})
-```
-
-Store temporary entity data on `self`. Declare `metadata` for values that should save; see [saving entities](#saving-entities).
-
-```lua
-on_spawn = function(self)
-    self.age = 0
-end
-```
-
-The entity object is:
-
-```lua
-self.object
-```
-
-## Spawn an entity
-
-```lua
-local entity = midless.spawn_entity(
-    "my_mod:example",
-    {x = 0, y = 80, z = 0}
-)
-```
-
----
-
-
-
-# Entity Methods
-
-## ID
-
-```lua
-entity:get_id()
-```
-
-## Check if valid
-
-```lua
-if entity:is_valid() then
-    -- entity still exists
-end
-```
-
-## Position
-
-```lua
-local pos = entity:get_position()
-
-entity:set_position({
-    x = 10,
-    y = 20,
-    z = 10
-})
-```
-
-## Rotation
-
-Rotation uses XYZ Euler angles in radians: `x` is pitch, `y` is yaw, and `z` is roll.
-
-```lua
-local rotation = entity:get_rotation()
-
-entity:set_rotation({
-    x = 0,
-    y = math.pi,
-    z = 0
-})
-```
-
-## Change model
-
-```lua
-entity:set_model(modelName)
-```
-
-## Remove
-
-```lua
-entity:remove()
-```
-
----
-
-
-
-# Entity Models
-
-Custom entity models can be created from boxes.
-
-```lua
-midless.define_entity_model("my_mod:cube", {
-    name = "Cube",
-    texture = "terrain",
-
-    parts = {
-        {
-            role = model.part.NONE,
-            position = {0, 0, 0},
-            min = {-4, 0, -4},
-            max = {4, 8, 4},
-
-            uv = {
-                east  = {0, 0, 16, 16},
-                west  = {0, 0, 16, 16},
-                up    = {0, 0, 16, 16},
-                down  = {0, 0, 16, 16},
-                north = {0, 0, 16, 16},
-                south = {0, 0, 16, 16}
-            }
-        }
-    }
-})
-```
-
-`16` model units = `1` block.
-
-UVs use:
-
-```text
-{x, y, width, height}
-```
-
-in image pixels.
-
-Available textures are `"humanoid"`, `"terrain"`, and any name registered with `midless.define_texture`. See [Textures](#textures).
-
-## Model part roles
-
-```lua
-model.part.NONE
-model.part.HEAD
-model.part.RIGHT_ARM
-model.part.LEFT_ARM
-model.part.RIGHT_LEG
-model.part.LEFT_LEG
-```
-
-Roles allow the normal player animation system to animate those parts.
-
-## Held block position
-
-The first `model.part.RIGHT_ARM` part holds the selected block at the bottom center of its bounds.
-
-Add `grip` to that part to change the position:
-
-```lua
-grip = {-1.25, -9, -0.5}
-```
-
-Coordinates use model units relative to the part's pivot.
-
-## Remove model
-
-```lua
-midless.remove_entity_model(modelName)
-```
-
-## Change an entity model
-
-```lua
-entity:set_model(modelName)
-```
-
----
-
-
-
-# Textures
-
-## Define a texture
-
-Load a PNG texture:
-
-```lua
-midless.define_texture(modelName, filePath)
-```
-
-The texture file is loaded from the server's working directory.
-
-Use a unique namespaced name for your texture.
-
-## Use a texture on an entity model
-
-Set the model's `texture` to the texture name:
-
-```lua
-midless.define_texture("my_mod:slime", "slime.png")
-
-midless.define_entity_model("my_mod:slime", {
-    texture = "my_mod:slime",
-
-    parts = {
-        ...
-    }
-})
-```
-
-## Replace the terrain texture
-
-The terrain texture must be a `256x256` atlas:
-
-```lua
-midless.define_texture("my_mod:terrain", "terrain.png")
-midless.set_terrain_texture("my_mod:terrain")
-```
-
-Restore the default terrain:
-
-```lua
-midless.set_terrain_texture("terrain")
-```
-
-## Update a texture
-
-Define the same texture name again:
-
-```lua
-midless.define_texture("my_mod:slime", "new_slime.png")
-```
-
-Models using that texture update automatically.
-
-## Limits
-
-* PNG only
-* Maximum 64 custom textures
-* Maximum texture size: `1024x1024`
-* Terrain textures must be `256x256`
-* `"terrain"` and `"humanoid"` are built-in texture names
-
----
-
-
-
-# Blocks
-
-## Define a block
-
-Use a unique identifier prefixed with your mod's name:
-
-```lua
-midless.define_block("example:stone", {
-    name = "Example Block",
-
-    textures = {
-        all = 1
-    }
-})
-```
-
-You can assign individual textures:
-
-```lua
-textures = {
-    sides = 1,
-    top = 2,
-    bottom = 3
-}
-```
-
-Available faces:
-
-```text
-all
-sides
-left
-right
-top
-bottom
-front
-back
-```
-
-## Block bounds
-
-Block geometry uses coordinates from `0` to `16`.
-
-Blocks that need multiple shapes, direction, or stateful geometry should use inline `boxes`, `models`, and `variants` instead of a single `bounds` value.
-
-A full block:
-
-```lua
-bounds = {
-    min = {0, 0, 0},
-    max = {16, 16, 16}
-}
-```
-
-A half block:
-
-```lua
-bounds = {
-    min = {0, 0, 0},
-    max = {16, 8, 16}
-}
-```
-
-Example:
-
-```lua
-midless.define_block(19, {
-    name = "Half Block",
-
-    textures = {
-        all = 1,
-        top = 2
-    },
-
-    bounds = {
-        min = {0, 0, 0},
-        max = {16, 8, 16}
-    }
-})
-```
-
-## Block placement callback
-
-Use `on_place(player, placed)` in `midless.define_block` for custom logic after a
-successful player placement.
-
-It does not run for `midless.set_block`
-
-```lua
-on_place = function(player, placed)
-    local look = player:get_look_direction()
-    local facing = (math.abs(look.x) > math.abs(look.z))
-        and (look.x > 0 and 1 or 3)
-        or  (look.z > 0 and 2 or 0)
-    placed:set_metadata("facing", facing)
-end,
-```
-
-Pair this with `rotate_y_from = "facing"` (where `facing` is `uint` with
-`bits = 2`) to face the block’s +Z side toward the player.
-
-## Inline block models and metadata variants
-
-Use inline models for stateful or non-cubic blocks.
-
-`boxes` define geometry directly in `midless.define_block` using integer coordinates
-from `0` to `16` and `min < max`. A model can use `1` to `8` boxes; each box can
-override textures with `textures = { ... }`.
-
-```lua
-midless.define_block("example:stairs", {
-    name = "Stone stairs",
-    textures = {all = 5},
-    boxes = {
-        {min = {0, 0, 0}, max = {16, 8, 16}},
-        {min = {0, 8, 8}, max = {16, 16, 16}},
-    },
-})
-```
-
-For stateful shapes, add `models` and `variants` in the same block definition.
-`state_fields` lists up to 8 metadata fields used for matching.
-
-```lua
-midless.define_block("example:door", {
-    name = "Door",
-    textures = {all = 6},
+midless.define_block("my_mod:door", {
+    name = "Door", textures = {all = 6},
     metadata = {
         {name = "facing", type = "uint", bits = 2, default = 0},
         {name = "open", type = "bool", default = false},
@@ -1159,236 +234,204 @@ midless.define_block("example:door", {
 })
 ```
 
-`when = {}` is a catch-all; the first matching variant wins. Variants can also
-set `boxes`, `textures`, `render`, `light`, and `collider`.
+`state_fields` supports up to 8 fields. The first matching variant wins; `when = {}` matches anything. Variants may override `boxes`, `textures`, `render`, `light`, and `collider`.
 
-`rotate_y` uses `0/90/180/270`; `rotate_y_from` uses 0–3 from metadata
-(outside that range falls back to 0). Both are applied together.
+`rotate_y` accepts 0/90/180/270 degrees. `rotate_y_from` reads metadata values 0–3; other values use 0. Both rotations combine.
 
-By default, collision and selection use the model boxes. Override with
-`collision_boxes` and `selection_boxes` (each supports 0–8 boxes). An empty
-selection list makes the block untargetable.
+Collision and selection default to the model boxes. Override with `collision_boxes` or `selection_boxes` (0–8 boxes each). Empty selection boxes make a block untargetable.
 
----
+### Block callbacks and timers
 
+| Definition callback | When / return value |
+| --- | --- |
+| `on_place(player, placed)` | After player placement; not called by `set_block`. |
+| `on_interact(player, block)` | Player right-clicks the block. |
+| `on_use(player, stack, target)` | Uses the block's item; see [Item callbacks](#item-callbacks). |
+| `on_dig(player, block, stack)` | Its item successfully breaks a block. |
+| `on_inventory_changed(block, field)` | After inventory changes, including Lua changes. |
+| `on_timer(block, dt)` | Timer fires; return `true` to repeat, `false`/`nil` to stop. |
 
-
-# Block Constants
-
-## Model
+Use this placement callback with the door's `facing` field to face its +Z side toward the player:
 
 ```lua
-block.model.GAS
-block.model.SOLID
-block.model.SPRITE
+on_place = function(player, placed)
+    local look = player:get_look_direction()
+    local facing = math.abs(look.x) > math.abs(look.z)
+        and (look.x > 0 and 1 or 3) or (look.z > 0 and 2 or 0)
+    placed:set_metadata("facing", facing)
+end,
 ```
 
-`block.model.SOLID` is the default and supports inline box models when a block defines `boxes`, `models`, or `variants`.
+`block:start_timer(seconds)` starts or restarts a timer; `timer_started()` checks it and `stop_timer()` stops it. Timers pause on chunk unload and resume on load. `dt` is seconds.
 
-## Rendering
+Inventory changes may be combined into one callback. Changes inside `on_inventory_changed` do not trigger another call.
 
-```lua
-block.render.OPAQUE
-block.render.TRANSPARENT
-block.render.TRANSLUCENT
-```
+## Items and digging
 
-## Collision
+Blocks automatically get placeable items with the same identifier. Define other items with `define_item`:
 
 ```lua
-block.collider.NONE
-block.collider.SOLID
-block.collider.LIQUID
-```
-
-## Lighting
-
-```lua
-block.light.NONE
-block.light.EMIT
-```
-
-Example:
-
-```lua
-midless.define_block(19, {
-    name = "Glass",
-
-    textures = {
-        all = 17
-    },
-
-    model = block.model.SOLID,
-    render = block.render.TRANSPARENT,
-    collider = block.collider.SOLID,
-    light = block.light.NONE
+midless.define_texture("my_mod:pickaxe", "textures/pickaxe.png")
+midless.define_item("my_mod:pickaxe", {
+    name = "Pickaxe", texture = "my_mod:pickaxe", max_stack = 1,
+    dig_speed = {stone = 6},
+    harvest_levels = {stone = 2},
+    metadata = {{name = "durability", type = "uint", bits = 8, default = 100}},
+    on_dig = function(player, block, stack)
+        stack.metadata.durability = stack.metadata.durability - 1
+        player:set_selected_stack(stack.metadata.durability > 0 and stack or nil)
+    end,
 })
 ```
 
+`max_stack` is 1–64, default 64. Item textures are registered PNGs up to 64×64 pixels, normally with transparency. They provide the inventory icon and a one-pixel-thick held/dropped sprite. `held_model = "sprite"` is the default.
 
-
-# Metadata
-
-Declare metadata on a block or entity to save custom values, including block
-states and inventories.
+### Stacks
 
 ```lua
-midless.define_block(25, {
-    name = "Chest",
-    textures = {all = 1},
-    metadata = {
-        {name = "facing", type = "uint", bits = 2, default = 0},
-        {name = "open", type = "bool", default = false},
-        {name = "items", type = "inventory", slots = 27},
-        {name = "label", type = "string", max_length = 64},
-    },
-})
+local stack = {id = "my_mod:pickaxe", count = 1, metadata = {durability = 50}}
+player:set_selected_stack(stack)
 ```
 
-Place that block before accessing its metadata:
+Stack getters return copies or `nil` when empty. Write a changed stack back with `set_stack` or `set_selected_stack`; use `nil` to clear it. Omitted metadata uses defaults. Items stack only when ID and metadata match, and metadata survives moving, dropping, and saving.
+
+### Breaking and harvest levels
+
+| Block field | Meaning |
+| --- | --- |
+| `hardness` | Base break time: 0–86400 seconds, default 1. Zero is instant. |
+| `dig_group` | Tool speed and harvest group, such as `"stone"`. |
+| `unbreakable` | `true` prevents digging. |
+| `harvest_level` | Required tool level for loot: 0–255, default 0. |
+| `drops` | Loot list or callback; omitted means one of the block's own items. |
+
+Break time is **hardness / tool speed**. Missing speed groups and empty hands use 1; speeds must be positive. Missing harvest groups and empty hands have level 0. An under-level tool still breaks the block but gets no loot.
+
+| Built-in blocks | Group | Hardness |
+| --- | --- | --- |
+| Stone / stone slab | `stone` | 3 / 2 |
+| Iron, coal, gold ore | `stone` | 4 |
+| Wood, log, wood slab / leaves | `wood` | 2 / 0.2 |
+| Dirt, sand / grass | `soil` | 0.5 / 0.6 |
+| Glass | `glass` | 0.3 |
+| Rose, dandelion | `plant` | 0 |
+| Air | `gas` | 0 |
+| Water, lava | `liquid` | 0 |
+| Fire | `fire` | 0 |
+
+`register_on_dig_time` callbacks run in registration order when digging starts. Return seconds to change the duration, `nil` to keep it, or `false` to cancel. They cannot override `unbreakable`.
+
+### Drops
+
+In a block definition, use `drops = {}` for no loot, a list, or a function:
 
 ```lua
-local block = midless.get_block({x = 10, y = 80, z = 20})
-block:set_metadata("facing", 2)
-print(block:get_metadata("facing"))
-block:reset_metadata("facing") -- restore the default
+drops = {"midless:stone", {id = "my_mod:gem", count = 2, metadata = {quality = 3}}},
+-- Alternatively:
+drops = function(player, block, stack)
+    -- stack is the tool, or nil. The original block metadata is still available.
+    return math.random(10) == 1 and {"my_mod:gem"} or {}
+end,
 ```
 
-Entities use the same methods through `self.object`.
+The function runs after digging finishes and harvest requirements pass. Return a list; each entry must fit its item's stack limit. Split larger amounts across entries.
+
+### Item callbacks
+
+`on_use(player, stack, target)` handles right-click use on items and block items:
+
+| `target.type` | Extra fields |
+| --- | --- |
+| `"block"` | `target.block`, `target.normal` (clicked face vector) |
+| `"entity"` | `target.entity` |
+| `"nothing"` | None |
+
+Return `true` to consume the action, or `false`/`nil` to allow normal placement.
+
+`on_dig(player, block, stack)` runs after a successful break, even without loot. `block` now refers to the empty position; `stack` is a copy of the tool used. Write it back to apply durability changes.
+
+### Breaking texture
+
+```lua
+midless.define_texture("my_mod:breaking", "textures/breaking.png")
+midless.set_breaking_texture("my_mod:breaking")
+```
+
+Use ten square frames in a horizontal PNG strip, least to most cracked: for example, 160×16. Frames may be up to 64 pixels wide. A default texture is provided; redefining your texture updates the animation.
+
+## Metadata
+
+Declare persistent fields in a block, item, or entity definition's `metadata` list:
+
+```lua
+metadata = {
+    {name = "facing", type = "uint", bits = 2, default = 0},
+    {name = "open", type = "bool", default = false},
+    {name = "label", type = "string", max_length = 64},
+    {name = "items", type = "inventory", slots = 27},
+},
+```
 
 | Type | Options | Default |
 | --- | --- | --- |
-| `uint` | `bits = 1..32` (default 16) | 0 |
-| `int` | `bits = 1..32` (default 16), signed | 0 |
-| `bool` | true or false | false |
-| `float` | finite number | 0 |
-| `string` | `max_length = 0..4096` (default 256) | empty string |
-| `inventory` | `slots = 1..255` (default 27) | empty inventory |
+| `uint` | `bits = 1..32`, default 16 | 0 |
+| `int` | Signed; `bits = 1..32`, default 16 | 0 |
+| `bool` | Boolean | false |
+| `float` | Finite number | 0 |
+| `string` | `max_length = 0..4096`, default 256 | Empty string |
+| `inventory` | `slots = 1..255`, default 27 | Empty inventory |
 
-Use `default` to change a field's default value. Inventory defaults are always
-empty. Tables returned by `get_metadata` are copies;
-use `set_metadata` or inventory methods to change the stored data.
+Use `default` to change defaults, except inventories, which always start empty.
 
-Metadata saves automatically with the chunk. Replacing a block with a different
-ID clears its metadata.
+Blocks and entities use `object:get_metadata("field")`, `set_metadata("field", value)`, and `reset_metadata("field")`. Inventory fields also expose `object:get_inventory("field")`. Returned tables are copies; use setters or inventory methods to change stored values.
 
-## Saving entities
+Block metadata saves with the chunk. Changing a block's ID clears its metadata. Entity persistence is described under [Entities](#entities).
+
+### Player metadata
+
+Declare fields before players join, then access them as `namespace:field`:
 
 ```lua
-local function initialize(self)
-    self.timer = 0 -- temporary Lua data
-end
-
-midless.define_entity("example:creature", {
-    model = "humanoid",
-    save = true, -- default; false makes the entity temporary
-    metadata = {
-        {name = "health", type = "uint", bits = 7, default = 100},
-    },
-    on_spawn = initialize,
-    on_load = initialize,
+midless.define_player_metadata("my_mod", {
+    {name = "air", type = "uint", bits = 5, default = 20},
+    {name = "level", type = "uint", bits = 8, default = 1,
+     on_change = function(player, old, new)
+         player:send_message("Level: " .. new)
+     end},
 })
+-- Inside a player callback:
+-- player:set_metadata("my_mod:air", 10)
+-- player:reset_metadata("my_mod:air")
 ```
 
-Declared metadata, position, rotation, velocity, body settings, model, and held
-block are saved. Ordinary fields on `self` are not saved. Use `on_load` to rebuild
-them after loading; saved metadata is already available then. `on_spawn` only runs
-for new entities, and `on_remove` does not run when a chunk unloads.
+Player metadata saves with inventories. `midless` is reserved for built-in fields. HP already exists as `midless:hp`; do not redeclare it.
 
-Entities receive a new runtime ID when loaded; old handles become invalid.
-`save = false` entities disappear on unload, including any older saved copies.
+Field `on_change` callbacks and registered listeners run after successful changes, in registration order. Unchanged values, reading defaults, and loading saves do not trigger them. `register_on_hp_change` listens to `midless:hp`, including changes through metadata setters and resets.
 
----
+## Inventories and crafting
 
+### Inventory methods
 
-
-# Items
-
-Blocks automatically have a placeable item with the same identifier. Use
-`define_item` for an item that does not place a block:
+Get an inventory with `player:get_inventory()`, `player:get_inventory(name)`, or `block:get_inventory(field)` / `entity:get_inventory(field)`.
 
 ```lua
-midless.define_texture("example:gem", "textures/gem.png")
-
-midless.define_item("example:gem", {
-    name = "Gem",
-    texture = "example:gem",
-    max_stack = 16, -- 1..64; default 64
-    metadata = {
-        {name = "quality", type = "uint", bits = 4, default = 1},
-        {name = "label", type = "string", max_length = 32},
-    },
-})
+local inv = player:get_inventory()
+inv:set_stack(1, {id = "midless:stone", count = 32})
+local stack = inv:get_stack(1) -- Copy, or nil.
+inv:set_stack(1, nil)
+local added = inv:add_item({id = "midless:stone", count = 100})
 ```
 
-Set `texture` to a name registered with `define_texture`. Multiple items can use
-the same texture. Use a PNG up to 64 by 64 pixels with a transparent background. It becomes the
-inventory icon and a sprite with one pixel of thickness when held or dropped.
-`held_model = "sprite"` is optional; it is the default for ordinary items.
+Slots start at 1. The main player inventory uses 1–27 for storage and 28–36 for the hotbar.
 
-## Item metadata
+`add_item` fills matching stacks, then empty slots, splitting amounts as needed. The main inventory prefers empty hotbar slots. It returns `true` if everything fits, otherwise `false` without changes.
 
-Set metadata when creating a stack:
+### Screens
 
-```lua
-local inventory = player:get_inventory()
-inventory:set_stack(1, {
-    id = "example:gem", count = 3,
-    metadata = {quality = 2, label = "Found in a cave"},
-})
-
-local stack = inventory:get_stack(1)
-stack.metadata.quality = 4
-inventory:set_stack(1, stack)
-```
-
-`get_stack` returns a copy, or `nil` for an empty slot. Omitted metadata uses its
-declared defaults. Items only stack together when their IDs and metadata match.
-Metadata stays with items when moved, dropped, or saved.
-
-Recipe outputs can include metadata. To match a specific ingredient's metadata,
-use a table instead of its identifier:
-
-```lua
-midless.define_recipe({
-    ingredients = {
-        {id = "example:gem", metadata = {quality = 2}},
-        "midless:stone",
-    },
-    output = {id = "example:gem", count = 1, metadata = {quality = 3}},
-})
-```
-
-
-
-# Inventories
-
-```lua
-local inventory = block:get_inventory("items")
--- Also available on entities and through player:get_inventory().
-
-inventory:set_stack(1, {id = 1, count = 32})
-local stack = inventory:get_stack(1) -- a copy, or nil if empty
-inventory:set_stack(1, nil) -- empty the slot
-
-if not inventory:add_item({id = 1, count = 100}) then
-    player:send_message("Not enough room.")
-end
-```
-
-Slots start at 1. Player slots 1-27 are storage and 28-36 are the hotbar.
-`add_item` fills matching stacks, then empty slots, splitting large amounts as
-needed. The main player inventory prefers empty hotbar slots. It returns `true` if the
-whole amount fits, or `false` without changing anything.
-
-## Player inventory screen
-
-Define named inventories for each player, then return the layout to show when
-they press E. Put this in a mod file such as `mods/player_inventory.lua`:
+Register one player inventory screen. Its callback runs each time the player presses E:
 
 ```lua
 midless.define_player_inventory("crafting", {slots = 4})
-
 midless.define_player_inventory_screen(function(player)
     local crafting = player:get_inventory("crafting")
     return {
@@ -1405,29 +448,19 @@ midless.define_player_inventory_screen(function(player)
 end)
 ```
 
-The callback returns the layout each time the player presses E. Register one screen for your mods.
+Named player inventories start empty and use the same inventory methods.
 
-`player:get_inventory()` still returns the main inventory. Named inventories use
-the same `get_stack`, `set_stack`, and `add_item` methods and start empty.
-
-## Inventory screens
-
-Define an inventory field in block metadata, then show it together with the
-player's inventory:
+For a chest, declare an inventory metadata field and open a screen on interaction:
 
 ```lua
-midless.define_block(200, {
-    name = "Chest",
-    textures = {all = 4},
+midless.define_block("my_mod:chest", {
+    name = "Chest", textures = {all = 4},
     metadata = {{name = "items", type = "inventory", slots = 27}},
-
-    on_interact = function(player, block)
+    on_interact = function(player, chest)
         player:show_inventory({
-            title = "Chest",
-            block = block,
-            width = 9, height = 8,
+            title = "Chest", block = chest, width = 9, height = 8,
             elements = {
-                {type = "inventory", inventory = block:get_inventory("items"),
+                {type = "inventory", inventory = chest:get_inventory("items"),
                  x = 0, y = 0, columns = 9, rows = 3},
                 {type = "label", text = "Inventory", x = 0, y = 3.5},
                 {type = "inventory", inventory = player:get_inventory(),
@@ -1438,534 +471,427 @@ midless.define_block(200, {
 })
 ```
 
-`on_interact(player, block)` runs when the player right-clicks the block.
+Layouts use slot-sized units and scale with the window. Include the main inventory, display each inventory slot once, and keep grids inside the screen without overlap. Set `block` for block inventories; a screen supports one block inventory.
 
-Layouts use slot-sized units and scale with the window:
+| Element `type` | Fields |
+| --- | --- |
+| `inventory` | `inventory`, `slot` (first slot, default 1), `columns`, `rows`, `x`, `y` |
+| `label` | `text`, `x`, `y` |
+| `crafting_output` | `inventory`, `recipes` (group), input `columns`/`rows`, `x`, `y` |
+| `progress` | `value`, `max`, `x`, `y`, `width`, `height` |
 
-- Set `width` and `height` for the screen size, and `x` and `y` for each element.
-- Use `label` for text, `inventory` for slots, `crafting_output` for a result, and `progress` for a bar.
-- Include the main player inventory and each additional inventory.
-- Use `slot` to choose a grid's first slot (default 1), then `columns` and `rows` for its size.
-- Display every inventory slot once. Keep grids inside the screen without overlapping.
-- Set `block` when displaying a block inventory. A screen can show one block inventory.
+A crafting output occupies one slot; its input must match a displayed block or named player inventory, no larger than 3×3. A progress bar's `value` can be a fixed number or a numeric block metadata field name, which updates automatically.
 
-`player:close_inventory()` returns `true` if closed, or `false` if blocked.
-
-## Crafting recipes
+### Recipes
 
 ```lua
 midless.define_recipe({
-    group = "crafting", -- default when omitted
-    pattern = {
-        {4, 4},
-        {4, 4},
-    },
+    group = "crafting", -- Default.
+    pattern = {{4, 4}, {4, 4}},
     output = {id = 202, count = 1},
 })
-```
-
-Patterns support up to 3 rows and 3 columns. Rows must have the same width;
-use `0` for empty cells. The pattern can appear anywhere in the input grid,
-but is not automatically rotated or mirrored. Other cells must be empty.
-Each occupied recipe cell consumes one item from its slot.
-
-For a shapeless recipe, use `ingredients` instead of `pattern`:
-
-```lua
 midless.define_recipe({
-    group = "crafting",
-    ingredients = {10}, -- one log, in any input slot
+    ingredients = {10}, -- Shapeless: one log in any input slot.
     output = {id = 4, count = 4},
 })
 ```
 
-Shapeless recipes support up to 9 entries. Each entry needs a separate occupied
-slot, including repeated IDs. Stack sizes determine how many times you can craft.
-The result must fit in one stack. If several recipes match, the first registered
-recipe in the selected group is used.
+- **Shaped:** up to 3×3, equal-width rows, `0` for empty cells. May shift within the input grid, but does not rotate or mirror. Other cells must be empty.
+- **Shapeless:** up to 9 entries, each requiring a separate occupied slot, even for repeated IDs.
+- Each ingredient cell consumes one item. The result must fit one stack. The first registered matching recipe in the chosen group wins.
 
-## Crafting output
+Use `{id = "my_mod:gem", metadata = {quality = 2}}` as an ingredient to match metadata. Output stacks may also contain metadata. Mods can add recipes to shared groups.
 
-Store the ingredients in block metadata:
+### Slot rules and transactions
+
+Inventory metadata can restrict player clicks and shift-clicks:
 
 ```lua
-metadata = {
-    {name = "ingredients", type = "inventory", slots = 9},
-}
+{name = "items", type = "inventory", slots = 3, rules = {
+    [1] = {items = {6}},     -- Sand input.
+    [2] = {items = {4, 10}}, -- Fuel.
+    [3] = {insert = false}, -- Take-only output.
+}},
 ```
 
-Display that inventory as a 3-by-3 grid, then add this element to the same screen:
+Unrestricted slots accept any item. To position slots separately, use multiple `inventory` elements with different `slot` values and `columns = 1, rows = 1`.
+
+Apply a block inventory operation atomically:
 
 ```lua
-{
-    type = "crafting_output",
-    recipes = "crafting",
-    inventory = block:get_inventory("ingredients"),
-    columns = 3, rows = 3,
-    x = 5, y = 1,
-}
-```
-
-`recipes` selects the recipe group. Other mods can add recipes to the same group.
-`columns` and `rows` describe the input grid, which must match a displayed block
-or named player inventory and be no larger than 3-by-3. The output itself occupies
-one UI slot.
-
-## Rules
-
-Use one inventory for a furnace, with a rule for each slot:
-
-```lua
-metadata = {
-    {name = "items", type = "inventory", slots = 3, rules = {
-        [1] = {items = {6}},       -- input: sand
-        [2] = {items = {4, 10}},   -- fuel: planks or logs
-        [3] = {insert = false},   -- output: players can only take items
-    }},
-}
-```
-
-Rules apply to player clicks and shift-clicks. Slots without a rule accept any
-item.
-
-Position the slots separately in the screen's `elements`:
-
-```lua
-local items = block:get_inventory("items")
-local elements = {
-    {type = "inventory", inventory = items, slot = 1,
-     x = 2, y = 0, columns = 1, rows = 1},
-    {type = "inventory", inventory = items, slot = 2,
-     x = 2, y = 2, columns = 1, rows = 1},
-    {type = "inventory", inventory = items, slot = 3,
-     x = 6, y = 1, columns = 1, rows = 1},
-    {type = "inventory", inventory = player:get_inventory(),
-     x = 0, y = 4, columns = 9, rows = 4},
-}
-```
-
-## Block timers
-
-Add these callbacks to the block definition:
-
-```lua
-on_inventory_changed = function(block, field)
-    if field == "items" and not block:timer_started() then
-        block:start_timer(1) -- seconds
-    end
-end,
-
-on_timer = function(block, dt)
-    -- Use dt (seconds) to burn fuel and advance cooking.
-    return true -- repeat; return false or nil to stop
-end,
-```
-
-`block:start_timer(seconds)` starts or restarts the timer. Use
-`block:timer_started()` to check it and `block:stop_timer()` to stop it.
-Timers pause while the chunk is unloaded and resume when it loads.
-
-`on_inventory_changed(block, field)` runs after inventory changes, including Lua
-changes. Several changes may share one call. Changes inside this callback do not
-trigger another call.
-
-## Inventory transactions
-
-Use `block:inventory_transaction(name, changes)` to consume ingredients and add
-their result together:
-
-```lua
-local cooked = block:inventory_transaction("items", {
+local ok = block:inventory_transaction("items", {
     take = {{slot = 1, id = 6, count = 1}},
     give = {{slot = 3, id = 14, count = 1}},
 })
 ```
 
-It returns `true` on success, or `false` without changing anything if the items
-are missing or the result does not fit. Each entry specifies a slot, item ID,
-and count. Omit `take` or `give` when you only need the other operation.
+Returns `true` on success, or `false` without changes if input is missing or output does not fit. `take` and `give` are each optional. Combine this with [block timers](#block-callbacks-and-timers) for furnaces and machines.
 
-## Progress bars
+## Entities
 
-Declare a numeric metadata field such as `cook_progress`, then add this element
-to a block screen:
+### Definition and lifecycle
 
 ```lua
-{type = "progress", value = "cook_progress", max = 10,
- x = 3.5, y = 1.25, width = 2, height = 0.5},
+local function initialize(self)
+    self.timer = 0 -- Temporary Lua state.
+end
+midless.define_entity("my_mod:creature", {
+    model = "humanoid", hp = 10, save = true,
+    body = {
+        enabled = true,
+        min = {x = -0.3, y = 0, z = -0.3},
+        max = {x = 0.3, y = 1.5, z = 0.3},
+        gravity_scale = 1,
+    },
+    metadata = {{name = "age", type = "uint", default = 0}},
+    on_spawn = initialize,
+    on_load = initialize,
+    on_step = function(self, dt)
+        self.timer = self.timer + dt
+    end,
+})
+local entity = midless.spawn_entity("my_mod:creature", {x = 0, y = 80, z = 0})
 ```
 
-The bar updates automatically when that metadata changes. `max` is the value
-for a full bar. You can also use a number for a fixed `value`.
+Callbacks share a `self` table; `self.object` is the entity handle. Body bounds use blocks. Optional registration fields include `texture`, `population_group`, and `despawn`.
 
+| Callback | When |
+| --- | --- |
+| `on_spawn(self)` | New entity created. |
+| `on_load(self)` | Saved entity restored; metadata is already available. |
+| `on_step(self, dt)` | Simulation update; `dt` is seconds. |
+| `on_damage(self, amount, context)` | Before damage. |
+| `on_death(self, context)` | Once at zero HP, before queued removal. |
+| `on_remove(self)` | Entity removed; not called for chunk unload. |
+| `on_unload(self)` | Chunk unloads, before the handle becomes invalid. |
 
+Ordinary entities save by default. Metadata, position, rotation, velocity, body settings, model, held block, nametag, and texture override persist. Ordinary `self` fields do not; rebuild them in `on_load`.
 
+Loaded entities get new runtime IDs, invalidating old handles. `save = false` discards entities on unload, including older saved copies.
 
-# Block breaking
+### Methods
 
-Set a block's breaking rules in `define_block`:
+| Call | Result or action |
+| --- | --- |
+| `entity:get_id()` / `entity:get_name()` | Runtime ID / registered definition name. |
+| `entity:is_valid()` | Whether the handle still exists. |
+| `entity:get_position()` | Position. |
+| `entity:set_position(pos)` | Set position only when physics is disabled. |
+| `entity:teleport(pos)` | Instant repositioning. |
+| `entity:get_rotation()` / `entity:set_rotation(rotation)` | XYZ Euler radians: pitch, yaw, roll. |
+| `entity:get_velocity()` / `entity:set_velocity(v)` | Velocity in blocks/second; do not multiply by `dt`. Setting it replaces steering. |
+| `entity:apply_impulse(v)` | Add velocity. |
+| `entity:set_move_direction(direction, speed, acceleration)` | Horizontal steering; ignores Y and normalizes direction. |
+| `entity:jump(speed)` | Jump if grounded and ready; otherwise `false`. |
+| `entity:is_recovering()` | Knockback recovery active. |
+| `entity:get_hp()` / `entity:set_hp(hp)` | Health. |
+| `entity:damage(amount, context)` | Apply damage; returns HP lost. |
+| `entity:set_model(name)` | Change model. |
+| `entity:get_texture()` / `entity:set_texture(name)` | Texture override; `nil` clears it. |
+| `entity:set_nametag(options)` | Change nametag. |
+| `entity:remove()` | Remove entity. |
+
+Entities also expose the [metadata](#metadata) and [inventory](#inventories-and-crafting) methods.
+
+Movement speed is 0–20 blocks/s; acceleration defaults to 32 and must be >0–100 blocks/s². Jump speed defaults to 7 and must be >0–20 blocks/s. A zero movement direction and speed stop walking. Navigation helpers are under [Mobs and spawning](#mobs-and-spawning).
+
+### Damage
+
+Set `hp` in the entity definition to enable health (integer, up to 65535). Omitted or zero definition HP means the entity cannot take damage.
 
 ```lua
-midless.define_block("example:stone", {
-    name = "Stone",
-    textures = {all = 1},
-    hardness = 3,         -- seconds with hand speed 1; default 1
-    dig_group = "stone",
-    unbreakable = false, -- true prevents breaking
+local lost = target:damage(2, {
+    attacker = player,
+    cause = "melee",
+    knockback = {horizontal = 8, upward = 4},
 })
 ```
 
-`hardness = 0` breaks instantly. Hardness can range from 0 to 86400.
+Players and entities accept this context. `attacker` is an optional player/entity handle. `cause` is a custom string with no built-in effect. Knockback components default to 0 and must be finite, 0–20 blocks/s.
 
-Built-in blocks have defaults.
+Entity `on_damage` and `register_on_player_damage` run before subtraction. Return `nil` to keep damage, `false`/0 to cancel, or an integer 0–65535 to replace it. At zero entity HP, `on_death` runs once while methods remain readable, then removal is queued.
 
-| Built-in blocks | Dig group | Hardness |
-| --- | --- | --- |
-| Stone | `stone` | 3 |
-| Stone slab | `stone` | 2 |
-| Iron ore, coal ore, gold ore | `stone` | 4 |
-| Wood, log, wood slab | `wood` | 2 |
-| Leaves | `wood` | 0.2 |
-| Dirt, sand | `soil` | 0.5 |
-| Grass | `soil` | 0.6 |
-| Glass | `glass` | 0.3 |
-| Rose, dandelion | `plant` | 0 |
-| Air | `gas` | 0 |
-| Water, lava | `liquid` | 0 |
-| Fire | `fire` | 0 |
-
-Set speeds by group on an item (or a block's placeable item):
+### Raycasts, nearby objects, and attacks
 
 ```lua
-midless.define_texture("example:pickaxe", "textures/pickaxe.png")
-midless.define_item("example:pickaxe", {
-    name = "Pickaxe",
-    texture = "example:pickaxe",
-    max_stack = 1,
-    dig_speed = {stone = 6, soil = 1},
-})
+local hit = midless.raycast(from, to, {entities = true, ignore = entity})
+local entities = midless.get_entities_in_radius(pos, 32)
+local players = midless.get_players_in_radius(pos, 32)
+local nearest = midless.get_player_in_radius(pos, 32)
 ```
 
-Breaking takes `hardness / speed` seconds. Missing groups and empty hands use
-speed 1. The stone above takes three seconds by hand, or half a second with the
-pickaxe. Speeds must be positive.
+Raycasts return the nearest `entity`, `player`, `block`, `unloaded`, or `nothing` in `hit.type`, plus `position`, `normal`, and `distance`. Hits expose the matching `hit.entity`, `hit.player`, or `hit.block`.
 
-## Breaking texture
+Rays are limited to 128 blocks. `entities` defaults to `true`; set `false` for terrain only. `ignore` accepts a non-player entity; use `ignore_player = player:get_id()` for a player.
 
-Register a PNG with ten square frames in a horizontal strip, from least to most
-cracked. For 16-pixel frames, use a `160x16` PNG with a transparent background:
+The singular `get_player_in_radius` returns the nearest living, connected, movement-ready player or `nil`; radius is 0–128.
 
 ```lua
-midless.define_texture("example:breaking", "textures/breaking.png")
-midless.set_breaking_texture("example:breaking")
-```
-
-Each frame can be up to 64 pixels wide. A default crack texture is used until you
-set your own. Redefining the texture updates the animation.
-
-## Custom breaking time
-
-```lua
-midless.register_on_dig_time(function(player, block, stack, seconds)
-    -- stack is nil for empty hands. Metadata fields come from the item's schema.
-    if stack and stack.metadata.blunt then
-        return seconds * 2
+midless.register_on_player_attack(function(player, target)
+    if target.type == "entity" then
+        target.entity:damage(2, {attacker = player, cause = "melee"})
+        return true
     end
-    return seconds
 end)
 ```
 
-Callbacks run in registration order when breaking starts. Return a number of
-seconds to change the duration, `nil` to keep it, or `false` to prevent breaking.
-An unbreakable block cannot be enabled by this callback.
+Attacks cast from the player's eye with 4.5-block reach and a 0.4-second cooldown, including misses. Targets use the raycast format. Return `true` to stop later handlers. The base-game mob library already handles mob attacks; avoid registering duplicate damage for the same targets.
 
-## After an item breaks a block
+## Mobs and spawning
 
-Add `on_dig` to the item's definition:
+### Register a mob
+
+`midless.register_mob` uses three required callbacks: decisions, movement, and attacks.
 
 ```lua
-on_dig = function(player, block, stack)
-    -- Called after a successful break. block refers to the now-empty position.
-    -- stack is a copy of the item used, including its metadata.
-end,
+midless.register_mob("my_mod:wanderer", {
+    model = "humanoid", hp = 8, save = true,
+    body = {
+        enabled = true,
+        min = {x = -0.3, y = 0, z = -0.3},
+        max = {x = 0.3, y = 1.5, z = 0.3},
+        gravity_scale = 1,
+    },
+    brain = {
+        interval = 0.2,
+        update = function(self, dt)
+            return {goal = self.object:wander_goal(6)}
+        end,
+    },
+    movement = {
+        update = function(self, dt, intent)
+            self.object:follow_ground_path(intent.goal, {speed = 3})
+        end,
+    },
+    attack = {perform = function(self, target) return false end},
+})
 ```
 
+Mobs accept entity fields and lifecycle callbacks, but reject `on_step`. Set `save = true` to save a mob. `midless.register_mob` replaces the former `mobs.register` API.
 
-# World Generation
+| Callback / setting | Behavior |
+| --- | --- |
+| `brain.update(self, dt)` | First physics step, then every `brain.interval` seconds (default 0.2; range 1/60–60). First `dt` is 0. |
+| Returned intent | `nil` or `{goal = pos, target = handle, attack = boolean}`. All fields optional; attack defaults false. |
+| `movement.update(self, dt, intent)` | Every 1/60-second physics step before integration; chooses all movement. |
+| `movement.during_recovery` | Default recovery suspends movement and clears steering. `true` ends recovery to allow custom movement immediately. |
+| `attack.perform(self, target)` | Applies the attack effect. Must return `true` to start cooldown or `false` to retry no sooner than the brain interval. |
+| `attack.range` | Default 1.8; range 0–128 blocks, measured between origins in 3D. |
+| `attack.cooldown` | Default 1; range 1/60–60 seconds. |
+| `attack.requires_line_of_sight` | Default `true`; checks terrain between body centers. |
 
-World generation is defined in Lua when mods load. The engine handles the actual chunk generation.
+A target does not imply a goal or attack. Attacks require explicit intent, a valid target with positive HP, range, cooldown, and optional visibility. The callback supplies damage, projectiles, or other effects; none are automatic.
+
+Intent is copied; editing the movement snapshot does not change stored intent. Invalid targets are cleared and attacks disabled, while explicit goals remain until the next decision. Check `is_valid()` before using retained handles.
+
+Recovery does not disable attacks; omit attack intent if needed. The brain reconsiders immediately after landing. Removing or killing a mob stops later callbacks. Callback errors or invalid returns are logged and remove the mob. Simulation catch-up is limited to six physics steps per server update.
+
+Only declared metadata and normal entity fields save. Goals, paths, cooldowns, and custom `self` state must be rebuilt after load.
+
+### Navigation helpers
+
+These work on ordinary entities too:
+
+| Call | Behavior |
+| --- | --- |
+| `midless.find_path(entity, destination)` | Ordered ground cells including start and destination, or `nil` if no complete path fits the limits. |
+| `midless.can_walk_to(entity, destination)` | Check a straight, level ground route up to 32 blocks. |
+| `entity:follow_ground_path(goal, options)` | Follow loaded ground with diagonal paths and automatic jumps. `nil` clears the route and stops horizontal movement. Returns `true` while pursuing a waypoint, otherwise `false`. |
+| `entity:wander_goal(radius)` | Random nearby goal or `nil` during a pause. Default radius 6; range 1–16. Does not move by itself. |
+| `entity:steer_toward(goal, speed, acceleration)` | Acceleration-limited 3D steering, slowing near the goal. Default acceleration 32. Set `body.gravity_scale = 0` to hover. |
+| `entity:try_teleport(destination, require_ground)` | Returns `false` for blocked, liquid, or unloaded destinations. Success teleports and resets velocity. Ground requirement defaults false. |
+
+Ground-path options: `{speed = 2, acceleration = 32, jump = 7}`. Speed is 0–20, acceleration >0–100, jump 0–20; zero jump disables jumping. Paths ignore moving obstacles, share two searches per server update, normally replan once per second, and use local legs for distant goals. Stable-goal shortcuts are checked at most five times per second.
+
+Wandering initially pauses 2–5 seconds, pursues each goal for up to six seconds, then pauses again. 3D steering uses body collision but does not plan flight routes or avoid obstacles in advance; `set_move_direction` switches back to horizontal steering.
+
+`try_teleport` checks only the destination, ignores other entities, and optionally requires support under the full footprint. Climbing and projectiles need custom callbacks.
+
+### Natural spawning
+
+Register rules after the entity and ground blocks exist, or use `register_on_ready`:
+
+```lua
+midless.register_spawn("my_mod:wanderers", {
+    entity = "my_mod:wanderer", -- Requires an enabled physics body.
+    interval = 5, attempts = 8, chance = 0.25,
+    distance = {min = 24, max = 64},
+    placement = {
+        type = "ground", vertical_range = 16, avoid_liquids = true,
+        ground_blocks = {"midless:grass", "midless:dirt"}, -- Optional.
+    },
+    population = {local_limit = 8, local_radius = 64, global_limit = 64},
+    can_spawn = function(pos, context)
+        -- context.rule and context.player_id identify the rule and nearby player.
+        return true -- Exactly true allows spawning.
+    end,
+})
+```
+
+Shown numbers and booleans are defaults. Only `entity` is required. Rules have unique, nonempty names of at most 64 bytes, with at most 128 rules. There are no time or light conditions yet.
+
+| Setting | Limits / behavior |
+| --- | --- |
+| `interval` | 0.1–86400 seconds. |
+| `attempts` | 1–64 candidates per eligible player per interval. |
+| `chance` | 0–1, applied after placement and cap checks. |
+| `distance` | `min < max`; max ≤1024. Final 3D distance must meet min from every eligible player and max from at least one. |
+| `placement.vertical_range` | 1–64 blocks around the player's elevation. |
+| `placement.ground_blocks` | Optional whitelist; otherwise any suitable solid collision face. |
+| `population.group` | Must match entity `population_group`; defaults to that group, or counts by definition if ungrouped. |
+| `population.local_radius` | 1–2048 blocks around the candidate. |
+| `population.local_limit` / `global_limit` | 1–1028 each. Global counts active entities, not unloaded saves. |
+
+Spawning uses loaded chunks only. Bodies must fit, avoid physical entities/players, and have their full footprint supported by one collision face. Partial blocks can support them. `avoid_liquids` rejects liquid in occupied cells.
+
+Work rotates across players and rules, with at most four column searches per tick. Stalls do not accumulate extra rounds; heavy load can reduce spawn frequency. Keep `can_spawn` short: it runs synchronously after built-in checks. Errors reject the candidate; distance, caps, clearance, and support are rechecked afterward. Success runs `on_spawn`.
+
+Manual and restored entities count toward caps; pending removals do not. Rules sharing a population must use identical caps and local radius. Manual `spawn_entity` calls do not enforce caps.
+
+Optional entity/mob fields control cleanup:
+
+```lua
+population_group = "hostile",
+despawn = {distance = 96, delay = 30},
+save = false,
+```
+
+`despawn` removes the entity after it stays farther than the distance from every eligible player for the delay, including when no players exist. Returning resets the timer; removal calls `on_remove`. Distance is >0–1000000; delay defaults to 30 and is 0–86400 seconds. The timer resets on load. Omit `despawn` to disable it. `save = false` separately discards entities on unload; spawn rules imply neither setting.
+
+## Textures and models
+
+### Textures
+
+```lua
+midless.define_texture("my_mod:skin", "textures/skin.png")
+midless.define_texture("my_mod:terrain", "textures/terrain.png")
+midless.set_terrain_texture("my_mod:terrain")
+midless.set_terrain_texture("terrain") -- Restore default.
+```
+
+PNG only; at most 64 custom textures, each up to 1024×1024. Terrain atlases must be 256×256. `"terrain"` and `"humanoid"` are built in. Redefine a texture name to update models using it.
+
+### Box models
+
+```lua
+midless.define_entity_model("my_mod:cube", {
+    name = "Cube", texture = "terrain",
+    parts = {{
+        role = model.part.NONE,
+        position = {0, 0, 0}, min = {-4, 0, -4}, max = {4, 8, 4},
+        uv = {
+            east = {0, 0, 16, 16}, west = {0, 0, 16, 16},
+            up = {0, 0, 16, 16}, down = {0, 0, 16, 16},
+            north = {0, 0, 16, 16}, south = {0, 0, 16, 16},
+        },
+    }},
+})
+```
+
+16 model units equal one block. UVs are `{x, y, width, height}` in image pixels.
+
+Part roles use `model.part.NONE`, `HEAD`, `RIGHT_ARM`, `LEFT_ARM`, `RIGHT_LEG`, or `LEFT_LEG` with the same prefix. Roles enable normal player animation.
+
+The first right-arm part holds the selected block at its bottom center. Override with `grip = {-1.25, -9, -0.5}`, in model units relative to the part pivot.
+
+`midless.remove_entity_model(name)` removes a model; `entity:set_model(name)` or `player:set_model(name)` assigns one.
+
+### Variants and individual skins
+
+Copy a model with an optional new texture and display name:
+
+```lua
+midless.define_entity_model("my_mod:skeleton", {
+    base = "humanoid", texture = "my_mod:skin",
+})
+entity:set_texture("my_mod:skin")
+player:set_texture("my_mod:skin")
+entity:set_texture(nil) -- Restore current model's texture.
+```
+
+`base` accepts `"humanoid"`, a custom model name, or numeric ID. Variants copy parts, UVs, roles, first-person visibility, and grips at registration; later base changes do not propagate. `name` and `texture` otherwise inherit. Do not combine `base` with `parts`. Variants use custom model slots 1–255.
+
+Individual overrides can also be set with `texture` in entity/mob definitions. They persist through model changes and saves, affect only that object, and replicate to clients, including the player's first-person model. `get_texture()` returns the override name or `nil`.
+
+Textures must be registered or built in and match the model's pixel UV layout. A missing, downloading, or undersized texture falls back to the model default until compatible; saved missing names are retained. Overrides require client/server protocol 21.
+
+## World generation
+
+Define generation while mods load; the engine generates chunks. Without a generator mod, the world is flat at Y=64. Changes never regenerate existing chunks.
+
+### Setup and fields
 
 ```lua
 local wg = midless.worldgen
 local f = wg.field
-```
-
-## Basic setup
-
-Use `wg.configure()` to configure the world:
-
-```lua
 wg.configure({
-    id = "my_mod:world",
-    version = 1,
-
-    min_y = -128,
-    max_y = 256,
-    sea_level = 48,
-
-    temperature = f.noise2d({frequency = 0.001}),
-    moisture = f.noise2d({frequency = 0.001}),
+    id = "my_mod:world", version = 1,
+    min_y = -128, max_y = 256, sea_level = 48,
+    temperature = f.noise2d({frequency = 0.001, seed_offset = 10}),
+    moisture = f.noise2d({frequency = 0.001, seed_offset = 20}),
 })
 ```
 
-Without a world generation mod, the world is flat at `y = 64`.
+Fields calculate values from coordinates and support normal `+`, `-`, `*`, `/`, and `%` arithmetic.
 
-Existing chunks are never regenerated when the generator changes.
+| Fields | Purpose |
+| --- | --- |
+| `f.x()`, `f.y()`, `f.z()` | World coordinates. |
+| `f.min(a,b)`, `f.max(a,b)`, `f.abs(a)` | Min, max, absolute value. |
+| `f.floor(a)`, `f.ceil(a)`, `f.trunc(a)` | Rounding. |
+| `f.sin(a)`, `f.cos(a)` | Trigonometry. |
+| `f.lt(a,b)`, `f.eq(a,b)` | Conditions returning 0 or 1. |
+| `f.select(condition, yes, no)` | Conditional value. |
+| `f.noise2d(options)`, `f.noise3d(options)` | Noise fields. |
+| `f.step()`, `f.steps()` | Current/total stroke steps. |
+| `f.origin_x()`, `f.origin_y()`, `f.origin_z()` | Feature origin. |
 
----
+Noise defaults: `type = "opensimplex2s"`, `fractal = "fbm"`, `frequency = 0.01`, `octaves = 3`, `lacunarity = 2`, `gain = 0.5`, `seed_offset = 0`.
 
-## Fields
+Noise types: `opensimplex2`, `opensimplex2s`, `cellular`, `perlin`, `value_cubic`, `value`. Fractals: `none`, `fbm`, `ridged`, `pingpong`.
 
-Fields are values calculated from world coordinates.
-
-```lua
-local height = f.noise2d({
-    frequency = 0.01,
-    octaves = 4,
-})
-
-local caves = f.noise3d({
-    frequency = 0.03,
-})
-```
-
-They can be combined like normal numbers:
+For density terrain, add these fields to `wg.configure`:
 
 ```lua
-local terrain = f.noise3d({frequency = 0.02}) - f.y() / 100
+density = f.noise3d({frequency = 0.02}) - f.y() / 100,
+caves = f.noise3d({frequency = 0.04}),
 ```
 
-### Coordinates
+Positive density is solid; zero/negative is empty. Positive cave values carve terrain.
 
-```lua
-f.x()
-f.y()
-f.z()
-```
-
-### Math
-
-```lua
-a + b
-a - b
-a * b
-a / b
-a % b
-
-f.min(a, b)
-f.max(a, b)
-f.abs(a)
-
-f.floor(a)
-f.ceil(a)
-f.trunc(a)
-
-f.sin(a)
-f.cos(a)
-```
-
-### Conditions
-
-```lua
-f.lt(a, b)
-f.eq(a, b)
-f.select(condition, yes, no)
-```
-
-Conditions return `0` or `1`.
-
-### Noise
-
-```lua
-f.noise2d({
-    type = "opensimplex2s",
-    frequency = 0.01,
-    octaves = 3,
-})
-
-f.noise3d({
-    frequency = 0.02,
-})
-```
-
-Common noise options:
-
-| Option        | Default           |
-| ------------- | ----------------- |
-| `type`        | `"opensimplex2s"` |
-| `fractal`     | `"fbm"`           |
-| `frequency`   | `0.01`            |
-| `octaves`     | `3`               |
-| `lacunarity`  | `2`               |
-| `gain`        | `0.5`             |
-| `seed_offset` | `0`               |
-
-Noise types:
-
-```text
-opensimplex2
-opensimplex2s
-cellular
-perlin
-value_cubic
-value
-```
-
-Fractal types:
-
-```text
-none
-fbm
-ridged
-pingpong
-```
-
----
-
-## Terrain
-
-Terrain can be controlled with `density`.
-
-```lua
-wg.configure({
-    id = "my_mod:world",
-
-    density =
-        f.noise3d({frequency = 0.02})
-        - f.y() / 100,
-
-    min_y = -128,
-    max_y = 256,
-    sea_level = 48,
-})
-```
-
-Positive density is solid.
-
-Zero or negative density is empty.
-
-You can carve caves with another field:
-
-```lua
-wg.configure({
-    id = "my_mod:world",
-
-    density = terrain,
-    caves = f.noise3d({frequency = 0.04}),
-})
-```
-
-Positive `caves` values carve terrain.
-
----
-
-## Biomes
-
-Define biomes with `wg.define_biome()`:
+### Biomes
 
 ```lua
 wg.define_biome("my_mod:highlands", {
-    temperature = -0.4,
-    moisture = 0.5,
-
-    height = 90,
-    height_variation = 45,
-
-    height_noise = f.noise2d({
-        frequency = 0.008,
-        octaves = 5,
-    }),
-
-    top = 3,
-    filler = 2,
-    filler_depth = 3,
-    stone = 1,
-    underwater = 6,
+    temperature = -0.4, moisture = 0.5,
+    height = 90, height_variation = 45,
+    height_noise = f.noise2d({frequency = 0.008, octaves = 5}),
+    top = 3, filler = 2, filler_depth = 3, stone = 1, underwater = 6,
 })
 ```
 
-`temperature` and `moisture` decide where the biome appears.
+Temperature and moisture select the biome. Height fields shape terrain. `top` is the surface, `filler` is the layer beneath it, `filler_depth` its thickness, `stone` the underground material, and `underwater` the underwater surface.
 
-`height` and `height_variation` control its terrain.
-
-The material fields control its blocks:
-
-```text
-top             Surface block
-filler          Blocks below the surface
-filler_depth    Filler thickness
-stone           Main underground block
-underwater      Underwater surface block
-```
-
----
-
-## Ores
-
-Define ores with `wg.define_ore()`:
+### Ores and material rules
 
 ```lua
 wg.define_ore("my_mod:iron", {
-    block = 19,
-    replaces = {1},
-
-    min_y = -64,
-    max_y = 48,
-
-    distribution = "veins",
-    size = 12,
-    spacing = 16,
-    chance = 0.7,
+    block = 19, replaces = {1}, min_y = -64, max_y = 48,
+    distribution = "veins", size = 12, spacing = 16, chance = 0.7,
+    biome = "my_mod:highlands", -- Optional restriction.
 })
 ```
 
-You can restrict an ore to a biome:
+Distributions: `clusters` (round deposits), `veins` (random walks), `layers` (horizontal), or `noise`. Noise distribution uses `noise = f.noise3d({...})` and `threshold = 0.6`.
+
+Material rules run before ores and structures:
 
 ```lua
-biome = "my_mod:highlands"
+wg.define_rule({match = 3, block = 2, offset_y = -1})
+wg.define_rule({match = 3, when = f.lt(f.y(), 50), block = 2})
 ```
 
-### Distributions
-
-```text
-clusters    Round deposits
-veins       Random-walking veins
-layers      Horizontal layers
-noise       Places ore using a noise field
-```
-
-Example using noise:
-
-```lua
-wg.define_ore("my_mod:iron", {
-    block = 19,
-    replaces = {1},
-
-    distribution = "noise",
-
-    noise = f.noise3d({
-        frequency = 0.05,
-    }),
-
-    threshold = 0.6,
-})
-```
-
----
-
-## Structures
-
-Structures are made from blocks relative to an origin:
+### Structures and trees
 
 ```lua
 wg.define_structure("my_mod:ruin", {
@@ -1974,366 +900,57 @@ wg.define_structure("my_mod:ruin", {
         {x = 0, y = 1, z = 0, block = 1},
         {x = 1, y = 0, z = 0, block = 1},
     },
-
-    spacing = 160,
-    chance = 0.3,
-
-    min_y = 49,
-    max_y = 256,
-
-    rotate = true,
+    spacing = 160, chance = 0.3, min_y = 49, max_y = 256, rotate = true,
 })
-```
-
-Useful options:
-
-```text
-spacing             Distance between placement areas
-chance              Chance to generate
-min_y / max_y       Height range
-biome               Restrict to a biome
-max_slope           Maximum terrain height difference
-rotate              Random 90° rotation
-air_only            Only replace air
-foundation          Foundation block
-foundation_depth    Maximum foundation depth
-```
-
-Block `0` can be used to carve air.
-
-A one-block structure can also be used for things like flowers or decorations.
-
----
-
-## Trees
-
-Simple trees can be defined as structures:
-
-```lua
 wg.define_structure("my_mod:tree", {
-    tree = {
-        height = 7,
-        radius = 3,
-        trunk = 10,
-        leaves = 11,
-    },
-
-    spacing = 32,
-    chance = 0.4,
+    tree = {height = 7, radius = 3, trunk = 10, leaves = 11},
+    spacing = 32, chance = 0.4,
 })
 ```
 
-For more complicated trees and shapes, use procedural features.
+Blocks are relative to the structure origin; block `0` carves air. Single-block structures can place flowers and decorations.
 
----
+| Option | Meaning |
+| --- | --- |
+| `spacing`, `chance` | Distance between placement areas and placement probability. |
+| `min_y`, `max_y`, `biome` | Height and biome restrictions. |
+| `max_slope` | Maximum terrain height difference. |
+| `rotate` | Random 90-degree rotation. |
+| `air_only` | Replace only air. |
+| `foundation`, `foundation_depth` | Foundation block and maximum depth. |
 
-## Material rules
+### Procedural features
 
-Rules replace blocks during generation.
-
-```lua
-wg.define_rule({
-    match = 3,
-    block = 2,
-    offset_y = -1,
-})
-```
-
-You can add a condition:
-
-```lua
-wg.define_rule({
-    match = 3,
-    when = f.lt(f.y(), 50),
-    block = 2,
-})
-```
-
-Rules run before ores and structures.
-
----
-
-## Procedural features
-
-Features can generate shapes such as branches, pillars, rocks, or custom trees.
+Use `stroke` to draw spheres along a direction and `sphere` for a single sphere:
 
 ```lua
 wg.define_feature("my_mod:pillars", {
-    when =
-        f.eq(f.y(), 65)
-        * f.eq(f.x() % 16, 0)
-        * f.eq(f.z() % 16, 0),
-
+    when = f.eq(f.y(), 65) * f.eq(f.x() % 16, 0) * f.eq(f.z() % 16, 0),
     commands = {
-        {
-            op = "stroke",
-            block = 1,
-            steps = 8,
-
-            dx = 0,
-            dy = 1,
-            dz = 0,
-
-            radius = 1.5,
-            bounds = 2,
-        },
-
-        {
-            op = "sphere",
-            block = 4,
-
-            radius = 2.5,
-            bounds = 3,
-        },
+        {op = "stroke", from = 0, to = 1, block = 1,
+         steps = 8, dx = 0, dy = 1, dz = 0, radius = 1.5, bounds = 2},
+        {op = "sphere", from = 1, block = 4, radius = 2.5, bounds = 3},
     },
 })
 ```
 
-There are two shape commands:
+Position slot `0` is the feature origin. Use `to` to save a stroke endpoint and `from` to continue there. Stroke fields can use `f.step()` and `f.steps()` to vary along the shape.
 
-### `stroke`
+## Vectors
 
-Moves in a direction while drawing spheres.
+| Call | Result |
+| --- | --- |
+| `vector.new(x, y, z)` | New vector. No arguments makes zero; passing a vector copies it. |
+| `vector.add(a, b)` / `vector.subtract(a, b)` | Sum / difference. |
+| `vector.multiply(v, number)` | Scaled vector. |
+| `vector.length(v)` / `vector.distance(a, b)` | Length / distance. |
+| `vector.normalize(v)` | Normalized vector. |
+| `vector.direction(from, to)` | Direction between positions. |
+| `vector.dot(a, b)` / `vector.cross(a, b)` | Dot / cross product. |
 
-```lua
-{
-    op = "stroke",
-
-    block = 1,
-    steps = 8,
-
-    dx = 0,
-    dy = 1,
-    dz = 0,
-
-    radius = 1,
-    bounds = 2,
-}
-```
-
-Useful fields inside strokes:
+Position three blocks in front of a player:
 
 ```lua
-f.step()
-f.steps()
+local pos = vector.add(player:get_eye_position(),
+    vector.multiply(player:get_look_direction(), 3))
 ```
-
-These can be used to change the radius along the stroke.
-
-### `sphere`
-
-Draws a sphere:
-
-```lua
-{
-    op = "sphere",
-
-    block = 1,
-    radius = 3,
-    bounds = 4,
-}
-```
-
-Features can chain commands using position slots:
-
-```lua
-{
-    op = "stroke",
-    from = 0,
-    to = 1,
-    ...
-},
-
-{
-    op = "sphere",
-    from = 1,
-    ...
-}
-```
-
-Slot `0` is the feature's starting position.
-
-Feature origin coordinates are also available:
-
-```lua
-f.origin_x()
-f.origin_y()
-f.origin_z()
-```
-
----
-
-## Example terrain mod
-
-```lua
-local wg = midless.worldgen
-local f = wg.field
-
-local terrain_noise = f.noise2d({
-    frequency = 0.005,
-    octaves = 4,
-})
-
-wg.configure({
-    id = "example:world",
-    version = 1,
-
-    min_y = -128,
-    max_y = 256,
-    sea_level = 48,
-
-    temperature = f.noise2d({
-        frequency = 0.001,
-        seed_offset = 10,
-    }),
-
-    moisture = f.noise2d({
-        frequency = 0.001,
-        seed_offset = 20,
-    }),
-})
-
-wg.define_biome("example:plains", {
-    temperature = 0,
-    moisture = 0,
-
-    height = 64,
-    height_variation = 12,
-    height_noise = terrain_noise,
-
-    top = 3,
-    filler = 2,
-    filler_depth = 3,
-    stone = 1,
-})
-
-wg.define_ore("example:iron", {
-    block = 19,
-    replaces = {1},
-
-    min_y = -64,
-    max_y = 32,
-
-    distribution = "veins",
-    size = 8,
-    spacing = 24,
-    chance = 0.5,
-})
-
-wg.define_structure("example:tree", {
-    tree = {
-        height = 6,
-        radius = 3,
-        trunk = 10,
-        leaves = 11,
-    },
-
-    spacing = 32,
-    chance = 0.3,
-
-    biome = "example:plains",
-})
-```
-
----
-
-
-
-# Example Mod
-
-This example creates a simple slime that wanders around with gravity and terrain collisions.
-
-```lua
-midless.define_texture("example:slime", "slime.png")
-
-midless.define_entity_model("example:slime", {
-    name = "Slime",
-    texture = "example:slime",
-
-    parts = {
-        {
-            role = model.part.NONE,
-            position = {0, 0, 0},
-            min = {-5, 0, -5},
-            max = {5, 8, 5},
-
-            uv = {
-                east  = {0, 0, 16, 16},
-                west  = {0, 0, 16, 16},
-                up    = {0, 0, 16, 16},
-                down  = {0, 0, 16, 16},
-                north = {0, 0, 16, 16},
-                south = {0, 0, 16, 16}
-            }
-        }
-    }
-})
-
-midless.define_entity("example:slime", {
-    model = "example:slime",
-    body = {
-        enabled = true,
-        min = {x = -5 / 16, y = 0, z = -5 / 16},
-        max = {x = 5 / 16, y = 8 / 16, z = 5 / 16},
-        gravity_scale = 1,
-    },
-
-    on_spawn = function(self)
-        self.direction = vector.new(1, 0, 0)
-        self.timer = 0
-    end,
-
-    on_load = function(self)
-        self.direction = vector.new(1, 0, 0)
-        self.timer = 0
-    end,
-
-    on_step = function(self, dt)
-        self.timer = self.timer + dt
-
-        -- Pick a new direction every 2 seconds.
-        if self.timer >= 2 then
-            self.timer = 0
-
-            local angle = math.random() * math.pi * 2
-
-            self.direction = {
-                x = math.cos(angle),
-                y = 0,
-                z = math.sin(angle)
-            }
-
-            self.object:set_rotation({
-                x = 0,
-                y = -angle,
-                z = 0
-            })
-        end
-
-        -- Walk at one block per second, preserving vertical velocity for gravity.
-        local velocity = self.object:get_velocity()
-        velocity.x = self.direction.x
-        velocity.z = self.direction.z
-        self.object:set_velocity(velocity)
-    end
-})
-
--- Spawn a slime three blocks in front of the player.
-midless.register_on_player_click(function(player, button)
-    if button ~= "right" then
-        return
-    end
-
-    local pos = vector.add(
-        player:get_eye_position(),
-        vector.multiply(player:get_look_direction(), 3)
-    )
-
-    midless.spawn_entity("example:slime", pos)
-end)
-```
-
-Right-click to spawn a slime. Each slime falls to the ground, picks a new direction every two seconds, and moves with terrain collisions. Physics handles movement over time, so the velocity is not multiplied by `dt`. Use `teleport` for instant repositioning; `set_position` is only available when physics is disabled.
-
----
-

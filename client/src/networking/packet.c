@@ -239,6 +239,15 @@ void Packet_HandleTextColor(void) {
     if (TextColor_ValidCode(code)) textColors[code] = color;
 }
 
+void Packet_HandlePlayerImpulse(void) {
+    if (packetDataLength != PLAYER_IMPULSE_PACKET_SIZE) return;
+    Vector3 impulse;
+    impulse.x = Packet_ReadInt() / PLAYER_IMPULSE_SCALE;
+    impulse.y = Packet_ReadInt() / PLAYER_IMPULSE_SCALE;
+    impulse.z = Packet_ReadInt() / PLAYER_IMPULSE_SCALE;
+    Player_ApplyImpulse(impulse);
+}
+
 void Packet_HandleNametag(void) {
     if (packetDataLength != NAMETAG_PACKET_SIZE) return;
     int id = Packet_ReadUShort();
@@ -265,13 +274,21 @@ void Packet_HandleSpawnEntity(void) {
     int y = Packet_ReadInt();
     int z = Packet_ReadInt();
     Vector3 position = (Vector3) { x / 64.0f, y / 64.0f, z / 64.0f };
+    int heldBlock = Packet_ReadUShort();
+    int texture = Packet_ReadUShort();
     if (id == USHRT_MAX) {
+        player.textureOverride = texture;
         Player_SetEntityModel(type, modelId);
         Player_Teleport(position);
         return;
     }
     World_AddEntity(id, type, modelId, position, (Vector3) {0, 0, 0});
-    if (world.entities && id < WORLD_MAX_ENTITIES) world.entities[id].heldBlock = Packet_ReadUShort();
+    if (world.entities && id < WORLD_MAX_ENTITIES) world.entities[id].heldBlock = heldBlock;
+    EntityModel_SetEntityTexture(id,texture);
+}
+void Packet_HandleEntityTexture(void) {
+    int id = Packet_ReadUShort();
+    EntityModel_SetEntityTexture(id,Packet_ReadUShort());
 }
 
 void Packet_HandleDespawnEntity(void) {

@@ -1,5 +1,8 @@
 #include "world.h"
+#include "../spawnmanager.h"
 #include "../entityphysics.h"
+#include "../mobs.h"
+#include "../entitytexture.h"
 #include "../droppeditems.h"
 #include "../networkhandler.h"
 #include "../packet.h"
@@ -13,9 +16,14 @@ void ServerWorld_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
     if (!serverWorld.entities || id < 0 || id >= WORLD_MAX_ENTITIES) return;
     Entity *e = &serverWorld.entities[id];
     if (!e->active || e->pendingRemoval) return;
+    if (e->mob) {
+        e->mob->pathCount = 0; e->mob->hasWaypoint = false;
+        e->mob->lookAhead = e->mob->replan = 0;
+    }
     if (e->ownerPlayerId < 0 && e->body.enabled) {
         e->body.velocity = (Vector3){0};
         e->body.sleeping = e->body.grounded = e->body.blockedByUnloaded = false;
+        e->recovering = e->moveEnabled = false;
     }
     ServerPhysics_InvalidateIndex();
     e->position = position;
@@ -55,6 +63,7 @@ static void Destroy(Entity *e) {
 }
 
 void ServerEntities_Update(float dt) {
+    ServerSpawning_Update(dt);
     uint64_t cutoff = nextGeneration;
     for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
         Entity *e = &serverWorld.entities[id];
@@ -83,6 +92,14 @@ void ServerEntities_Update(float dt) {
         if (e->nametagDirty) {
             ServerWorld_BroadcastExcluding(ServerNametag_CreatePacket(e), e->ownerPlayerId);
             e->nametagDirty = false;
+        }
+        if (e->textureDirty) {
+            for (int p=0; p<WORLD_MAX_PLAYERS; p++) {
+                Player *recipient = serverWorld.players[p];
+                if (recipient && !recipient->disconnected)
+                    ServerNetwork_Send(recipient,ServerEntityTexture_Packet(e,recipient->entityId));
+            }
+            e->textureDirty = false;
         }
     }
 }

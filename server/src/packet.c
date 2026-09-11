@@ -1,5 +1,6 @@
 #include "blockstates.h"
 #include "version.h"
+#include "playerimpulse.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
  * 
@@ -17,6 +18,7 @@
 #include "world/world.h"
 #include "world/chunk/chunk.h"
 #include "entity.h"
+#include "entitytexture.h"
 #include "logger.h"
 #include "luabindings.h"
 #include "rotation.h"
@@ -66,6 +68,8 @@ int serverPacketLengths[256] = {
     HUD_BAR_REMOVE_SIZE, // 29
     TEXT_COLOR_PACKET_SIZE, // 30
     NAMETAG_PACKET_SIZE, // 31
+    PLAYER_IMPULSE_PACKET_SIZE, // 32
+    SET_ENTITY_TEXTURE_PACKET_SIZE, // 33
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -374,6 +378,7 @@ unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity) {
     ServerPacket_WriteInt(packet, (int)(entity->position.y * 64));
     ServerPacket_WriteInt(packet, (int)(entity->position.z * 64));
     ServerPacket_WriteUShort(packet, entity->heldBlock);
+    ServerPacket_WriteUShort(packet, ServerEntityTexture_Id(entity));
     return packet;
 }
 
@@ -420,6 +425,18 @@ unsigned char* ServerPacket_CreateWorldTime(float timeSeconds) {
     unsigned char *packet = MemAlloc(serverPacketLengths[9]);
     ServerPacket_WriteByte(packet, 9);
     ServerPacket_WriteInt(packet, (int)(timeSeconds * 1000.0f));
+    return packet;
+}
+
+unsigned char *ServerPacket_CreatePlayerImpulse(Vector3 impulse) {
+    if (!PlayerImpulse_Valid(impulse)) return NULL;
+    unsigned char *packet = MemAlloc(PLAYER_IMPULSE_PACKET_SIZE);
+    if (!packet) return NULL;
+    serverPacketWriterIndex = 0;
+    ServerPacket_WriteByte(packet, PACKET_PLAYER_IMPULSE);
+    ServerPacket_WriteInt(packet, (int)roundf(impulse.x * PLAYER_IMPULSE_SCALE));
+    ServerPacket_WriteInt(packet, (int)roundf(impulse.y * PLAYER_IMPULSE_SCALE));
+    ServerPacket_WriteInt(packet, (int)roundf(impulse.z * PLAYER_IMPULSE_SCALE));
     return packet;
 }
 

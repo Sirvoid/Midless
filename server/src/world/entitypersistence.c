@@ -20,8 +20,12 @@ typedef struct SavedEntity {
     float age, pickupDelay;
     Metadata metadata;
     char model[65];
+    char texture[65];
+    bool hasTexture;
     uint16_t heldBlock;
     Nametag nametag;
+    bool hasHP;
+    uint16_t hp;
 } SavedEntity;
 
 static bool ChunkEntity(const Entity *entity) {
@@ -128,6 +132,16 @@ static bool ReadRecords(const Chunk *chunk, SavedEntity **records, int *count) {
             if (visible > 1 || !isfinite(e->nametag.offset) || fabsf(e->nametag.offset) > 16 ||
                 strchr(e->nametag.text, '\n') || strchr(e->nametag.text, '\r')) return false;
         }
+        if (record.offset < record.size) {
+            int present = Binary_ReadU8(&record);
+            if (present > 1) return false;
+            e->hasHP = present;
+            e->hp = Binary_ReadU16(&record);
+        }
+        if (record.offset < record.size) {
+            e->hasTexture = true;
+            if (!ReadName(&record,e->texture)) return false;
+        }
         if (!Binary_End(&record) || !SamePosition(ChunkPosition(e->position), chunk->position) ||
             !EntityBody_Validate(&e->body)) return false;
     }
@@ -151,6 +165,8 @@ static void WriteRecord(BinaryWriter *out, int type, const SavedEntity *e) {
     Binary_U8(&record, e->nametag.color.r); Binary_U8(&record, e->nametag.color.g);
     Binary_U8(&record, e->nametag.color.b); Binary_U8(&record, e->nametag.color.a);
     Binary_U8(&record, e->nametag.visible); Binary_Float(&record, e->nametag.offset);
+    Binary_U8(&record,e->hasHP); Binary_U16(&record,e->hp);
+    if (e->hasTexture) WriteName(&record,e->texture);
     if (record.failed) out->failed = true;
     Binary_VarUInt(out, type); Binary_VarUInt(out, record.size); Binary_Write(out, record.data, record.size);
     free(record.data);
@@ -234,6 +250,8 @@ bool EntityPersistence_Activate(Chunk *chunk) {
         e->position = saved->position; e->rotation = saved->rotation;
         e->body = saved->body; e->model = ModelId(saved->model); e->heldBlock = saved->heldBlock;
         e->nametag = saved->nametag;
+        if (saved->hasTexture) strcpy(e->texture,saved->texture);
+        if (saved->hasHP && e->maxHp) e->hp = saved->hp > e->maxHp ? e->maxHp : saved->hp;
         e->metadata = saved->metadata; saved->metadata = (Metadata){0};
         e->drop.stack = saved->stack; e->drop.age = saved->age; e->drop.pickupDelay = saved->pickupDelay;
         restored[restoredCount++] = id;
@@ -267,6 +285,9 @@ static bool Snapshot(const Chunk *chunk, BinaryWriter *out) {
         SavedEntity record = {.position = entity->position, .rotation = entity->rotation,
             .body = entity->body, .heldBlock = entity->heldBlock, .metadata = entity->metadata, .nametag = entity->nametag,
             .stack = entity->drop.stack, .age = entity->drop.age, .pickupDelay = entity->drop.pickupDelay};
+        record.hasHP = entity->maxHp > 0; record.hp = entity->hp;
+        record.hasTexture = true;
+        strcpy(record.texture,entity->texture);
         strcpy(record.name, names[types[pendingCount + i]]);
         if (entity->model) {
             if (!serverWorld.modelNames[entity->model][0]) { out->failed = true; break; }
@@ -283,7 +304,7 @@ void EntityPersistence_Unload(Chunk *chunk) {
         Entity *e = &serverWorld.entities[i];
         if (!Belongs(e, chunk) || e->pendingRemoval) continue;
         // Unloading is not a gameplay removal: no on_remove, drops, or respawns.
-        LuaEntities_Detach(e);
+        LuaEntities_Unload(e);
         if (e->type == ENTITY_TYPE_DROPPED_ITEM) ServerDrops_Remove(e);
         else if (e->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(e), -1);
         Metadata_Free(&e->metadata);

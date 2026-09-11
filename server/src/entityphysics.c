@@ -1,6 +1,8 @@
 #include "blockstates.h"
 #include <math.h>
 #include "entityphysics.h"
+#include "mobs.h"
+#include "scripting/luamobs.h"
 #include "world/world.h"
 
 #define SPATIAL_BUCKETS 2048
@@ -71,6 +73,7 @@ bool ServerPhysics_SetBody(Entity *entity, EntityBody body) {
         fabsf(entity->position.x) > 1000000 || fabsf(entity->position.y) > 1000000 || fabsf(entity->position.z) > 1000000)) return false;
     body.grounded = body.sleeping = body.blockedByUnloaded = false;
     entity->body = body;
+    entity->moveEnabled = entity->recovering = false;
     indexDirty = true;
     return true;
 }
@@ -82,13 +85,58 @@ bool ServerPhysics_SetVelocity(Entity *entity, Vector3 velocity) {
     if (!EntityBody_Validate(&body)) return false;
     body.sleeping = body.grounded = body.blockedByUnloaded = false;
     entity->body = body;
+    entity->moveEnabled = false;
+    entity->recovering = false;
     return true;
 }
 
 bool ServerPhysics_ApplyImpulse(Entity *entity, Vector3 impulse) {
     if (!entity) return false;
+    if (impulse.x == 0 && impulse.y == 0 && impulse.z == 0)
+        return entity->ownerPlayerId < 0 && entity->body.enabled;
     Vector3 velocity = entity->body.velocity;
-    return ServerPhysics_SetVelocity(entity, (Vector3){velocity.x + impulse.x, velocity.y + impulse.y, velocity.z + impulse.z});
+    bool moving = entity->moveEnabled;
+    if (!ServerPhysics_SetVelocity(entity, (Vector3){velocity.x + impulse.x, velocity.y + impulse.y, velocity.z + impulse.z})) return false;
+    entity->moveEnabled = moving;
+    if (impulse.x != 0 || impulse.y != 0 || impulse.z != 0) entity->recovering = true;
+    return true;
+}
+
+bool ServerPhysics_Move(Entity *entity, Vector3 direction, float speed, float acceleration) {
+    if (!entity || entity->ownerPlayerId >= 0 || !entity->body.enabled || !isfinite(speed) || speed < 0 || speed > 20 ||
+        !isfinite(acceleration) || acceleration <= 0 || acceleration > 100 ||
+        !isfinite(direction.x) || !isfinite(direction.z) || fabsf(direction.x)>1000000 || fabsf(direction.z)>1000000) return false;
+    float length = hypotf(direction.x,direction.z);
+    entity->moveVelocity = length > 0 ? (Vector3){direction.x/length*speed,0,direction.z/length*speed} : (Vector3){0};
+    entity->move3D = false;
+    entity->moveAcceleration = acceleration;
+    entity->moveEnabled = true;
+    return true;
+}
+bool ServerPhysics_Jump(Entity *entity, float speed) {
+    if (!entity || entity->ownerPlayerId >= 0 || !entity->body.enabled || entity->recovering ||
+        !entity->body.grounded || !isfinite(speed) || speed <= 0 || speed > 20) return false;
+    entity->body.velocity.y = speed;
+    entity->body.grounded = entity->body.sleeping = false;
+    return true;
+}
+static void Steer(Entity *entity) {
+    EntityBody *body = &entity->body;
+    if (entity->recovering) {
+        // Protect the airborne arc, then let acceleration blend back into
+        // walking on landing instead of waiting for friction to stop the mob.
+        if (!body->grounded) return;
+        entity->recovering = false;
+    }
+    if (!entity->moveEnabled) return;
+    float x = entity->moveVelocity.x-body->velocity.x, z = entity->moveVelocity.z-body->velocity.z;
+    float y = entity->move3D ? entity->moveVelocity.y-body->velocity.y : 0;
+    float distance = sqrtf(x*x+y*y+z*z), change = entity->moveAcceleration*PHYSICS_STEP;
+    if (distance <= 0.00001f) return;
+    float scale = fminf(1,change/distance);
+    body->velocity.x += x*scale; body->velocity.z += z*scale;
+    if (entity->move3D) body->velocity.y += y*scale;
+    body->sleeping = false;
 }
 
 static bool QueryBlock(void *context, Vector3 cell, BlockShape *shape) {
@@ -102,14 +150,19 @@ static bool QueryBlock(void *context, Vector3 cell, BlockShape *shape) {
 
 void ServerPhysics_Update(float dt) {
     if (!isfinite(dt) || dt <= 0 || !serverWorld.entities) return;
+    ServerMobs_BeginTick();
     accumulator += fminf(dt, 0.1f);
     int steps = 0;
     while (accumulator >= PHYSICS_STEP && steps++ < 6) {
         accumulator -= PHYSICS_STEP;
         for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
             Entity *entity = &serverWorld.entities[id];
-            if (!entity->active || entity->pendingRemoval || entity->ownerPlayerId >= 0 || !entity->body.enabled) continue;
+            if (!entity->active || entity->pendingRemoval || entity->ownerPlayerId >= 0) continue;
+            if (entity->recovering && entity->body.grounded) entity->recovering = false;
+            LuaMobs_Physics(entity,PHYSICS_STEP);
+            if (!entity->active || entity->pendingRemoval || !entity->body.enabled) continue;
             Vector3 previous = entity->position;
+            Steer(entity);
             EntityBody_Step(&entity->body, &entity->position, PHYSICS_STEP, QueryBlock, NULL);
             if (previous.x != entity->position.x || previous.y != entity->position.y || previous.z != entity->position.z) {
                 entity->dirty = true;

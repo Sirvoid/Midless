@@ -32,6 +32,7 @@ typedef struct Entity{
     unsigned short heldBlock;
     char type;
     unsigned char modelId;
+    unsigned short textureOverride; // Zero = model default; otherwise texture ID + 1.
     Vector3 position;
     Vector3 rotation; // XYZ Euler radians: X pitch, Y yaw, Z roll.
     Vector3 targetPosition;

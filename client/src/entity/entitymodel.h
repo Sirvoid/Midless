@@ -47,6 +47,8 @@ bool EntityModel_ApplyDefinition(int id, const ModelDefinition *definition);
 void EntityModel_RemoveDefinition(int id);
 void EntityModel_ResetDefinitions(void);
 void EntityModel_SetEntityModel(int entityId, int modelId);
+void EntityModel_SetEntityTexture(int entityId, int texture);
+void EntityModel_CreateTextured(EntityModel *model, int modelId, int texture);
 void EntityModelDefinitions_Shutdown(void);
 void EntityModel_Create(EntityModel *model, EntityModelDefinition modelDef);
 void EntityModel_Unload(EntityModel *model);

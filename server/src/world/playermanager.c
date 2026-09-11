@@ -1,5 +1,6 @@
 #include <limits.h>
 #include <stddef.h>
+#include <string.h>
 #include "world.h"
 #include "../player.h"
 #include "../droppeditems.h"
@@ -35,6 +36,7 @@ void ServerWorld_AddPlayer(void *player) {
         int entityId = ServerWorld_AddEntity(1, 0, position, i);
         if (entityId < 0) return;
         newPlayer->entityId = entityId;
+        strcpy(serverWorld.entities[entityId].texture,newPlayer->texture);
         TextColor_Escape(serverWorld.entities[entityId].nametag.text, newPlayer->name);
         serverWorld.players[i] = newPlayer;
         newPlayer->id = i;

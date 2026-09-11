@@ -40,10 +40,14 @@ typedef struct Player {
     uint32_t nextInventorySession;
     bool inventoryLoaded, leaveInvoked;
     bool movementReady, falling;
+    Vector3 impulseAllowance; // Extra horizontal/up/down distance, consumed by accepted moves.
+    double impulseExpires;
     double movementTime;
+    double nextMeleeAttack;
     float horizontalAllowance, upAllowance, downAllowance, fallPeak;
     unsigned char id;
     int entityId;
+    char texture[65];
     uint32_t textureSent[TEXTURE_LIMIT], textureRevision, textureOffset;
     int textureId;
     bool textureWaiting;
@@ -63,6 +67,7 @@ Player *ServerPlayer_Create(void *peer, bool isWeb);
 void ServerPlayer_Destroy(Player *player);
 void ServerPlayer_UpdatePositionRotation(Player* player, Vector3 position, Vector3 rotation);
 void ServerPlayer_ResetMovement(Player *player);
+bool ServerPlayer_ApplyImpulse(Player *player, Vector3 impulse);
 bool ServerPlayer_FindSpawnPoint(Vector3 *position);
 void ServerPlayer_LoadChunks(Player* player);
 void ServerPlayer_Teleport(Player *player, Vector3 position);

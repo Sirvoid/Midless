@@ -80,6 +80,8 @@ bool ServerInventory_Save(Player *player) {
     Binary_Float(&out, player->savedPosition.x);
     Binary_Float(&out, player->savedPosition.y);
     Binary_Float(&out, player->savedPosition.z);
+    size_t textureLength = strlen(player->texture);
+    Binary_U8(&out,textureLength); Binary_Write(&out,player->texture,textureLength);
     bool ok = !out.failed && SaveFile_WriteAtomic(path, out.data, out.size);
     free(out.data);
     if (!ok) TraceLog(LOG_ERROR, "Could not save player inventory %s; original file retained", path);
@@ -149,6 +151,13 @@ static bool DecodePlayer(Player *player, const uint8_t *data, size_t size) {
     savedPosition.z = Binary_ReadFloat(&in);
     if (hasSavedPosition > 1 || !isfinite(savedPosition.x) || !isfinite(savedPosition.y) || !isfinite(savedPosition.z) ||
         fabsf(savedPosition.x) > 1000000 || fabsf(savedPosition.y) > 1000000 || fabsf(savedPosition.z) > 1000000) return false;
+    char texture[65] = {0};
+    if (in.offset < in.size) {
+        int length = Binary_ReadU8(&in);
+        const uint8_t *name = Binary_Read(&in,length);
+        if (in.failed || length>64 || (length && memchr(name,0,length))) return false;
+        if (length) memcpy(texture,name,length);
+    }
     if (!Binary_End(&in)) return false;
     // Copy only after the whole file passes validation. Unknown mod payloads are retained.
     for (int i=0;i<metadataCount;i++) {
@@ -162,6 +171,7 @@ static bool DecodePlayer(Player *player, const uint8_t *data, size_t size) {
     memcpy(player->metadata,metadata,sizeof(metadata)); player->metadataCount=metadataCount;
     inventory.open = inventory.cursor.count != 0;
     player->inventory = inventory;
+    strcpy(player->texture,texture);
     player->spawnPoint = spawnPoint;
     player->savedPosition = savedPosition;
     player->hasSavedPosition = hasSavedPosition != 0;

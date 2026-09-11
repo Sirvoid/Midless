@@ -9,6 +9,9 @@
 #define MIDLESS_SERVER_LUA_BINDINGS_H
 #include <stdbool.h>
 #include "raylib.h"
+#include "minilua.h"
+struct Entity;
+struct Entity *LuaBindings_TestPlayerEntity(lua_State *state, int index);
 struct Player;
 void LuaBindings_PushPlayer(struct Player *player);
 bool LuaBindings_InteractBlock(struct Player *player, Vector3 position, int blockId);

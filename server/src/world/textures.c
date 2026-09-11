@@ -83,6 +83,10 @@ bool ServerTextures_Define(const char *name, const char *path) {
     MemFree(t->data);
     t->data=data; t->size=size; t->width=width; t->height=height; t->revision++;
     strcpy(t->name,name);
+    if (serverWorld.entities) for (int i=0; i<WORLD_MAX_ENTITIES; i++) {
+        Entity *e = &serverWorld.entities[i];
+        if (e->active && !strcmp(e->texture,name)) e->textureDirty = true;
+    }
     return true;
 }
 void ServerTextures_SendTerrain(Player *p) {

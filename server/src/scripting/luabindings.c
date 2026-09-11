@@ -1,8 +1,13 @@
 #include "blockstates.h"
+#include "luaqueries.h"
+#include "luamobs.h"
+#include "luadamage.h"
+#include "../spawnmanager.h"
 #include "luaitemactions.h"
 #include "../serverinventory.h"
 #include "../hudbars.h"
 #include "../textcolors.h"
+#include "../entitytexture.h"
 #include "luadigging.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
@@ -314,6 +319,30 @@ static int LuaBindings_DefineEntityModel(void) {
     int id = LuaModels_Resolve(1, true);
     Lua_CheckTable(2);
     ModelDefinition d = {0};
+    lua_getfield(L,2,"base");
+    if (!lua_isnil(L,-1)) {
+        int base = LuaModels_Resolve(-1,false);
+        if (base && !serverWorld.modelDefinitions[base]) return Lua_Error("base model is not defined");
+        d = base ? *serverWorld.modelDefinitions[base] : ModelDefinition_Humanoid();
+        lua_pop(L,1);
+        lua_getfield(L,2,"parts");
+        if (!lua_isnil(L,-1)) return Lua_Error("model variants cannot also specify parts");
+        lua_pop(L,1);
+        lua_getfield(L,2,"texture");
+        if (!lua_isnil(L,-1)) {
+            int texture = ServerTextures_Find(luaL_checkstring(L,-1));
+            if (texture<0) return Lua_Error("texture is not defined");
+            d.texture = texture;
+        }
+        lua_pop(L,1);
+        lua_getfield(L,2,"name");
+        if (!lua_isnil(L,-1)) Lua_CopyString(-1,d.name,sizeof(d.name));
+        lua_pop(L,1);
+        if (!ServerWorld_DefineEntityModel(id,&d)) return Lua_Error("invalid model variant");
+        LuaModels_BindName(1,id);
+        return 0;
+    }
+    lua_pop(L,1);
     Lua_PushField(2, "name"); Lua_CopyString(-1, d.name, sizeof(d.name)); Lua_Pop();
     Lua_PushField(2, "texture");
     const char *texture = Lua_GetString(-1);
@@ -383,6 +412,18 @@ typedef struct LuaPlayerHandle {
     int id;
     uint64_t connectionId;
 } LuaPlayerHandle;
+
+Entity *LuaBindings_TestPlayerEntity(lua_State *state, int index) {
+    LuaPlayerHandle *h = luaL_testudata(state,index,LUA_PLAYER_TYPE);
+    Player *p = h && serverWorld.players && h->id>=0 && h->id<WORLD_MAX_PLAYERS ? serverWorld.players[h->id] : NULL;
+    if (!p || p->disconnected || !p->movementReady || p->connectionId!=h->connectionId ||
+        !serverWorld.entities || p->entityId<0 || p->entityId>=WORLD_MAX_ENTITIES) return NULL;
+    Entity *e = &serverWorld.entities[p->entityId];
+    return e->active && !e->pendingRemoval && e->ownerPlayerId==p->id ? e : NULL;
+}
+static int IsPlayerValid(void) {
+    lua_pushboolean(L,LuaBindings_TestPlayerEntity(L,1)!=NULL); return 1;
+}
 
 void LuaBindings_PushPlayer(Player *player) {
     if (!player || (player->disconnected && player != luaLeavingPlayer)) {
@@ -611,6 +652,37 @@ static int SetPlayerHP(void) {
     lua_settop(L,1); lua_pushliteral(L,"midless:hp"); lua_pushinteger(L,hp);
     return LuaMetadata_Player(L,player,true,false);
 }
+static int DamagePlayer(void) {
+    Player *player = LuaBindings_CheckPlayer();
+    Entity *entity = LuaBindings_CheckPlayerEntity();
+    lua_Integer amount = luaL_checkinteger(L,2);
+    if (amount<0 || amount>65535) return luaL_error(L,"damage must be 0..65535");
+    if (lua_isnoneornil(L,3)) { lua_settop(L,2); lua_newtable(L); }
+    luaL_checktype(L,3,LUA_TTABLE);
+    Vector3 impulse = LuaDamage_Impulse(L,3,entity);
+    if (entity->damageBusy || !amount) { lua_pushinteger(L,0); return 1; }
+    lua_pushcfunction(L,(lua_CFunction)GetPlayerHP); lua_pushvalue(L,1); lua_call(L,1,1);
+    lua_Integer hp = lua_tointeger(L,-1);
+    lua_pop(L,1);
+    if (hp<=0) { lua_pushinteger(L,0); return 1; }
+    entity->damageBusy = true;
+    amount = LuaDamage_PlayerHooks(entity,3,amount);
+    // Hooks may change health or teleport; reread before committing damage.
+    lua_pushcfunction(L,(lua_CFunction)GetPlayerHP); lua_pushvalue(L,1); lua_call(L,1,1);
+    hp = lua_tointeger(L,-1); lua_pop(L,1);
+    if (amount>hp) amount=hp;
+    if (amount>0) {
+        ServerPlayer_ApplyImpulse(player,impulse);
+        // HP notifications may respawn the player. Send the impulse first.
+        lua_pushcfunction(L,(lua_CFunction)SetPlayerHP); lua_pushvalue(L,1); lua_pushinteger(L,hp-amount);
+        if (lua_pcall(L,2,0,0)!=LUA_OK) {
+            entity->damageBusy = false;
+            return lua_error(L);
+        }
+    }
+    entity->damageBusy = false;
+    lua_pushinteger(L,amount); return 1;
+}
 static int GetPlayerSpawnPoint(void) {
     LuaBindings_PushPosition(LuaBindings_CheckPlayer()->spawnPoint);
     return 1;
@@ -625,8 +697,30 @@ static int SetPlayerSpawnPoint(void) {
     return 0;
 }
 static int SetPlayerNametag(void) { return ServerNametag_Set(L, LuaBindings_CheckPlayerEntity()); }
+static int SetPlayerTexture(void) { return ServerEntityTexture_Set(L,LuaBindings_CheckPlayerEntity()); }
+static int GetPlayerTexture(void) { return ServerEntityTexture_Get(L,LuaBindings_CheckPlayerEntity()); }
 static int SetPlayerHudBar(void) { return ServerHudBars_Set(LuaBindings_CheckPlayer()); }
+static int ApplyPlayerImpulse(void) {
+    Player *player = LuaBindings_CheckPlayer();
+    luaL_checktype(L, 2, LUA_TTABLE);
+    Vector3 impulse;
+    float *components[] = {&impulse.x, &impulse.y, &impulse.z};
+    const char *names[] = {"x", "y", "z"};
+    for (int i = 0; i < 3; i++) {
+        lua_getfield(L, 2, names[i]);
+        double value = luaL_checknumber(L, -1);
+        if (!isfinite(value) || fabs(value) > 20) return luaL_error(L, "player impulse components must be finite and within -20 to 20 blocks/s");
+        *components[i] = value;
+        lua_pop(L, 1);
+    }
+    if (!ServerPlayer_ApplyImpulse(player, impulse)) return luaL_error(L, "player is not ready to receive an impulse");
+    return 0;
+}
 static const struct LuaMethod playerLib[] = {
+    {"set_texture", SetPlayerTexture}, {"get_texture", GetPlayerTexture},
+    {"is_valid", IsPlayerValid},
+    {"damage", DamagePlayer},
+    {"apply_impulse", ApplyPlayerImpulse},
     {"set_hud_bar", SetPlayerHudBar},
     {"set_nametag", SetPlayerNametag},
     {"get_hp", GetPlayerHP},
@@ -690,6 +784,7 @@ void LuaBindings_InvokePlayerClick(int playerId, int button) {
         playerId >= WORLD_MAX_PLAYERS || button < 0 || button > 1) return;
     Player *player = serverWorld.players[playerId];
     if (!player || player->disconnected) return;
+    if (button == 0) LuaQueries_Attack(player);
     int count = arrlen(luaPlayerClickCallbacks);
     for (int i = 0; i < count; i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaPlayerClickCallbacks[i]);
@@ -719,6 +814,15 @@ static int LuaBindings_SetTerrainTexture(void) {
     return 0;
 }
 static const struct LuaMethod midlessLib[] = {
+    {"raycast", LuaQueries_Raycast},
+    {"get_entities_in_radius", LuaQueries_Entities},
+    {"get_players_in_radius", LuaQueries_Players},
+    {"get_player_in_radius", LuaQueries_NearestPlayer},
+    {"register_on_player_damage", LuaDamage_RegisterPlayer},
+    {"find_path", LuaQueries_FindPath},
+    {"register_mob", LuaMobs_Register},
+    {"can_walk_to", LuaQueries_CanWalk},
+    {"register_on_player_attack", LuaQueries_RegisterAttack},
     {"define_player_inventory", LuaInventory_Define},
     {"define_player_inventory_screen", LuaInventory_DefineScreen},
     {"define_recipe", Crafting_Register},
@@ -736,6 +840,7 @@ static const struct LuaMethod midlessLib[] = {
     {"set_terrain_texture", LuaBindings_SetTerrainTexture},
     {"define_entity", LuaEntities_Register},
     {"spawn_entity", LuaEntities_Spawn},
+    {"register_spawn", LuaSpawning_Register},
     {"get_player_by_id", LuaBindings_GetPlayerById},
     {"get_player_by_name", LuaBindings_GetPlayerByName},
     {"get_players", LuaBindings_ListPlayers},
@@ -817,6 +922,9 @@ void LuaBindings_Init(void) {
 }
 
 void LuaBindings_Shutdown(void) {
+    LuaDamage_Reset();
+    LuaMobs_Reset();
+    LuaQueries_Reset();
     ServerTextColors_Reset();
     ServerHudBars_Reset();
     LuaDigging_Shutdown();
@@ -828,6 +936,7 @@ void LuaBindings_Shutdown(void) {
         Lua_Unref(Lua_GetRegistryIndex(), luaPlayerClickCallbacks[i]);
     arrfree(luaPlayerClickCallbacks);
     luaPlayerClickCallbacks = NULL;
+    ServerSpawning_Reset();
     LuaEntities_Shutdown();
     LuaMetadata_Shutdown();
     arrfree(luaJoinCallbacks);

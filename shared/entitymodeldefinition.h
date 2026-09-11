@@ -24,4 +24,5 @@ typedef struct ModelDefinition {
     ModelPartDefinition parts[ENTITY_MODEL_MAX_PARTS];
 } ModelDefinition;
 bool ModelDefinition_Validate(int id, const ModelDefinition *definition);
+ModelDefinition ModelDefinition_Humanoid(void);
 #endif

@@ -9,6 +9,7 @@
 #define MIDLESS_CLIENT_PACKET_H
 
 #include "packetsizes.h"
+#include "playerimpulse.h"
 #include <stdint.h>
 
 #include "player.h"
@@ -41,8 +42,10 @@ void Packet_HandleMapInit(void);
 void Packet_HandleLoadChunk(void);
 void Packet_HandleSetBlock(void);
 void Packet_HandleSpawnEntity(void);
+void Packet_HandleEntityTexture(void);
 void Packet_HandleTextColor(void);
 void Packet_HandleNametag(void);
+void Packet_HandlePlayerImpulse(void);
 void Packet_HandleTeleportEntity(void);
 void Packet_HandleMessage(void);
 void Packet_HandleDespawnEntity(void);

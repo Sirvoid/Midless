@@ -74,6 +74,7 @@ unsigned char* ServerPacket_CreateTeleportEntity(Entity *entity, Vector3 positio
 unsigned char* ServerPacket_CreateMessage(const char* message);
 unsigned char* ServerPacket_CreateMessageContinuation(const char* message);
 unsigned char* ServerPacket_CreateWorldTime(float timeSeconds);
+unsigned char *ServerPacket_CreatePlayerImpulse(Vector3 impulse);
 unsigned char* ServerPacket_CreateEntityAnimation(unsigned short entityId, EntityAnimationType animation);
 
 

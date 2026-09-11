@@ -1,5 +1,6 @@
 #include <math.h>
 #include <limits.h>
+#include "playerimpulse.h"
 #include "player.h"
 #include "packet.h"
 #include "networkhandler.h"
@@ -21,6 +22,8 @@
 #define GROUND_TOLERANCE 0.15f
 
 void ServerPlayer_ResetMovement(Player *player) {
+    player->impulseAllowance = (Vector3){0};
+    player->impulseExpires = 0;
     player->movementTime = GetTime();
     player->horizontalAllowance = PLAYER_HORIZONTAL_ALLOWANCE;
     player->upAllowance = PLAYER_UP_ALLOWANCE;
@@ -28,6 +31,25 @@ void ServerPlayer_ResetMovement(Player *player) {
     player->fallPeak = serverWorld.entities[player->entityId].position.y;
     player->falling = false;
     player->movementReady = true;
+}
+
+bool ServerPlayer_ApplyImpulse(Player *player, Vector3 impulse) {
+    if (!player || player->disconnected || !player->movementReady || !PlayerImpulse_Valid(impulse) ||
+        !serverWorld.entities || player->entityId < 0 || player->entityId >= WORLD_MAX_ENTITIES ||
+        !serverWorld.entities[player->entityId].active) return false;
+    if (impulse.x == 0 && impulse.y == 0 && impulse.z == 0) return true;
+    unsigned char *packet = ServerPacket_CreatePlayerImpulse(impulse);
+    if (!packet) return false;
+    double now = GetTime();
+    if (now >= player->impulseExpires) player->impulseAllowance = (Vector3){0};
+    // Bounded, expiring distance credit for movement caused by the server.
+    // Ordinary movement limits and collision checks remain in force.
+    player->impulseAllowance.x = fminf(90, player->impulseAllowance.x + hypotf(impulse.x, impulse.z) * PLAYER_IMPULSE_WINDOW);
+    player->impulseAllowance.y = fminf(90, player->impulseAllowance.y + fmaxf(0, impulse.y) * PLAYER_IMPULSE_WINDOW);
+    player->impulseAllowance.z = fminf(90, player->impulseAllowance.z + fmaxf(0, -impulse.y) * PLAYER_IMPULSE_WINDOW);
+    player->impulseExpires = now + PLAYER_IMPULSE_WINDOW;
+    ServerNetwork_Send(player, packet);
+    return true;
 }
 
 static bool GetShape(int x, int y, int z, BlockShape *shape) {
@@ -150,6 +172,7 @@ void ServerPlayer_UpdatePositionRotation(Player *player, Vector3 position, Vecto
     Vector3 previous = serverWorld.entities[player->entityId].position;
     double now = GetTime();
     float elapsed = fmax(0, now - player->movementTime);
+    if (now >= player->impulseExpires) player->impulseAllowance = (Vector3){0};
     player->movementTime = now;
     player->horizontalAllowance = fminf(PLAYER_HORIZONTAL_ALLOWANCE, player->horizontalAllowance + elapsed * PLAYER_HORIZONTAL_SPEED);
     player->upAllowance = fminf(PLAYER_UP_ALLOWANCE, player->upAllowance + elapsed * PLAYER_UP_SPEED);
@@ -158,7 +181,9 @@ void ServerPlayer_UpdatePositionRotation(Player *player, Vector3 position, Vecto
     float horizontal = sqrtf(delta.x * delta.x + delta.z * delta.z);
     if (!isfinite(position.x) || !isfinite(position.y) || !isfinite(position.z) ||
         fabsf(position.x) > 1000000 || fabsf(position.y) > 1000000 || fabsf(position.z) > 1000000 ||
-        horizontal > player->horizontalAllowance || delta.y > player->upAllowance || -delta.y > player->downAllowance) {
+        horizontal > player->horizontalAllowance + player->impulseAllowance.x ||
+        delta.y > player->upAllowance + player->impulseAllowance.y ||
+        -delta.y > player->downAllowance + player->impulseAllowance.z) {
         CorrectPosition(player);
         return;
     }
@@ -182,9 +207,12 @@ void ServerPlayer_UpdatePositionRotation(Player *player, Vector3 position, Vecto
         return;
     }
 
-    player->horizontalAllowance -= horizontal;
-    player->upAllowance -= fmaxf(0, delta.y);
-    player->downAllowance -= fmaxf(0, -delta.y);
+    player->impulseAllowance.x -= fmaxf(0, horizontal - player->horizontalAllowance);
+    player->impulseAllowance.y -= fmaxf(0, delta.y - player->upAllowance);
+    player->impulseAllowance.z -= fmaxf(0, -delta.y - player->downAllowance);
+    player->horizontalAllowance = fmaxf(0, player->horizontalAllowance - horizontal);
+    player->upAllowance = fmaxf(0, player->upAllowance - fmaxf(0, delta.y));
+    player->downAllowance = fmaxf(0, player->downAllowance - fmaxf(0, -delta.y));
     ServerWorld_TeleportEntity(player->entityId, position, rotation);
     float ground = position.y;
     bool grounded = delta.y <= 0 && FindGround(position, &ground);

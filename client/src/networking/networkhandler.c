@@ -89,6 +89,8 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleRemoveHudBar, HUD_BAR_REMOVE_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleTextColor, TEXT_COLOR_PACKET_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleNametag, NAMETAG_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandlePlayerImpulse, PLAYER_IMPULSE_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleEntityTexture, SET_ENTITY_TEXTURE_PACKET_SIZE};
 }
 
 void Network_Connect(void) {
