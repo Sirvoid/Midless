@@ -29,6 +29,7 @@ typedef struct World{
     struct PendingWorldBlock *pendingBlocks;
     struct GeneratedBlockUpdate *generatedBlockUpdates;
     int maxDrawDistance;
+    int maxPlayers;
     float time;
 } World;
 

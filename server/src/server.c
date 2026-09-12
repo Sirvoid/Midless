@@ -14,11 +14,11 @@
 #include "stb_ds.h"
 #include "server.h"
 #include "networkhandler.h"
+#include "serverconfig.h"
 
 struct Player;
 struct Player *ServerPlayer_Create(void *peer, bool isWeb);
 
-#define MAX_CLIENTS 64
 
 typedef struct ServerOutgoingPacket {
     ENetPeer *peer;
@@ -73,9 +73,13 @@ void Server_Do(int *state) {
     enet_initialize();
     ENetAddress address = {0};
     address.host = ENET_HOST_ANY;
-    address.port = 25565;
+    address.port = serverConfig.port;
 
-    ENetHost * server = enet_host_create(&address, MAX_CLIENTS, 1, 0, 0);
+    ENetHost * server = enet_host_create(&address, serverConfig.maxPlayers, 1, 0, 0);
+    if (!server) {
+        fprintf(stderr, "Cannot start server on port %d\n", serverConfig.port);
+        return;
+    }
     ENetEvent event;
     
     while (*state != -1) {

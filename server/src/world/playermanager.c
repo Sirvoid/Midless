@@ -38,7 +38,7 @@ void ServerPlayerManager_Shutdown(void) {
 void ServerWorld_AddPlayer(void *player) {
     Player *newPlayer = player;
 
-    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+    for (int i = 0; i < serverWorld.maxPlayers; i++) {
         if (serverWorld.players[i] != NULL) continue;
         Vector3 position = newPlayer->hasSavedPosition ? newPlayer->savedPosition : newPlayer->spawnPoint;
         int entityId = ServerWorld_AddEntity(1, 0, position, i);

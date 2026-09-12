@@ -24,9 +24,11 @@
 #include "runtimepaths.h"
 #include "platform.h"
 #include "servertiming.h"
+#include "serverconfig.h"
 
 int main(void) {
     if (!RuntimePaths_Init()) return 1;
+    if (!ServerConfig_Load("server.cfg")) return 1;
     Platform_BeginTiming();
 
     #if !defined(SERVER_HEADLESS)
@@ -43,6 +45,8 @@ int main(void) {
     ScriptHooks_Init();
 
     ServerWorld_Init();
+    serverWorld.maxPlayers = serverConfig.maxPlayers;
+    serverWorld.maxDrawDistance = serverConfig.maxRenderDistance;
     ServerNetwork_Init();
     if (!ScriptRuntime_Run()) {
         ServerNetwork_Shutdown();

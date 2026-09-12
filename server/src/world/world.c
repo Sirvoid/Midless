@@ -74,6 +74,7 @@ void ServerWorld_Init(void) {
     serverWorld.entities = MemAlloc(sizeof(Entity) * WORLD_MAX_ENTITIES);
     memset(serverWorld.entities, 0, sizeof(Entity) * WORLD_MAX_ENTITIES);
     serverWorld.maxDrawDistance = 32;
+    serverWorld.maxPlayers = WORLD_MAX_PLAYERS;
 
     lastUpdateMilliseconds = GetTimeMilliseconds();
     lastTimeSyncMilliseconds = lastUpdateMilliseconds;

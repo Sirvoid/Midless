@@ -189,6 +189,13 @@ void ServerPacket_WriteArray(unsigned char* packet, unsigned char* array, int si
 
 void ServerPacket_HandleIdentification(void) {
     if(serverPacketPlayer->name != NULL) return;
+    int connectedPlayers = 0;
+    for (int i = 0; i < WORLD_MAX_PLAYERS; i++)
+        if (serverWorld.players[i]) connectedPlayers++;
+    if (connectedPlayers >= serverWorld.maxPlayers) {
+        ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateMessage("Server is full."));
+        return;
+    }
     int protocolVersion = ServerPacket_ReadUShort();
     if (protocolVersion != GAME_PROTOCOL_VERSION) {
         ServerLogger_Log("Rejected incompatible protocol version.\n");
@@ -562,4 +569,3 @@ unsigned char *ServerPacket_CreateDroppedItem(Entity *entity) {
     memcpy(packet + 21, entity->drop.stack.metadata, ITEM_METADATA_BYTES);
     return packet;
 }
-

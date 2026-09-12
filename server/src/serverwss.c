@@ -22,6 +22,7 @@
 #include "serverwss.h"
 #include "networkhandler.h"
 #include "player.h"
+#include "serverconfig.h"
 
 struct mg_mgr eventManager;
 
@@ -74,7 +75,8 @@ static int ServerWss_GetConnectionsLength(void) {
 }
 
 void ServerWss_Init(void) {
-    const char *listenAddress = "ws://0.0.0.0:8088";
+    char listenAddress[64];
+    snprintf(listenAddress, sizeof(listenAddress), "ws://0.0.0.0:%d", serverConfig.port);
     mg_mgr_init(&eventManager);
     mg_http_listen(&eventManager, listenAddress, ServerWss_EventHandler, NULL);
 }

@@ -80,6 +80,7 @@ Player *ServerPlayer_Create(void *peer, bool isWeb) {
     player->connectionId = ++nextConnectionId;
     player->peer = peer;
     player->drawDistance = 3;
+    if (player->drawDistance > serverWorld.maxDrawDistance) player->drawDistance = serverWorld.maxDrawDistance;
     player->isWeb = isWeb;
     return player;
 }
