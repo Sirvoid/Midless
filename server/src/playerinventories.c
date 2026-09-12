@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #include "playerinventories.h"
 #include "player.h"
 #include <string.h>

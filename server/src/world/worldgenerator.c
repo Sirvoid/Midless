@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2022 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #if !defined(MIDLESS_FNL_EXTERNAL)
 #define FNL_IMPL
 #endif

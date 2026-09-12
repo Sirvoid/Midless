@@ -1,10 +1,17 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
+#include "luaplayers.h"
 #include "../digging.h"
 #include "luaitems.h"
 #include "minilua.h"
 extern lua_State *L;
 #include "luadigging.h"
 #include "luaengine.h"
-#include "luabindings.h"
 #include "luametadata.h"
 #include "../items.h"
 #include <math.h>
@@ -90,7 +97,7 @@ static bool Call(int arguments, int results) {
 double ScriptHooks_DiggingTime(Player *player, Vector3 position, ItemStack stack, double seconds) {
     for (int i = 0; i < callbackCount; i++) {
         lua_rawgeti(L, LUA_REGISTRYINDEX, callbacks[i]);
-        LuaBindings_PushPlayer(player);
+        LuaPlayers_Push(player);
         LuaMetadata_PushBlock(L, position);
         LuaItems_PushStack(L, stack);
         lua_pushnumber(L, seconds);
@@ -117,7 +124,7 @@ void ScriptHooks_DiggingFinished(Player *player, Vector3 position, ItemStack sta
     if (!stack.count || stack.itemId >= ITEM_LIMIT || finished[stack.itemId] < 0)
         return;
     lua_rawgeti(L, LUA_REGISTRYINDEX, finished[stack.itemId]);
-    LuaBindings_PushPlayer(player);
+    LuaPlayers_Push(player);
     LuaMetadata_PushBlock(L, position);
     LuaItems_PushStack(L, stack);
     Call(3, 0);

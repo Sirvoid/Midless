@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 "#version 100\n"
 "precision mediump float;"
 "varying vec4 fragColor;"

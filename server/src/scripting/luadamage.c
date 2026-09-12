@@ -1,6 +1,13 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
+#include "luaplayers.h"
 #include <math.h>
 #include "luadamage.h"
-#include "luabindings.h"
 #include "../world/world.h"
 
 extern lua_State *L;
@@ -17,7 +24,7 @@ Vector3 LuaDamage_Impulse(lua_State *state, int context, Entity *target) {
     if (!lua_isnil(state, -1)) {
         Entity *attacker = LuaEntities_Test(state, -1);
         if (!attacker)
-            attacker = LuaBindings_TestPlayerEntity(state, -1);
+            attacker = LuaPlayers_TestEntity(state, -1);
         if (attacker)
             direction = (Vector3){target->position.x - attacker->position.x, 0,
                                   target->position.z - attacker->position.z};
@@ -86,7 +93,7 @@ int LuaDamage_PlayerHooks(Entity *target, int context, int amount) {
     int count = playerCallbackCount;
     for (int i = 0; i < count && amount > 0; i++) {
         lua_rawgeti(L, LUA_REGISTRYINDEX, playerCallbacks[i]);
-        LuaBindings_PushPlayer(serverWorld.players[target->ownerPlayerId]);
+        LuaPlayers_Push(serverWorld.players[target->ownerPlayerId]);
         lua_pushinteger(L, amount);
         lua_pushvalue(L, context);
         if (lua_pcall(L, 3, 1, 0) != LUA_OK) {

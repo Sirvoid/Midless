@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #include "textureprotocol.h"
 #include <string.h>
 bool Texture_ValidatePNG(const unsigned char *data, int size, int *width, int *height) {

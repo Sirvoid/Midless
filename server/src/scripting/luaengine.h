@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021-2022 Sirvoid
+ * Copyright (c) 2021 Sirvoid
  *
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT
@@ -11,6 +11,11 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+
+typedef struct LuaMethod {
+    const char *name;
+    void *func;
+} LuaMethod;
 
 extern int luaRunning;
 void Lua_DefineObjectType(const char *name, const void *methods);

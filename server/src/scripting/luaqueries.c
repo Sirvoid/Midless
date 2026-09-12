@@ -1,8 +1,15 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
+#include "luaplayers.h"
 #include "../lighting.h"
 #include <math.h>
 #include "luaqueries.h"
 #include "luaentities.h"
-#include "luabindings.h"
 #include "luametadata.h"
 #include "../entityphysics.h"
 #include "../worldquery.h"
@@ -48,7 +55,7 @@ static void PushHit(WorldHit hit) {
             Player *player = serverWorld.players[e->ownerPlayerId];
             if (player && !player->disconnected) {
                 type = "player";
-                LuaBindings_PushPlayer(player);
+                LuaPlayers_Push(player);
                 lua_setfield(L, -2, "player");
             }
         } else {
@@ -118,7 +125,7 @@ static int Nearby(bool players) {
             Player *player = serverWorld.players[e->ownerPlayerId];
             if (!player || player->disconnected || !player->movementReady)
                 continue;
-            LuaBindings_PushPlayer(player);
+            LuaPlayers_Push(player);
         } else {
             if (e->ownerPlayerId >= 0 || e->definitionId < 0)
                 continue;
@@ -169,7 +176,7 @@ int LuaQueries_NearestPlayer(void) {
         double distance = x * x + y * y + z * z;
         if (distance > best || (nearest && distance == best))
             continue;
-        LuaBindings_PushPlayer(p);
+        LuaPlayers_Push(p);
         lua_getfield(L, -1, "get_hp");
         lua_pushvalue(L, -2);
         lua_call(L, 1, 1);
@@ -180,7 +187,7 @@ int LuaQueries_NearestPlayer(void) {
             best = distance;
         }
     }
-    LuaBindings_PushPlayer(nearest);
+    LuaPlayers_Push(nearest);
     return 1;
 }
 int LuaQueries_FindPath(void) {
@@ -234,7 +241,7 @@ void ScriptHooks_QueriesAttack(Player *player) {
                 break;
         }
         lua_rawgeti(L, LUA_REGISTRYINDEX, attackCallbacks[i]);
-        LuaBindings_PushPlayer(player);
+        LuaPlayers_Push(player);
         PushHit(hit);
         bool handled = false;
         if (lua_pcall(L, 2, 1, 0) != LUA_OK)

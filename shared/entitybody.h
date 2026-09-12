@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #ifndef MIDLESS_ENTITY_BODY_H
 #define MIDLESS_ENTITY_BODY_H
 #include "blockshape.h"

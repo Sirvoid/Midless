@@ -1,7 +1,14 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
+#include "luaplayers.h"
 #include "luaitems.h"
 #include "luaitemactions.h"
 #include "luaengine.h"
-#include "luabindings.h"
 #include "luaentities.h"
 #include "luametadata.h"
 #include "../items.h"
@@ -98,7 +105,7 @@ bool ScriptHooks_ItemActionsUse(Player *player, const InventoryAction *block, En
         return false;
     int top = lua_gettop(L);
     lua_rawgeti(L, LUA_REGISTRYINDEX, uses[stack.itemId]);
-    LuaBindings_PushPlayer(player);
+    LuaPlayers_Push(player);
     LuaItems_PushStack(L, stack);
     lua_createtable(L, 0, 3);
     lua_pushstring(L, entity ? "entity" : block ? "block" : "nothing");
@@ -127,7 +134,7 @@ void ScriptHooks_ItemActionsPlaced(Player *player, Vector3 position, int blockId
         return;
     int top = lua_gettop(L);
     lua_rawgeti(L, LUA_REGISTRYINDEX, placements[blockId]);
-    LuaBindings_PushPlayer(player);
+    LuaPlayers_Push(player);
     LuaMetadata_PushBlock(L, position);
     if (lua_pcall(L, 2, 0, 0) != LUA_OK)
         TraceLog(LOG_WARNING, "Block on_place: %s", lua_tostring(L, -1));
@@ -185,7 +192,7 @@ int ScriptHooks_ItemActionsDrops(Player *player, Vector3 position, int block, It
     int top = lua_gettop(L);
     lua_rawgeti(L, LUA_REGISTRYINDEX, drops[block]);
     if (lua_isfunction(L, -1)) {
-        LuaBindings_PushPlayer(player);
+        LuaPlayers_Push(player);
         LuaMetadata_PushBlock(L, position);
         LuaItems_PushStack(L, tool);
         if (lua_pcall(L, 3, 1, 0) != LUA_OK) {

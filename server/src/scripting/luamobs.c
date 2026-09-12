@@ -1,7 +1,14 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
+#include "luaplayers.h"
 #include <math.h>
 #include <string.h>
 #include "luamobs.h"
-#include "luabindings.h"
 #include "../mobs.h"
 #include "../entityphysics.h"
 #include "../worldquery.h"
@@ -59,7 +66,7 @@ static void PushTarget(Entity *e) {
     if (!e)
         lua_pushnil(L);
     else if (e->ownerPlayerId >= 0)
-        LuaBindings_PushPlayer(serverWorld.players[e->ownerPlayerId]);
+        LuaPlayers_Push(serverWorld.players[e->ownerPlayerId]);
     else
         LuaEntities_Push(e);
 }
@@ -92,7 +99,7 @@ static void ReadIntent(MobState *s) {
     if (!lua_isnil(L, -1)) {
         Entity *target = LuaEntities_Test(L, -1);
         if (!target)
-            target = LuaBindings_TestPlayerEntity(L, -1);
+            target = LuaPlayers_TestEntity(L, -1);
         if (target) {
             s->targetId = target->id;
             s->targetGeneration = target->generation;

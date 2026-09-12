@@ -1,7 +1,7 @@
 #include "version.h"
 #include "chunklightning.h"
 /**
- * Copyright (c) 2021-2022 Sirvoid
+ * Copyright (c) 2021 Sirvoid
  * 
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT

@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2022 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
 #include <stddef.h>
 #include <sys/time.h>
 #include "utils.h"

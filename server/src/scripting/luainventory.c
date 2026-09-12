@@ -1,7 +1,14 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
+#include "luaplayers.h"
 #include "luaitems.h"
 #include "luainventory.h"
 #include "luametadata.h"
-#include "luabindings.h"
 #include "../world/world.h"
 #include "../serverinventory.h"
 #include "../items.h"
@@ -289,7 +296,7 @@ int LuaInventory_DefineScreen(void) {
 static int BuildPlayerScreen(lua_State *state) {
     Player *p = lua_touserdata(state, 1);
     lua_rawgeti(state, LUA_REGISTRYINDEX, screenCallback);
-    LuaBindings_PushPlayer(p);
+    LuaPlayers_Push(p);
     lua_call(state, 1, 1);
     luaL_checktype(state, 2, LUA_TTABLE);
     lua_getfield(state, 2, "block");

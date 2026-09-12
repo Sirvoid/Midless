@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+
+#include "luaplayers.h"
 #include "../metadatainternal.h"
 #include "../scripthooks.h"
 #include "luaitems.h"
@@ -6,7 +14,6 @@
 #include "blockstates.h"
 #include "binarydata.h"
 #include "luaentities.h"
-#include "luabindings.h"
 #include "../items.h"
 #include "../world/world.h"
 #include <stdlib.h>
@@ -79,7 +86,7 @@ static void NotifyPlayer(Player *player, const char *key, int oldValue, int newV
                 continue;
             int top = lua_gettop(L);
             lua_rawgeti(L, LUA_REGISTRYINDEX, playerListeners[i].callback);
-            LuaBindings_PushPlayer(owner);
+            LuaPlayers_Push(owner);
             lua_rawgeti(L, LUA_REGISTRYINDEX, current.oldValue);
             lua_rawgeti(L, LUA_REGISTRYINDEX, current.newValue);
             if (lua_pcall(L, 3, 0, 0) != LUA_OK)
