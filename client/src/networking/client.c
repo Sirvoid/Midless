@@ -58,83 +58,106 @@ static void Client_ClearOutgoing(void) {
     pthread_mutex_unlock(&clientOutgoingMutex);
 }
 
-void *Client_Init(void *state) {
 
-    enet_initialize();
-    
-    networkClientSend = &Client_Send;
-    Client_Do((int*)state);
-    
-    enet_deinitialize();
-    
+static pthread_t clientThread;
+static pthread_mutex_t clientStateMutex = PTHREAD_MUTEX_INITIALIZER;
+static bool clientThreadCreated, clientFinished, clientStopRequested;
+
+static bool Client_Stopping(void) {
+    pthread_mutex_lock(&clientStateMutex);
+    bool stopping = clientStopRequested;
+    pthread_mutex_unlock(&clientStateMutex);
+    return stopping;
+}
+
+void Client_Stop(void) {
+    pthread_mutex_lock(&clientStateMutex);
+    clientStopRequested = true;
+    pthread_mutex_unlock(&clientStateMutex);
+}
+
+bool Client_IsBusy(void) {
+    if (!clientThreadCreated) return false;
+    pthread_mutex_lock(&clientStateMutex);
+    bool finished = clientFinished;
+    pthread_mutex_unlock(&clientStateMutex);
+    if (!finished) return true;
+    pthread_join(clientThread, NULL);
+    clientThreadCreated = false;
+    return false;
+}
+
+bool Client_Start(void) {
+    if (Client_IsBusy()) return false;
+    pthread_mutex_lock(&clientStateMutex);
+    clientStopRequested = clientFinished = false;
+    pthread_mutex_unlock(&clientStateMutex);
+    networkThreadState = 0;
+    if (pthread_create(&clientThread, NULL, Client_Init, NULL) != 0) return false;
+    clientThreadCreated = true;
+    return true;
+}
+
+void Client_Shutdown(void) {
+    Client_Stop();
+    if (clientThreadCreated) pthread_join(clientThread, NULL);
+    clientThreadCreated = false;
+}
+
+void *Client_Init(void *state) {
+    (void)state;
+    if (enet_initialize() != 0) Network_Disconnect();
+    else {
+        networkClientSend = &Client_Send;
+        Client_Do(NULL);
+        enet_deinitialize();
+    }
+    pthread_mutex_lock(&clientStateMutex);
+    clientFinished = true;
+    pthread_mutex_unlock(&clientStateMutex);
     return NULL;
 }
 
 void Client_Do(int *state) {
-    
-    ENetHost* client = { 0 };
-    client = enet_host_create(NULL, 1, 1, 0, 0);
-    if (client == NULL) {
-        puts("Couldn't create client.");
-        return;
-    }
-    
-    ENetAddress address = { 0 };
-    ENetEvent event = { 0 };
-    
-    enet_address_set_host(&address, networkIp);
+    (void)state;
+    ENetHost *client = enet_host_create(NULL, 1, 1, 0, 0);
+    if (!client) { Network_Disconnect(); return; }
+    ENetAddress address = {0};
+    ENetEvent event = {0};
+    bool connected = false;
+    if (enet_address_set_host(&address, networkIp) < 0 || Client_Stopping()) goto cleanup;
     address.port = networkPort;
     peer = enet_host_connect(client, &address, 1, 0);
+    if (!peer) goto cleanup;
     Network_Init();
-
-    if (enet_host_service(client, &event, CLIENT_TIMEOUT) > 0 &&
-        event.type == ENET_EVENT_TYPE_CONNECT) {
-        Network_Connect();
-        puts("Connection succeeded.");
-    } else {
-        enet_peer_reset(peer);
-        puts("Connection failed.");
-        Network_Disconnect();
-        return;
+    enet_uint32 started = enet_time_get();
+    while (!Client_Stopping() && enet_time_get() - started < CLIENT_TIMEOUT) {
+        int result = enet_host_service(client, &event, 50);
+        if (result < 0) break;
+        if (result > 0 && event.type == ENET_EVENT_TYPE_CONNECT) { connected = true; break; }
+        if (result > 0 && event.type == ENET_EVENT_TYPE_RECEIVE) enet_packet_destroy(event.packet);
     }
-
-    uint8_t disconnected = false;
-    
-    //read events
-    while (*state != -1) {
+    if (!connected || Client_Stopping()) goto cleanup;
+    // Serialize connection publication with cancellation so a late connect cannot
+    // restore the session after the main thread has returned to the menu.
+    pthread_mutex_lock(&clientStateMutex);
+    if (!clientStopRequested) Network_Connect();
+    pthread_mutex_unlock(&clientStateMutex);
+    while (!Client_Stopping()) {
         Client_FlushOutgoing(client);
-        while (enet_host_service(client, &event, 5) > 0) {
-            switch (event.type) {
-                case ENET_EVENT_TYPE_RECEIVE:
-                    Network_Receive((unsigned char*)event.packet->data, event.packet->dataLength);
-                    enet_packet_destroy(event.packet);
-                    break;
-
-                case ENET_EVENT_TYPE_DISCONNECT:
-                case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT:
-                    puts("disconnected.");
-                    Network_Disconnect();
-                    disconnected = true;
-                    break;
-
-                default:
-                    break;
-            }
-            Client_FlushOutgoing(client);
-        }
-        Client_FlushOutgoing(client);
+        int result = enet_host_service(client, &event, 5);
+        if (result < 0) break;
+        if (result <= 0) continue;
+        if (event.type == ENET_EVENT_TYPE_RECEIVE) {
+            Network_Receive((unsigned char *)event.packet->data, event.packet->dataLength);
+            enet_packet_destroy(event.packet);
+        } else if (event.type == ENET_EVENT_TYPE_DISCONNECT || event.type == ENET_EVENT_TYPE_DISCONNECT_TIMEOUT) break;
     }
-
-    if (!disconnected) {
-        enet_peer_disconnect_now(peer, 0);
-        enet_peer_reset(peer);
-    }
-
+cleanup:
+    if (peer) { enet_peer_disconnect_now(peer, 0); enet_peer_reset(peer); peer = NULL; }
     enet_host_destroy(client);
     Client_ClearOutgoing();
-
-    *state = 0;
-    networkConnectedToServer = false;
+    if (!Client_Stopping()) Network_Disconnect();
 }
 
 void Client_Send(unsigned char* packet, int packetLength) {

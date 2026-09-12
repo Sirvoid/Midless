@@ -10,6 +10,8 @@
 
 typedef enum Screen {
     SCREEN_GAME,
+    SCREEN_MAIN,
+    SCREEN_CONNECTION_ERROR,
     SCREEN_PAUSE,
     SCREEN_LOADING,
     SCREEN_JOINING,
@@ -25,6 +27,7 @@ extern bool screenShowDebug;
 
 void Screen_Init(Texture2D terrain, bool *exit);
 void Screen_Shutdown(void);
+void Screen_ConnectionEnded(bool wasLocal);
 void Screen_Switch(Screen screen);
 
 void Screen_Draw(void);

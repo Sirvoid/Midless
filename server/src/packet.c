@@ -2,7 +2,7 @@
 #include "version.h"
 #include "playerimpulse.h"
 /**
- * Copyright (c) 2021 Sirvoid
+ * Copyright (c) 2022 Sirvoid
  * 
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT

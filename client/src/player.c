@@ -138,6 +138,7 @@ void Player_Draw(void) {
 }
 
 void Player_CheckInputs() {
+    if (currentScreen != SCREEN_GAME && currentScreen != SCREEN_INVENTORY) return;
     if (IsKeyPressed(KEY_F3)) {
         screenShowDebug = !screenShowDebug;
     }
@@ -159,7 +160,6 @@ void Player_CheckInputs() {
             EnableCursor();
             Screen_Switch(SCREEN_PAUSE);
         }
-        screenCursorEnabled = !screenCursorEnabled;
     } else if (IsKeyPressed(KEY_T) && currentScreen != SCREEN_INVENTORY) {
         if (screenCursorEnabled && !chatOpen) {
             DisableCursor();

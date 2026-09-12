@@ -15,6 +15,7 @@
 #include "stb_ds.h"
 #include "raylib.h"
 #include "networkhandler.h"
+#include "client.h"
 #include "../items.h"
 #include "packet.h"
 #include "screens.h"
@@ -126,7 +127,8 @@ static void Network_PerformDisconnect(void) {
     if (wasLocal) {
         LocalServer_Stop();
     }
-    Screen_Switch(SCREEN_LOGIN);
+    Client_Stop();
+    Screen_ConnectionEnded(wasLocal);
     if (!wasLocal) {
         World_Clear();
         Network_ClearQueue();
@@ -138,10 +140,10 @@ static void Network_PerformDisconnect(void) {
     ClientTextures_UpdateLiquidTints();
     networkConnectedToServer = false;
     networkThreadState = -1; //End network thread
-    screenCursorEnabled = false;
+    screenCursorEnabled = true;
 
     #if defined(PLATFORM_WEB)
-    networkClientDisconnect();
+    if (networkClientDisconnect) networkClientDisconnect();
     #endif
 }
 

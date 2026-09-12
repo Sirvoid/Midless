@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2021 Sirvoid
+ * Copyright (c) 2026 Sirvoid
  * 
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT
@@ -41,6 +41,7 @@ int main(void) {
     // Initialization
     InitWindow(screenWidth, screenHeight, "Midless");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
+    SetWindowMinSize(640, 560);
     SetWindowState(FLAG_WINDOW_ALWAYS_RUN);
     SetExitKey(0);
     SetTraceLogLevel(LOG_WARNING);
