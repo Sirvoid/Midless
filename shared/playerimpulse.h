@@ -1,8 +1,9 @@
 #ifndef MIDLESS_PLAYER_IMPULSE_H
 #define MIDLESS_PLAYER_IMPULSE_H
+
+#include "packetopcodes.h"
 #include "raylib.h"
 #include <math.h>
-#define PACKET_PLAYER_IMPULSE 32
 #define PLAYER_IMPULSE_PACKET_SIZE 13
 #define PLAYER_IMPULSE_SCALE 1000.0f
 #define PLAYER_IMPULSE_WINDOW 3.0

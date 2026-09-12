@@ -640,6 +640,28 @@ static int SetSelectedStack(void) {
 static int GetPlayerMetadata(void) { return LuaMetadata_Player(L,LuaBindings_CheckPlayer(),false,false); }
 static int SetPlayerMetadata(void) { return LuaMetadata_Player(L,LuaBindings_CheckPlayer(),true,false); }
 static int ResetPlayerMetadata(void) { return LuaMetadata_Player(L,LuaBindings_CheckPlayer(),true,true); }
+static float CameraKickOption(const char *name, float fallback, float min, float max) {
+    lua_getfield(L, 2, name);
+    double value = lua_isnil(L, -1) ? fallback : luaL_checknumber(L, -1);
+    if (!isfinite(value) || value < min || value > max)
+        luaL_error(L, "%s is outside the camera kick range", name);
+    lua_pop(L, 1);
+    return (float)value;
+}
+
+static int CameraKick(void) {
+    Player *player = LuaBindings_CheckPlayer();
+    if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
+    luaL_checktype(L, 2, LUA_TTABLE);
+    float pitch = CameraKickOption("pitch", 1.5f, -15, 15);
+    float roll = CameraKickOption("roll", 3, -15, 15);
+    float duration = CameraKickOption("duration", 0.25f, 0.01f, 2);
+    unsigned char *packet = ServerPacket_CreateCameraKick(pitch, roll, duration);
+    if (!packet) return Lua_Error("cannot allocate camera kick packet");
+    ServerNetwork_Send(player, packet);
+    return 0;
+}
+
 static int GetPlayerHP(void) {
     Player *player=LuaBindings_CheckPlayer();
     lua_settop(L,1); lua_pushliteral(L,"midless:hp");
@@ -721,6 +743,7 @@ static const struct LuaMethod playerLib[] = {
     {"is_valid", IsPlayerValid},
     {"damage", DamagePlayer},
     {"apply_impulse", ApplyPlayerImpulse},
+    {"camera_kick", CameraKick},
     {"set_hud_bar", SetPlayerHudBar},
     {"set_nametag", SetPlayerNametag},
     {"get_hp", GetPlayerHP},

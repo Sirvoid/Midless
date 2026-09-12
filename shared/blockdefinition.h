@@ -1,13 +1,13 @@
 #ifndef MIDLESS_BLOCK_DEFINITION_H
 #define MIDLESS_BLOCK_DEFINITION_H
 
+#include "packetopcodes.h"
+
 #include "packetsizes.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 
-#define PACKET_DEFINE_BLOCK 12
-#define PACKET_REMOVE_BLOCK_DEFINITION 13
 #define BLOCK_MODEL_MAX_BOXES 8
 #define BLOCK_MAX_STATES 32
 #define BLOCK_RUNTIME_COUNT (256 * BLOCK_MAX_STATES)

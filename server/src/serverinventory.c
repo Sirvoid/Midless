@@ -171,7 +171,7 @@ static bool TryHarvestBlock(Player *player, const InventoryAction *action) {
 static void SendDigState(Player *player, int milliseconds) {
     unsigned char *packet=MemAlloc(DIG_PROGRESS_PACKET_SIZE);
     if (!packet) return;
-    packet[0]=25;
+    packet[0]=PACKET_DIG_PROGRESS;
     int values[]={player->digAction.x,player->digAction.y,player->digAction.z,
         (int)player->digAction.sequence,milliseconds};
     for (int i=0;i<5;i++) for (int b=0;b<4;b++) packet[1+i*4+b]=(uint32_t)values[i]>>(24-b*8);

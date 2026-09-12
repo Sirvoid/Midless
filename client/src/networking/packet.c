@@ -272,6 +272,14 @@ void Packet_HandleChunkLight(void) {
     }
 }
 
+void Packet_HandleCameraKick(void) {
+    if (packetDataLength != CAMERA_KICK_PACKET_SIZE) return;
+    float pitch = Packet_ReadShort() / 100.0f;
+    float roll = Packet_ReadShort() / 100.0f;
+    float duration = Packet_ReadUShort() / 1000.0f;
+    Player_CameraKick(pitch, roll, duration);
+}
+
 void Packet_HandlePlayerImpulse(void) {
     if (packetDataLength != PLAYER_IMPULSE_PACKET_SIZE) return;
     Vector3 impulse;
@@ -605,7 +613,7 @@ void Packet_HandleRemoveHudBar(void) {
 unsigned char *Packet_CreateIdentification(unsigned short version, char *name) {
     packetWriterIndex = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[0]);
-    Packet_WriteByte(packet, 0);
+    Packet_WriteByte(packet, PACKET_IDENTIFICATION);
     Packet_WriteUShort(packet, version);
     Packet_WriteString(packet, name);
     return packet;
@@ -614,7 +622,7 @@ unsigned char *Packet_CreateIdentification(unsigned short version, char *name) {
 unsigned char *Packet_CreatePlayerPosition(Vector3 position, Vector3 rotation) {
     packetWriterIndex = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[1]);
-    Packet_WriteByte(packet, 1);
+    Packet_WriteByte(packet, PACKET_PLAYER_POSITION);
     Packet_WriteInt(packet, (int)(position.x * 64));
     Packet_WriteInt(packet, (int)(position.y * 64));
     Packet_WriteInt(packet, (int)(position.z * 64));
@@ -627,7 +635,7 @@ unsigned char *Packet_CreatePlayerPosition(Vector3 position, Vector3 rotation) {
 unsigned char *Packet_CreateMessage(char *message) {
     packetWriterIndex = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[2]);
-    Packet_WriteByte(packet, 2);
+    Packet_WriteByte(packet, PACKET_CLIENT_MESSAGE);
     Packet_WriteString(packet, message);
     return packet;
 }
@@ -635,7 +643,7 @@ unsigned char *Packet_CreateMessage(char *message) {
 unsigned char *Packet_CreateSetDrawDistance(unsigned char distance) {
     packetWriterIndex = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[3]);
-    Packet_WriteByte(packet, 3);
+    Packet_WriteByte(packet, PACKET_DRAW_DISTANCE);
     Packet_WriteByte(packet, distance);
     return packet;
 }
@@ -643,7 +651,7 @@ unsigned char *Packet_CreateSetDrawDistance(unsigned char distance) {
 unsigned char *Packet_CreatePlayerClick(unsigned char button) {
     packetWriterIndex = 0;
     unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
-    Packet_WriteByte(packet, 4);
+    Packet_WriteByte(packet, PACKET_PLAYER_CLICK);
     Packet_WriteByte(packet, button);
     return packet;
 }

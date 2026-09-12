@@ -16,6 +16,9 @@ midless.register_on_player_join(function(player)
 end)
 
 midless.register_on_hp_change(function(player, old_hp, new_hp)
+    if new_hp < old_hp then
+        player:camera_kick({pitch = 4, roll = 8, duration = 0.3})
+    end
 
     if new_hp <= 0 then
         player:teleport(player:get_spawn_point())

@@ -1,6 +1,8 @@
 #ifndef MIDLESS_ITEM_DEFINITION_H
 #define MIDLESS_ITEM_DEFINITION_H
 
+#include "packetopcodes.h"
+
 #include "packetsizes.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -17,7 +19,6 @@ void ItemBar_Write(BinaryWriter *out, const ItemBar *bar);
 bool ItemBar_Read(BinaryReader *in, ItemBar *bar);
 bool ItemBar_Fraction(const ItemBar *bar, const ItemStack *stack, float *fraction);
 #define ITEM_LIMIT 4096
-#define PACKET_DEFINE_ITEM 24
 typedef struct ItemDefinition {
     char identifier[65], name[65];
     uint8_t maxStack, texture;

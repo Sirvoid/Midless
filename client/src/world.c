@@ -112,7 +112,7 @@ static void MeshQueuePrepare(void) {
 void World_Init(void) {
     world.material = LoadMaterialDefault();
     world.loadChunks = false;
-    world.drawDistance = 8;
+    world.drawDistance = 16;
     world.time = 0;
 
     world.entities = MemAlloc(WORLD_MAX_ENTITIES * sizeof(Entity));

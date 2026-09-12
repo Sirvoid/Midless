@@ -1,12 +1,13 @@
 #ifndef MIDLESS_DROPPED_ITEM_H
 #define MIDLESS_DROPPED_ITEM_H
 
+#include "packetopcodes.h"
+
 #include "packetsizes.h"
 
 #include "inventory.h"
 
 #define ENTITY_TYPE_DROPPED_ITEM 3
-#define PACKET_DROPPED_ITEM 22
 
 // Gameplay time in seconds; zero disables expiry. Items are saved with their
 // chunk; age and pickup delay pause while the chunk is unloaded.

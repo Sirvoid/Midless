@@ -1,11 +1,11 @@
 #ifndef MIDLESS_TEXT_COLOR_H
 #define MIDLESS_TEXT_COLOR_H
 
+#include "packetopcodes.h"
+
 #include "raylib.h"
 #include <stddef.h>
 
-#define PACKET_TEXT_COLOR 30
-#define PACKET_NAMETAG 31
 #define TEXT_COLOR_PACKET_SIZE 6
 #define NAMETAG_TEXT_SIZE 129
 #define NAMETAG_PACKET_SIZE (3 + NAMETAG_TEXT_SIZE + 4 + 1 + 4)

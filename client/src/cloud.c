@@ -8,7 +8,7 @@
 #include "player.h"
 
 #define CLOUD_PATTERN_SIZE 64
-#define CLOUD_RADIUS 24
+#define CLOUD_RADIUS 32
 #define CLOUD_CELL_SIZE 12.0f
 #define CLOUD_HEIGHT 136.0f
 #define CLOUD_THICKNESS 4.0f

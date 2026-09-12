@@ -167,7 +167,7 @@ void ServerTextures_Shutdown(void) {
 void ServerTextures_SendBreaking(Player *player) {
     unsigned char *packet=MemAlloc(BREAKING_TEXTURE_PACKET_SIZE);
     if (!packet) return;
-    packet[0]=26; packet[1]=breakingId; ServerNetwork_Send(player,packet);
+    packet[0]=PACKET_BREAKING_TEXTURE; packet[1]=breakingId; ServerNetwork_Send(player,packet);
 }
 int ServerTextures_SetBreaking(void) {
     int id=ServerTextures_Find(luaL_checkstring(L,1));

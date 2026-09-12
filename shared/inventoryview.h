@@ -1,12 +1,13 @@
 #ifndef MIDLESS_INVENTORY_VIEW_H
 #define MIDLESS_INVENTORY_VIEW_H
+
+#include "packetopcodes.h"
 #include "inventory.h"
 #include "binarydata.h"
 
 #define INVENTORY_VIEW_ELEMENTS 16
 #define INVENTORY_VIEW_SLOTS 255
 #define INVENTORY_VIEW_BINDINGS 16
-#define PACKET_INVENTORY_VIEW 23
 
 typedef struct InventoryElement {
     bool grid, crafting, progress;

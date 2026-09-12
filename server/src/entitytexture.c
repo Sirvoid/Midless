@@ -28,7 +28,7 @@ unsigned char *ServerEntityTexture_Packet(const Entity *entity, int recipientEnt
     unsigned char *packet = MemAlloc(SET_ENTITY_TEXTURE_PACKET_SIZE);
     int id = entity->id == recipientEntityId ? 65535 : entity->id;
     int texture = ServerEntityTexture_Id(entity);
-    packet[0] = 33; packet[1] = id>>8; packet[2] = id;
+    packet[0] = PACKET_SET_ENTITY_TEXTURE; packet[1] = id>>8; packet[2] = id;
     packet[3] = texture>>8; packet[4] = texture;
     return packet;
 }

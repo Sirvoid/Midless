@@ -121,7 +121,7 @@ void ServerPlayer_Teleport(Player *player, Vector3 position) {
     player->chunkRetryTime = 0;
     ServerChunkManager_CancelUnusedRequests();
     unsigned char *reset = MemAlloc(RESET_CHUNKS_PACKET_SIZE);
-    if (reset) { reset[0] = 35; ServerNetwork_Send(player, reset); }
+    if (reset) { reset[0] = PACKET_RESET_CHUNKS; ServerNetwork_Send(player, reset); }
     ServerPlayer_LoadChunks(player);
     Entity localEntity = *entity;
     localEntity.id = USHRT_MAX;

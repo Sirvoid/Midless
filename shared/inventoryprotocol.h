@@ -1,12 +1,12 @@
 #ifndef MIDLESS_INVENTORY_PROTOCOL_H
 #define MIDLESS_INVENTORY_PROTOCOL_H
 
+#include "packetopcodes.h"
+
 #include "packetsizes.h"
 
 #include "inventory.h"
 
-#define PACKET_INVENTORY_ACTION 6
-#define PACKET_INVENTORY_STATE 21
 
 void InventoryProtocol_WriteAction(uint8_t *data, const InventoryAction *action);
 bool InventoryProtocol_ReadAction(const uint8_t *data, int length, InventoryAction *action);

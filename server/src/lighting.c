@@ -327,7 +327,7 @@ void ServerLighting_Send(Chunk *c,Player *player) {
     int packetLength=CHUNK_LIGHT_HEADER_SIZE+length*2;
     unsigned char *packet=MemAlloc(packetLength);
     if (!packet) { MemFree(compressed); return; }
-    packet[0]=34;
+    packet[0]=PACKET_CHUNK_LIGHT;
     int positions[3]={(int)c->position.x,(int)c->position.y,(int)c->position.z};
     for (int axis=0; axis<3; axis++) for (int byte=0; byte<4; byte++)
         packet[1+axis*4+byte]=(uint32_t)positions[axis]>>(24-byte*8);

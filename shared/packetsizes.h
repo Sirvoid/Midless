@@ -1,6 +1,8 @@
 #ifndef MIDLESS_PACKET_SIZES_H
 #define MIDLESS_PACKET_SIZES_H
 
+#include "packetopcodes.h"
+
 // Sizes include the opcode. Zero marks a variable-length packet.
 #define PACKET_VARIABLE_SIZE 0
 #define PACKET_STRING_SIZE 64
@@ -35,6 +37,7 @@
 #define HELD_BLOCK_PACKET_SIZE 5
 #define DIG_PROGRESS_PACKET_SIZE 21
 #define BREAKING_TEXTURE_PACKET_SIZE 2
+#define CAMERA_KICK_PACKET_SIZE 7
 #define INVENTORY_STATE_HEADER_SIZE 12
 #define INVENTORY_VIEW_HEADER_SIZE (1 + INVENTORY_STATE_PACKET_SIZE)
 

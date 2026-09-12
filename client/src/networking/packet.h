@@ -48,6 +48,7 @@ void Packet_HandleEntityTexture(void);
 void Packet_HandleTextColor(void);
 void Packet_HandleNametag(void);
 void Packet_HandlePlayerImpulse(void);
+void Packet_HandleCameraKick(void);
 void Packet_HandleTeleportEntity(void);
 void Packet_HandleMessage(void);
 void Packet_HandleDespawnEntity(void);

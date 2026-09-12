@@ -1,6 +1,8 @@
 #ifndef MIDLESS_TEXTURE_PROTOCOL_H
 #define MIDLESS_TEXTURE_PROTOCOL_H
 
+#include "packetopcodes.h"
+
 #include "packetsizes.h"
 #include <stdint.h>
 #include <stdbool.h>
@@ -10,10 +12,6 @@
 #define TEXTURE_TOTAL_BYTES (32 * 1024 * 1024)
 #define TEXTURE_TOTAL_PIXELS (16 * 1024 * 1024)
 #define TEXTURE_CHUNK_BYTES 4096
-#define PACKET_TEXTURE_BEGIN 17
-#define PACKET_TEXTURE_DATA 18
-#define PACKET_TERRAIN_TEXTURE 19
-#define PACKET_TEXTURE_ACK 5
 static inline uint32_t Texture_Read32(const unsigned char *p) {
     return ((uint32_t)p[0]<<24) | ((uint32_t)p[1]<<16) | ((uint32_t)p[2]<<8) | p[3];
 }

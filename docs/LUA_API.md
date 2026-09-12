@@ -87,6 +87,7 @@ end)
 | `player:get_look_direction()` | Look direction. |
 | `player:teleport(pos)` | Move instantly. |
 | `player:apply_impulse(velocity)` | Add velocity in blocks/second. |
+| `player:camera_kick(options)` | Brief visual camera tilt; options described below. |
 | `player:get_spawn_point()` / `player:set_spawn_point(pos)` | Persistent spawn point. |
 | `player:get_hp()` / `player:set_hp(hp)` | Persistent HP. |
 | `player:damage(amount, context)` | Apply damage; returns HP lost. |
@@ -127,6 +128,11 @@ midless.remove_text_color("g")
 Custom codes are case-sensitive, single printable ASCII characters except `&`, `%`, or space. Colors accept `#RRGGBB` or `#RRGGBBAA`; alpha `00` removes a definition. Overriding a standard code is allowed; removal restores its default.
 
 Players default to their username; entities default to an empty nametag. Entity tags save and are restored before `on_load`. Set `{visible = false}` to hide a tag.
+### Camera
+
+`player:camera_kick({pitch = 1.5, roll = 3, duration = 0.25})` animates a camera
+kick and returns the view to normal. Pitch and roll are degrees from -15 to 15;
+duration is seconds from 0.01 to 2.
 
 ### HUD bars
 

@@ -35,8 +35,21 @@ Vector2 playerOldMousePosition = {0.0f, 0.0f};
 Vector2 playerCameraAngle = {0.0f, 0.0f};
 double playerLastPositionPacketTime;
 Player player;
+static float kickPitch, kickRoll, kickDuration;
+static double kickStart;
+
+void Player_CameraKick(float pitch, float roll, float duration) {
+    if (!isfinite(pitch) || !isfinite(roll) || !isfinite(duration) ||
+        fabsf(pitch) > 15 || fabsf(roll) > 15 || duration < 0.01f || duration > 2) return;
+    // Replace rapid hits so the view never accumulates an excessive tilt.
+    kickPitch = pitch * DEG2RAD;
+    kickRoll = roll * DEG2RAD;
+    kickDuration = duration;
+    kickStart = GetTime();
+}
 
 void Player_Init(void) {
+    kickDuration = 0;
 
     Camera camera = { 0 };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
@@ -282,6 +295,18 @@ void Player_CheckInputs() {
         }
     }
     player.camera.target = Vector3Add(eyePosition, forward);
+    player.camera.up = (Vector3){0, 1, 0};
+    float elapsed = (float)(GetTime() - kickStart);
+    if (kickDuration > 0 && elapsed >= 0 && elapsed < kickDuration) {
+        float t = elapsed / kickDuration;
+        float weight = sinf(PI * t) * (1 - t);
+        Vector3 view = Vector3Subtract(player.camera.target, player.camera.position);
+        Vector3 right = Vector3Normalize(Vector3CrossProduct(view, player.camera.up));
+        view = Vector3RotateByAxisAngle(view, right, kickPitch * weight);
+        Vector3 up = Vector3RotateByAxisAngle(player.camera.up, right, kickPitch * weight);
+        player.camera.up = Vector3RotateByAxisAngle(up, Vector3Normalize(view), kickRoll * weight);
+        player.camera.target = Vector3Add(player.camera.position, view);
+    }
 }
 
 

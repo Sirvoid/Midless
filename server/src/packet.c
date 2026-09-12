@@ -72,6 +72,7 @@ int serverPacketLengths[256] = {
     SET_ENTITY_TEXTURE_PACKET_SIZE, // 33
     PACKET_VARIABLE_SIZE, // 34
     RESET_CHUNKS_PACKET_SIZE, // 35
+    CAMERA_KICK_PACKET_SIZE, // 36
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -311,7 +312,7 @@ void ServerPacket_HandleInventoryAction(void) {
 unsigned char* ServerPacket_CreateMapInit(void) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[0]);
-    ServerPacket_WriteByte(packet, 0);
+    ServerPacket_WriteByte(packet, PACKET_MAP_INIT);
     ServerPacket_WriteUShort(packet, GAME_PROTOCOL_VERSION);
     
     return packet;
@@ -322,7 +323,7 @@ unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned
     serverPacketWriterIndex = 0;
     serverPacketLastDynamicLength = (length * 2) + LOAD_CHUNK_HEADER_SIZE + CHUNK_SKY_MASK_SIZE;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLastDynamicLength);
-    ServerPacket_WriteByte(packet, 1);
+    ServerPacket_WriteByte(packet, PACKET_LOAD_CHUNK);
     ServerPacket_WriteInt(packet, (int)chunkPosition.x);
     ServerPacket_WriteInt(packet, (int)chunkPosition.y);
     ServerPacket_WriteInt(packet, (int)chunkPosition.z);
@@ -335,7 +336,7 @@ unsigned char* ServerPacket_CreateLoadChunk(unsigned short* chunkArray, unsigned
 unsigned char* ServerPacket_CreateUnloadChunk(Vector3 chunkPosition) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[7]);
-    ServerPacket_WriteByte(packet, 7);
+    ServerPacket_WriteByte(packet, PACKET_UNLOAD_CHUNK);
     ServerPacket_WriteInt(packet, (int)chunkPosition.x);
     ServerPacket_WriteInt(packet, (int)chunkPosition.y);
     ServerPacket_WriteInt(packet, (int)chunkPosition.z);
@@ -345,7 +346,7 @@ unsigned char* ServerPacket_CreateUnloadChunk(Vector3 chunkPosition) {
 unsigned char* ServerPacket_CreateSetBlock(unsigned char blockId, Vector3 position, bool byPlayer) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[2]);
-    ServerPacket_WriteByte(packet, 2);
+    ServerPacket_WriteByte(packet, PACKET_SET_BLOCK);
     ServerPacket_WriteUShort(packet, ServerBlockStates_WireId(blockId, position));
     ServerPacket_WriteInt(packet, (int)position.x);
     ServerPacket_WriteInt(packet, (int)position.y);
@@ -358,7 +359,7 @@ unsigned char* ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, u
     serverPacketWriterIndex = 0;
     serverPacketLastDynamicLength = BLOCK_BATCH_HEADER_SIZE + count * BLOCK_BATCH_UPDATE_SIZE;
     unsigned char *packet = MemAlloc(serverPacketLastDynamicLength);
-    ServerPacket_WriteByte(packet, 8);
+    ServerPacket_WriteByte(packet, PACKET_BLOCK_BATCH);
     ServerPacket_WriteUShort(packet, count);
     for (int i = 0; i < count; i++) {
         ServerPacket_WriteUShort(packet, ServerBlockStates_WireId(updates[i].blockId, updates[i].position));
@@ -372,7 +373,7 @@ unsigned char* ServerPacket_CreateBlockBatch(const ServerBlockUpdate *updates, u
 unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[3]);
-    ServerPacket_WriteByte(packet, 3);
+    ServerPacket_WriteByte(packet, PACKET_SPAWN_ENTITY);
     ServerPacket_WriteUShort(packet, entity->id);
     ServerPacket_WriteByte(packet, entity->type);
     ServerPacket_WriteByte(packet, entity->model);
@@ -387,7 +388,7 @@ unsigned char* ServerPacket_CreateSpawnEntity(Entity *entity) {
 unsigned char* ServerPacket_CreateDespawnEntity(Entity *entity) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[6]);
-    ServerPacket_WriteByte(packet, 6);
+    ServerPacket_WriteByte(packet, PACKET_DESPAWN_ENTITY);
     ServerPacket_WriteUShort(packet, entity->id);
     return packet;
 }
@@ -395,7 +396,7 @@ unsigned char* ServerPacket_CreateDespawnEntity(Entity *entity) {
 unsigned char* ServerPacket_CreateTeleportEntity(Entity *entity, Vector3 position, Vector3 rotation) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[4]);
-    ServerPacket_WriteByte(packet, 4);
+    ServerPacket_WriteByte(packet, PACKET_TELEPORT_ENTITY);
     ServerPacket_WriteUShort(packet, entity->id);
     ServerPacket_WriteInt(packet, (int)(position.x * 64));
     ServerPacket_WriteInt(packet, (int)(position.y * 64));
@@ -409,7 +410,7 @@ unsigned char* ServerPacket_CreateTeleportEntity(Entity *entity, Vector3 positio
 unsigned char* ServerPacket_CreateMessage(const char* message) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[5]);
-    ServerPacket_WriteByte(packet, 5);
+    ServerPacket_WriteByte(packet, PACKET_SERVER_MESSAGE);
     ServerPacket_WriteString(packet, message);
     return packet;
 }
@@ -417,7 +418,7 @@ unsigned char* ServerPacket_CreateMessage(const char* message) {
 unsigned char* ServerPacket_CreateMessageContinuation(const char* message) {
     serverPacketWriterIndex = 0;
     unsigned char* packet = (unsigned char*)MemAlloc(serverPacketLengths[10]);
-    ServerPacket_WriteByte(packet, 10);
+    ServerPacket_WriteByte(packet, PACKET_MESSAGE_CONTINUATION);
     ServerPacket_WriteString(packet, message);
     return packet;
 }
@@ -425,7 +426,7 @@ unsigned char* ServerPacket_CreateMessageContinuation(const char* message) {
 unsigned char* ServerPacket_CreateWorldTime(float timeSeconds) {
     serverPacketWriterIndex = 0;
     unsigned char *packet = MemAlloc(serverPacketLengths[9]);
-    ServerPacket_WriteByte(packet, 9);
+    ServerPacket_WriteByte(packet, PACKET_WORLD_TIME);
     ServerPacket_WriteInt(packet, (int)(timeSeconds * 1000.0f));
     return packet;
 }
@@ -442,10 +443,21 @@ unsigned char *ServerPacket_CreatePlayerImpulse(Vector3 impulse) {
     return packet;
 }
 
+unsigned char *ServerPacket_CreateCameraKick(float pitch, float roll, float duration) {
+    unsigned char *packet = MemAlloc(CAMERA_KICK_PACKET_SIZE);
+    if (!packet) return NULL;
+    serverPacketWriterIndex = 0;
+    ServerPacket_WriteByte(packet, PACKET_CAMERA_KICK);
+    ServerPacket_WriteShort(packet, (short)roundf(pitch * 100));
+    ServerPacket_WriteShort(packet, (short)roundf(roll * 100));
+    ServerPacket_WriteUShort(packet, (unsigned short)roundf(duration * 1000));
+    return packet;
+}
+
 unsigned char* ServerPacket_CreateEntityAnimation(unsigned short entityId, EntityAnimationType animation) {
     serverPacketWriterIndex = 0;
     unsigned char *packet = MemAlloc(serverPacketLengths[11]);
-    ServerPacket_WriteByte(packet, 11);
+    ServerPacket_WriteByte(packet, PACKET_ENTITY_ANIMATION);
     ServerPacket_WriteUShort(packet, entityId);
     ServerPacket_WriteByte(packet, (unsigned char)animation);
     return packet;
@@ -528,7 +540,7 @@ unsigned char *ServerPacket_CreateSetEntityModel(unsigned short entityId, unsign
 unsigned char *ServerPacket_CreateHeldBlock(Entity *entity) {
     serverPacketWriterIndex = 0;
     unsigned char *packet = MemAlloc(HELD_BLOCK_PACKET_SIZE);
-    ServerPacket_WriteByte(packet, 20);
+    ServerPacket_WriteByte(packet, PACKET_HELD_BLOCK);
     ServerPacket_WriteUShort(packet, entity->id);
     ServerPacket_WriteUShort(packet, entity->heldBlock);
     return packet;

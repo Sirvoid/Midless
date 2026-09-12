@@ -95,6 +95,7 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleEntityTexture, SET_ENTITY_TEXTURE_PACKET_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleChunkLight, PACKET_VARIABLE_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleResetChunks, RESET_CHUNKS_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleCameraKick, CAMERA_KICK_PACKET_SIZE};
 }
 
 void Network_Connect(void) {
@@ -145,7 +146,7 @@ static void Network_PerformDisconnect(void) {
 }
 
 static bool IsChunkPacket(unsigned char opcode) {
-    return opcode == 1 || opcode == 2 || opcode == 7 || opcode == 8 || opcode == 34 || opcode == 35;
+    return opcode == PACKET_LOAD_CHUNK || opcode == PACKET_SET_BLOCK || opcode == PACKET_UNLOAD_CHUNK || opcode == PACKET_BLOCK_BATCH || opcode == PACKET_CHUNK_LIGHT || opcode == PACKET_RESET_CHUNKS;
 }
 
 static void Network_ExecutePacket(IncomingPacket packet) {
@@ -251,7 +252,7 @@ void Network_Receive(unsigned char *data, int dataLength) {
         queuedTextureBytes+=dataLength;
     }
     // Keep light maps behind their chunk data, including across the terrain budget.
-    if (opcode == 35) {
+    if (opcode == PACKET_RESET_CHUNKS) {
         terrainGeneration++;
         // Remove obsolete terrain even when it is waiting behind the frame budget.
         // Generation tags also invalidate packets already extracted by the main thread.
@@ -263,7 +264,7 @@ void Network_Receive(unsigned char *data, int dataLength) {
         }
         if (terrainQueuedData) (void)arrsetlen(terrainQueuedData, kept);
     }
-    bool modifiesTerrain = opcode == 35 || opcode == 0 || opcode == 1 || opcode == 2 || opcode == 7 || opcode == 8 || opcode == 34 ||
+    bool modifiesTerrain = opcode == PACKET_RESET_CHUNKS || opcode == PACKET_LOAD_CHUNK || opcode == PACKET_SET_BLOCK || opcode == PACKET_UNLOAD_CHUNK || opcode == PACKET_BLOCK_BATCH || opcode == PACKET_CHUNK_LIGHT ||
                            opcode == PACKET_DEFINE_BLOCK || opcode == PACKET_REMOVE_BLOCK_DEFINITION;
     IncomingPacket packet = {nextData, dataLength, terrainGeneration};
     if (modifiesTerrain) arrput(terrainQueuedData, packet);

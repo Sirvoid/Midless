@@ -75,6 +75,7 @@ unsigned char* ServerPacket_CreateMessage(const char* message);
 unsigned char* ServerPacket_CreateMessageContinuation(const char* message);
 unsigned char* ServerPacket_CreateWorldTime(float timeSeconds);
 unsigned char *ServerPacket_CreatePlayerImpulse(Vector3 impulse);
+unsigned char *ServerPacket_CreateCameraKick(float pitch, float roll, float duration);
 unsigned char* ServerPacket_CreateEntityAnimation(unsigned short entityId, EntityAnimationType animation);
 
 

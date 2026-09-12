@@ -54,6 +54,7 @@ void Player_SetEntityModel(int type, int modelId);
 void Player_ClearEntityModel(void);
 void Player_Teleport(Vector3 position);
 void Player_ApplyImpulse(Vector3 impulse);
+void Player_CameraKick(float pitch, float roll, float duration);
 
 bool Player_TestCollision(Vector3 offset);
 float Player_GetLiquidSubmersion(void);
