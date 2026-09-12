@@ -33,7 +33,6 @@ typedef struct Entity{
     bool active, pendingRemoval, dirty, announced;
     int ownerPlayerId;
     int definitionId;
-    int scriptRef;
     float despawnElapsed;
     unsigned short heldBlock;
     char type;

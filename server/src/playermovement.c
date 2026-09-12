@@ -6,7 +6,7 @@
 #include "networkhandler.h"
 #include "blockstates.h"
 #include "world/world.h"
-#include "scripting/luabindings.h"
+#include "scripthooks.h"
 
 // Slightly above the client's normal limits, with a bounded allowance for jitter.
 #define PLAYER_HORIZONTAL_SPEED 10.0f
@@ -233,7 +233,7 @@ void ServerPlayer_UpdatePositionRotation(Player *player, Vector3 position, Vecto
         bool landed = player->falling && distance >= 1.0f / 64;
         player->falling = !grounded;
         player->fallPeak = fmaxf(ground, position.y);
-        if (landed) LuaBindings_InvokePlayerLand(player->id, distance);
+        if (landed) ScriptHooks_PlayerLand(player->id, distance);
     } else {
         player->falling = true;
         player->fallPeak = fmaxf(player->fallPeak, position.y);

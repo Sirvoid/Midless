@@ -7,14 +7,14 @@ typedef struct SpawnRule {
     int definition, attempts, localLimit, globalLimit, verticalRange;
     float interval, chance, minDistance, maxDistance, localRadius;
     bool groundBlocks[256], filterGround, avoidLiquids;
-    int callback;
     double elapsed;
     int remaining[256], nextPlayer;
 } SpawnRule;
-int LuaSpawning_Register(void);
+const char *ServerSpawning_Register(const SpawnRule *rule, int *id);
 void ServerSpawning_Update(float dt);
 void ServerSpawning_Reset(void);
 bool ServerSpawnPlacement_Clear(EntityBody body, Vector3 position, bool avoidLiquids);
 bool ServerSpawnPlacement_Valid(const SpawnRule *rule, EntityBody body, Vector3 position);
-bool ServerSpawnPlacement_Find(const SpawnRule *rule, EntityBody body, Vector3 column, Vector3 *position);
+bool ServerSpawnPlacement_Find(const SpawnRule *rule, EntityBody body, Vector3 column,
+                               Vector3 *position);
 #endif

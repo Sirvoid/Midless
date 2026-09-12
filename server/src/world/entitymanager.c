@@ -8,7 +8,8 @@
 #include "../networkhandler.h"
 #include "../packet.h"
 #include "../textcolors.h"
-#include "../scripting/luaentities.h"
+#include "scripthooks.h"
+#include "entityregistry.h"
 
 static uint64_t nextGeneration;
 static bool shuttingDown;
@@ -38,7 +39,7 @@ int ServerWorld_AddEntity(int type, int model, Vector3 position, int ownerPlayer
         Entity *e = &serverWorld.entities[id];
         if (e->active) continue;
         *e = (Entity){.id = id, .generation = ++nextGeneration, .active = true,
-            .ownerPlayerId = ownerPlayerId, .definitionId = -1, .scriptRef = -2,
+            .ownerPlayerId = ownerPlayerId, .definitionId = -1,
             .type = type, .model = model, .position = position};
         e->body = EntityBody_Default();
         e->nametag = (Nametag){.color = WHITE, .visible = true};
@@ -54,7 +55,7 @@ void ServerWorld_RemoveEntity(int id) {
 }
 
 static void Destroy(Entity *e) {
-    LuaEntities_Remove(e);
+    ScriptHooks_EntitiesRemove(e);
     if (e->type == ENTITY_TYPE_DROPPED_ITEM) ServerDrops_Remove(e);
     else if (e->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(e), e->ownerPlayerId);
     ServerPhysics_InvalidateIndex();
@@ -68,7 +69,7 @@ void ServerEntities_Update(float dt) {
     uint64_t cutoff = nextGeneration;
     for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
         Entity *e = &serverWorld.entities[id];
-        if (e->active && !e->pendingRemoval && e->generation <= cutoff && !EntityPersistence_IsSaving(e)) LuaEntities_Step(e, dt);
+        if (e->active && !e->pendingRemoval && e->generation <= cutoff && !EntityPersistence_IsSaving(e)) ScriptHooks_EntitiesStep(e, dt);
     }
     ServerPhysics_Update(dt);
     ServerDrops_Update(dt);

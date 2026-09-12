@@ -197,7 +197,6 @@ void Worldgen_Generate(Chunk *chunk);
 void Worldgen_SkyMask(Chunk *chunk);
 uint32_t Worldgen_Hash(const char *name);
 float Worldgen_Field(int field, float x, float y, float z);
-void LuaWorldgen_Init(void);
 void Worldgen_EvalInit(WGEval *e, Vector3 position, Vector3 origin);
 void Worldgen_EvalY(WGEval *e, float y);
 float Worldgen_Eval(WGEval *e, int field);

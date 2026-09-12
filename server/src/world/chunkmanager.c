@@ -13,7 +13,7 @@
 #include "chunk/chunk.h"
 #include "../networkhandler.h"
 #include "../packet.h"
-#include "../scripting/luabindings.h"
+#include "scripthooks.h"
 #include "streamprofile.h"
 #include "chunksave.h"
 #include "platform.h"
@@ -514,5 +514,5 @@ void ServerWorld_SetBlock(Vector3 blockPosition, int blockId, bool broadcast, bo
     ServerChunk_SetBlock(chunk, localPosition, blockId);
     ServerLighting_Changed(chunk);
     if (broadcast) ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockId, blockPosition, byPlayer));
-    if (callCallbacks) LuaBindings_InvokeBlockUpdate(blockPosition, blockId, previousBlock);
+    if (callCallbacks) ScriptHooks_BlockUpdate(blockPosition, blockId, previousBlock);
 }

@@ -1,7 +1,8 @@
 #include "entitypersistence.h"
 #include "world.h"
-#include "../scripting/luaentities.h"
-#include "../scripting/luametadata.h"
+#include "scripthooks.h"
+#include "entityregistry.h"
+#include "metadata.h"
 #include "../entityphysics.h"
 #include "../droppeditems.h"
 #include "../packet.h"
@@ -42,7 +43,7 @@ static bool ChunkEntity(const Entity *entity) {
 }
 static bool ShouldSave(const Entity *entity) {
     return ChunkEntity(entity) && !entity->pendingRemoval &&
-        (entity->type == ENTITY_TYPE_DROPPED_ITEM || LuaEntities_ShouldSave(entity->definitionId));
+        (entity->type == ENTITY_TYPE_DROPPED_ITEM || ServerEntities_ShouldSave(entity->definitionId));
 }
 static Vector3 ChunkPosition(Vector3 position) {
     return (Vector3){floorf(position.x / 16), floorf(position.y / 16), floorf(position.z / 16)};
@@ -204,20 +205,20 @@ static int ModelId(const char *name) {
     return -1;
 }
 static bool Available(const SavedEntity *e) {
-    int definition = LuaEntities_Find(e->name);
+    int definition = ServerEntities_Find(e->name);
     return (!e->name[0] ? ServerItems_IsDefined(e->stack.itemId) :
-        definition >= 0 && LuaMetadata_CanRead(LuaEntities_MetadataSchema(definition), &e->metadata)) && ModelId(e->model) >= 0;
+        definition >= 0 && ServerMetadata_CanRead(ServerEntities_MetadataSchema(definition), &e->metadata)) && ModelId(e->model) >= 0;
 }
 static bool SaveDisabled(const SavedEntity *entity) {
-    int definition = LuaEntities_Find(entity->name);
-    return definition >= 0 && !LuaEntities_ShouldSave(definition);
+    int definition = ServerEntities_Find(entity->name);
+    return definition >= 0 && !ServerEntities_ShouldSave(definition);
 }
 bool EntityPersistence_Activate(Chunk *chunk) {
     // The chunk map is the authority: a second load of the same position cannot
     // instantiate another copy, even when disk reads finished asynchronously.
     if (ServerWorld_GetChunkAt(chunk->position) != chunk) return false;
     if (chunk->entitiesActivated) return true;
-    if (!LuaMetadata_ValidateChunk(chunk)) return false;
+    if (!ServerMetadata_ValidateChunk(chunk)) return false;
     if (!chunk->savedEntitiesSize) { chunk->entitiesActivated = true; return true; }
     SavedEntity *records = NULL; int count = 0;
     if (!ReadRecords(chunk, &records, &count)) { FreeRecords(records, count); return false; }
@@ -227,7 +228,7 @@ bool EntityPersistence_Activate(Chunk *chunk) {
         SavedEntity *e = &records[i];
         if (SaveDisabled(e)) continue;
         if (Available(e)) needed++;
-        if (!LuaMetadata_Validate(LuaEntities_MetadataSchema(LuaEntities_Find(e->name)), &e->metadata)) {
+        if (!ServerMetadata_Validate(ServerEntities_MetadataSchema(ServerEntities_Find(e->name)), &e->metadata)) {
             FreeRecords(records, count); return false;
         }
     }
@@ -250,8 +251,8 @@ bool EntityPersistence_Activate(Chunk *chunk) {
     for (int i = 0; i < count; i++) {
         SavedEntity *saved = &records[i];
         if (SaveDisabled(saved) || !Available(saved)) continue;
-        int definition = LuaEntities_Find(saved->name);
-        int id = saved->name[0] ? LuaEntities_Restore(definition, saved->position) :
+        int definition = ServerEntities_Find(saved->name);
+        int id = saved->name[0] ? ScriptHooks_EntitiesRestore(definition, saved->position) :
             ServerWorld_AddEntity(ENTITY_TYPE_DROPPED_ITEM, 0, saved->position, -1);
         // Capacity was checked above; restoration invokes no callbacks until all records exist.
         Entity *e = &serverWorld.entities[id];
@@ -266,7 +267,7 @@ bool EntityPersistence_Activate(Chunk *chunk) {
     }
     FreeRecords(records, count);
     ServerPhysics_InvalidateIndex();
-    for (int i = 0; i < restoredCount; i++) LuaEntities_Loaded(&serverWorld.entities[restored[i]]);
+    for (int i = 0; i < restoredCount; i++) ScriptHooks_EntitiesLoaded(&serverWorld.entities[restored[i]]);
     return true;
 }
 static bool Snapshot(const Chunk *chunk, BinaryWriter *out) {
@@ -281,7 +282,7 @@ static bool Snapshot(const Chunk *chunk, BinaryWriter *out) {
         const Entity *entity = &serverWorld.entities[i];
         if (!Belongs(entity, chunk) || !ShouldSave(entity)) continue;
         if (pendingCount + liveCount == MAX_SAVED_ENTITIES) { FreeRecords(pending, pendingCount); return false; }
-        const char *name = LuaEntities_Name(entity->definitionId);
+        const char *name = ServerEntities_Name(entity->definitionId);
         types[pendingCount + liveCount] = TypeIndex(names, &typeCount, name ? name : "");
         live[liveCount++] = entity;
     }
@@ -312,7 +313,7 @@ void EntityPersistence_Unload(Chunk *chunk) {
         Entity *e = &serverWorld.entities[i];
         if (!Belongs(e, chunk) || e->pendingRemoval) continue;
         // Unloading is not a gameplay removal: no on_remove, drops, or respawns.
-        LuaEntities_Unload(e);
+        ScriptHooks_EntitiesUnload(e);
         if (e->type == ENTITY_TYPE_DROPPED_ITEM) ServerDrops_Remove(e);
         else if (e->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(e), -1);
         Metadata_Free(&e->metadata);

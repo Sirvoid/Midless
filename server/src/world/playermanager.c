@@ -7,7 +7,8 @@
 #include "../serverinventory.h"
 #include "../networkhandler.h"
 #include "../packet.h"
-#include "../scripting/luabindings.h"
+#include "scripthooks.h"
+#include "entityregistry.h"
 
 void ServerPlayerManager_Update(void) {
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
@@ -62,7 +63,7 @@ void ServerWorld_RemovePlayer(void *player) {
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if (serverWorld.players[i] != removedPlayer) continue;
         if (!removedPlayer->leaveInvoked) {
-            LuaBindings_InvokePlayerLeave(i);
+            ScriptHooks_PlayerLeave(i);
             removedPlayer->leaveInvoked = true;
         }
         // Keep the live inventory for retry if the save fails.

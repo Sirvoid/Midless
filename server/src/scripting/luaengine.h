@@ -1,12 +1,13 @@
 /**
  * Copyright (c) 2021-2022 Sirvoid
- * 
+ *
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT
  */
 
 #ifndef MIDLESS_SERVER_LUA_ENGINE_H
 #define MIDLESS_SERVER_LUA_ENGINE_H
+#include "../scripthooks.h"
 
 #include <stddef.h>
 #include <stdbool.h>
@@ -16,19 +17,16 @@ void Lua_DefineObjectType(const char *name, const void *methods);
 void *Lua_NewObject(const char *name, size_t size);
 void *Lua_CheckObject(int arg, const char *name);
 
-void Lua_Init(void);
 void Lua_MakeTable(int fields);
-void Lua_SetField(int idx, const char* name);
-void Lua_DefineLib(char* name, const void *functions);
+void Lua_SetField(int idx, const char *name);
+void Lua_DefineLib(char *name, const void *functions);
 void Lua_PushFunc(void *function);
-void Lua_DefineGlobalFunc(char* name, void *function);
-int Lua_GetGlobal(char* name);
-void Lua_SetGlobal(const char* name);
-void Lua_GetField(char* name);
+void Lua_DefineGlobalFunc(char *name, void *function);
+int Lua_GetGlobal(char *name);
+void Lua_SetGlobal(const char *name);
+void Lua_GetField(char *name);
 void Lua_CallFunc(int arguments, int results);
 bool Lua_CallFuncHandled(int arguments);
-bool Lua_Run(void);
-void Lua_Stop(void);
 
 int Lua_Ref(int table);
 void Lua_Unref(int table, int reference);
@@ -47,7 +45,7 @@ void Lua_CopyString(int arg, char *destination, int capacity);
 int Lua_Error(const char *message);
 int Lua_GetTop();
 float Lua_GetNumber(int arg);
-const char* Lua_GetString(int arg);
+const char *Lua_GetString(int arg);
 
 void Lua_PushValue(int idx);
 void Lua_PushInt(int integer);

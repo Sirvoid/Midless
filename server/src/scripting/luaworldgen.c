@@ -1,3 +1,5 @@
+#include "luaitems.h"
+#include "luaworldgen.h"
 #include "version.h"
 #include "minilua.h"
 #include "../items.h"
@@ -37,8 +39,10 @@ static int ReadInteger(lua_State *luaState, int tableIndex, const char *key, int
     if (max == 255) {
         lua_getfield(luaState, tableIndex, key);
         if (lua_type(luaState, -1) == LUA_TSTRING) {
-            int id = ServerItems_Id(luaState, -1, true, false); lua_pop(luaState, 1);
-            if (id < min || id > max) return luaL_error(luaState, "block ID out of range");
+            int id = LuaItems_Id(luaState, -1, true, false);
+            lua_pop(luaState, 1);
+            if (id < min || id > max)
+                return luaL_error(luaState, "block ID out of range");
             return id;
         }
         lua_pop(luaState, 1);

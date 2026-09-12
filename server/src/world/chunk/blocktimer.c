@@ -1,6 +1,6 @@
 #include "blocktimer.h"
 #include "../world.h"
-#include "../../scripting/luametadata.h"
+#include "scripthooks.h"
 #include "stb_ds.h"
 #include <stdlib.h>
 #include <string.h>
@@ -42,7 +42,7 @@ void BlockTimer_Update(float dt) {
             if (current < 0 || chunk->timers[current].revision != timer.revision) continue;
             Vector3 pos = ServerChunk_IndexToPos(timer.index);
             pos.x += chunk->position.x * 16; pos.y += chunk->position.y * 16; pos.z += chunk->position.z * 16;
-            bool repeat = LuaMetadata_Timer(pos, timer.elapsed);
+            bool repeat = ScriptHooks_MetadataTimer(pos, timer.elapsed);
             current = Find(chunk, timer.index);
             // Explicit start/stop from the callback takes precedence over its return value.
             if (current < 0 || chunk->timers[current].revision != timer.revision) continue;

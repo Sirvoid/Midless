@@ -1,6 +1,3 @@
-#include "minilua.h"
-extern lua_State *L;
-#include "../scripting/luaengine.h"
 #include "textures.h"
 #include "world.h"
 #include "../packet.h"
@@ -169,11 +166,16 @@ void ServerTextures_SendBreaking(Player *player) {
     if (!packet) return;
     packet[0]=PACKET_BREAKING_TEXTURE; packet[1]=breakingId; ServerNetwork_Send(player,packet);
 }
-int ServerTextures_SetBreaking(void) {
-    int id=ServerTextures_Find(luaL_checkstring(L,1));
-    if (id<2 || textures[id].width!=textures[id].height*10 || textures[id].height>64)
-        return luaL_error(L,"breaking texture must contain ten square frames horizontally, up to 64 pixels per frame");
-    breakingId=id;
-    for (int i=0;i<WORLD_MAX_PLAYERS;i++) if (serverWorld.players[i]) ServerTextures_SendBreaking(serverWorld.players[i]);
-    return 0;
+bool ServerTextures_SetBreaking(int id) {
+    if (id < 2 || id >= TEXTURE_LIMIT || !textures[id].data || textures[id].height <= 0 ||
+        textures[id].width != textures[id].height * 10 || textures[id].height > 64)
+        return false;
+    breakingId = id;
+    if (serverWorld.players) {
+        for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+            if (serverWorld.players[i])
+                ServerTextures_SendBreaking(serverWorld.players[i]);
+        }
+    }
+    return true;
 }

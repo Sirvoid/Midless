@@ -1,7 +1,8 @@
 #include "inventorywindow.h"
 #include "player.h"
 #include "world/world.h"
-#include "scripting/luametadata.h"
+#include "scripthooks.h"
+#include "metadata.h"
 #include "serverinventory.h"
 #include "inventoryprotocol.h"
 #include "networkhandler.h"
@@ -20,7 +21,7 @@ static bool Read(Player *p, InventoryWindow *w, ItemStack *slots) {
     for (int i = 1; i < w->view.bindingCount; i++) {
         int offset = InventoryView_Offset(&w->view, i), count = w->view.bindingSlots[i];
         if (w->bindings[i].block) {
-            if (!LuaMetadata_BlockInventory(w->position, w->bindings[i].name, slots + offset, count, false)) return false;
+            if (!ServerMetadata_BlockInventory(w->position, w->bindings[i].name, slots + offset, count, false)) return false;
         } else {
             NamedInventory *inventory = PlayerInventories_Get(p, w->bindings[i].name);
             if (!inventory || inventory->count != count) return false;
@@ -47,7 +48,7 @@ static bool Write(Player *p, InventoryWindow *w, ItemStack *slots) {
     // Screens bind at most one block inventory. Commit its fallible write first;
     // the remaining player inventories are plain memory copies.
     for (int i = 1; i < w->view.bindingCount; i++) if (w->bindings[i].block) {
-        if (!LuaMetadata_BlockInventory(w->position, w->bindings[i].name,
+        if (!ServerMetadata_BlockInventory(w->position, w->bindings[i].name,
             slots + InventoryView_Offset(&w->view, i), w->view.bindingSlots[i], true)) return false;
     }
     for (int i = 1; i < w->view.bindingCount; i++) if (named[i])
@@ -64,7 +65,7 @@ static bool RefreshPreviews(InventoryWindow *w) {
         InventoryElement *e = &w->view.elements[i];
         if (e->progress && w->progressFields[i][0]) {
             float value = 0;
-            LuaMetadata_Progress(w->position, w->progressFields[i], &value);
+            ServerMetadata_Progress(w->position, w->progressFields[i], &value);
             if (e->value != value) changed = true;
             e->value = value;
         }
@@ -135,7 +136,7 @@ static void Revoke(Player *p) {
 
 static bool CanInsert(InventoryWindow *w, int binding, int slot, int item) {
     return !w->bindings[binding].block ||
-        LuaMetadata_CanInsert(w->position, w->bindings[binding].name, slot, item);
+        ScriptHooks_MetadataCanInsert(w->position, w->bindings[binding].name, slot, item);
 }
 static void TransferTo(InventoryWindow *w, int binding, ItemStack *source, ItemStack *slots) {
     for (int pass = 0; pass < 2 && source->count; pass++) {

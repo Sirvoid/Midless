@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2021-2022 Sirvoid
- * 
+ *
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT
  */
@@ -18,7 +18,7 @@ bool Worldgen_Freeze(void);
 lua_State *L;
 int luaRunning = 0;
 
-void Lua_DefineLib(char* name, const void *functions) {
+void Lua_DefineLib(char *name, const void *functions) {
     lua_newtable(L);
     luaL_setfuncs(L, functions, 0);
     lua_setglobal(L, name);
@@ -32,35 +32,35 @@ void Lua_MakeTable(int fields) {
     lua_createtable(L, 0, fields);
 }
 
-void Lua_SetField(int idx, const char* name) {
+void Lua_SetField(int idx, const char *name) {
     lua_setfield(L, idx, name);
 }
 
-void Lua_SetGlobal(const char* name) {
+void Lua_SetGlobal(const char *name) {
     lua_setglobal(L, name);
 }
 
-void Lua_DefineGlobalFunc(char* name, void *function) {
+void Lua_DefineGlobalFunc(char *name, void *function) {
     lua_pushcfunction(L, function);
     lua_setglobal(L, name);
 }
 
-int Lua_GetGlobal(char* name) {
+int Lua_GetGlobal(char *name) {
     return lua_getglobal(L, name);
-}  
+}
 
-void Lua_GetField(char* name) {
+void Lua_GetField(char *name) {
     lua_getfield(L, -1, name);
 }
 
 void Lua_CallFunc(int arguments, int results) {
-    if(lua_pcall(L, arguments, results, 0) != 0) {
+    if (lua_pcall(L, arguments, results, 0) != 0) {
         printf("error running function `f': %s", lua_tostring(L, -1));
         lua_pop(L, 1);
     }
 }
 
-void Lua_Init(void) {
+void ScriptRuntime_Init(void) {
     L = luaL_newstate();
 }
 
@@ -71,7 +71,7 @@ static int CompareModNames(const void *a, const void *b) {
 static bool Lua_LoadModFolder(const char *folder) {
     DIR *dir = opendir(folder);
 
-    if(dir == NULL) {
+    if (dir == NULL) {
         printf("Could not open mod folder: %s\n", folder);
         return true;
     }
@@ -80,67 +80,88 @@ static bool Lua_LoadModFolder(const char *folder) {
     char **names = NULL;
     int count = 0;
 
-    while((entry = readdir(dir)) != NULL) {
+    while ((entry = readdir(dir)) != NULL) {
         size_t length = strlen(entry->d_name);
 
-        if (entry->d_name[0]=='.') continue;
-        char candidate[512]; struct stat info;
-        int written=snprintf(candidate,sizeof(candidate),"%s/%s",folder,entry->d_name);
-        if (written<0 || written>=sizeof(candidate) || stat(candidate,&info)) continue;
+        if (entry->d_name[0] == '.')
+            continue;
+        char candidate[512];
+        struct stat info;
+        int written = snprintf(candidate, sizeof(candidate), "%s/%s", folder, entry->d_name);
+        if (written < 0 || written >= sizeof(candidate) || stat(candidate, &info))
+            continue;
         if (S_ISDIR(info.st_mode)) {
-            written=snprintf(candidate,sizeof(candidate),"%s/%s/init.lua",folder,entry->d_name);
-            if (written<0 || written>=sizeof(candidate) || stat(candidate,&info) || !S_ISREG(info.st_mode)) continue;
-        } else if (!S_ISREG(info.st_mode) || length<4 || strcmp(entry->d_name+length-4,".lua")) continue;
+            written =
+                snprintf(candidate, sizeof(candidate), "%s/%s/init.lua", folder, entry->d_name);
+            if (written < 0 || written >= sizeof(candidate) || stat(candidate, &info) ||
+                !S_ISREG(info.st_mode))
+                continue;
+        } else if (!S_ISREG(info.st_mode) || length < 4 ||
+                   strcmp(entry->d_name + length - 4, ".lua"))
+            continue;
 
         char **grown = realloc(names, (count + 1) * sizeof(*names));
-        if (!grown) { for (int i = 0; i < count; i++) free(names[i]); free(names); closedir(dir); return false; }
+        if (!grown) {
+            for (int i = 0; i < count; i++)
+                free(names[i]);
+            free(names);
+            closedir(dir);
+            return false;
+        }
         names = grown;
         names[count] = malloc(length + 1);
-        if (!names[count]) { for (int i = 0; i < count; i++) free(names[i]); free(names); closedir(dir); return false; }
+        if (!names[count]) {
+            for (int i = 0; i < count; i++)
+                free(names[i]);
+            free(names);
+            closedir(dir);
+            return false;
+        }
         memcpy(names[count++], entry->d_name, length + 1);
     }
     closedir(dir);
-    if (count > 1) qsort(names, count, sizeof(*names), CompareModNames);
+    if (count > 1)
+        qsort(names, count, sizeof(*names), CompareModNames);
     bool success = true;
     for (int i = 0; i < count; i++) {
         char path[512];
 
-        snprintf(
-            path,
-            sizeof(path),
-            "%s/%s",
-            folder,
-            names[i]
-        );
+        snprintf(path, sizeof(path), "%s/%s", folder, names[i]);
 
         struct stat info;
-        bool directory=stat(path,&info)==0 && S_ISDIR(info.st_mode);
+        bool directory = stat(path, &info) == 0 && S_ISDIR(info.st_mode);
         char script[512];
-        int written=snprintf(script,sizeof(script),directory?"%s/init.lua":"%s",path);
-        int top=lua_gettop(L);
-        printf("Loading %s\n",script);
-        if (written<0 || written>=sizeof(script)) success=false;
+        int written = snprintf(script, sizeof(script), directory ? "%s/init.lua" : "%s", path);
+        int top = lua_gettop(L);
+        printf("Loading %s\n", script);
+        if (written < 0 || written >= sizeof(script))
+            success = false;
         else {
-            int error=luaL_loadfile(L,script);
+            int error = luaL_loadfile(L, script);
             if (!error) {
-                if (directory) lua_pushstring(L,path);
-                error=lua_pcall(L,directory?1:0,0,0);
+                if (directory)
+                    lua_pushstring(L, path);
+                error = lua_pcall(L, directory ? 1 : 0, 0, 0);
             }
-            if (error) { success=false; printf("Lua error in %s: %s\n",script,lua_tostring(L,-1)); }
+            if (error) {
+                success = false;
+                printf("Lua error in %s: %s\n", script, lua_tostring(L, -1));
+            }
         }
-        lua_settop(L,top);
+        lua_settop(L, top);
         free(names[i]);
     }
     free(names);
     return success;
 }
 
-bool Lua_Run(void) {
+bool ScriptRuntime_Run(void) {
 
     int error = 0;
-    if(L != NULL) {
+    if (L != NULL) {
         luaL_openlibs(L);
-        if (!Lua_LoadModFolder("mods") || !Worldgen_Freeze()) return false;
+        if (!Lua_LoadModFolder("mods") || !Worldgen_Freeze())
+            return false;
         luaRunning = 1;
     }
 
@@ -151,8 +172,9 @@ bool Lua_Run(void) {
     return L != NULL && !error;
 }
 
-void Lua_Stop(void) {
-    if(L == NULL) return;
+void ScriptRuntime_Stop(void) {
+    if (L == NULL)
+        return;
     lua_close(L);
     L = NULL;
     luaRunning = 0;
@@ -191,7 +213,6 @@ void Lua_SetRawI(int table, int index) {
 
 int Lua_GetInt(int arg) {
     return luaL_checkinteger(L, arg);
-    
 }
 
 float Lua_GetNumber(int arg) {
@@ -202,7 +223,7 @@ int Lua_GetTop(void) {
     return lua_gettop(L);
 }
 
-const char* Lua_GetString(int arg) {
+const char *Lua_GetString(int arg) {
     return luaL_checkstring(L, arg);
 }
 
@@ -240,7 +261,9 @@ void Lua_CopyString(int arg, char *destination, int capacity) {
     size_t length;
     const char *value = luaL_checklstring(L, arg, &length);
     if (length == 0 || length >= (size_t)capacity || memchr(value, 0, length)) {
-        luaL_argerror(L, arg, "expected a nonempty string that fits the destination, without embedded NUL bytes");
+        luaL_argerror(
+            L, arg,
+            "expected a nonempty string that fits the destination, without embedded NUL bytes");
     }
     memcpy(destination, value, length);
     destination[length] = 0;
@@ -250,12 +273,16 @@ int Lua_Error(const char *message) {
     return luaL_error(L, "%s", message);
 }
 
-void Lua_CheckTable(int arg) { luaL_checktype(L, arg, LUA_TTABLE); }
+void Lua_CheckTable(int arg) {
+    luaL_checktype(L, arg, LUA_TTABLE);
+}
 int Lua_PushField(int table, const char *name) {
     lua_getfield(L, table, name);
     return !lua_isnil(L, -1);
 }
-void Lua_Pop(void) { lua_pop(L, 1); }
+void Lua_Pop(void) {
+    lua_pop(L, 1);
+}
 
 void Lua_DefineObjectType(const char *name, const void *methods) {
     luaL_newmetatable(L, name);
@@ -277,5 +304,11 @@ void *Lua_CheckObject(int arg, const char *name) {
     return luaL_checkudata(L, arg, name);
 }
 
-int Lua_TableLength(int arg) { luaL_checktype(L, arg, LUA_TTABLE); return (int)lua_rawlen(L, arg); }
-int Lua_GetBoolean(int arg) { luaL_checktype(L, arg, LUA_TBOOLEAN); return lua_toboolean(L, arg); }
+int Lua_TableLength(int arg) {
+    luaL_checktype(L, arg, LUA_TTABLE);
+    return (int)lua_rawlen(L, arg);
+}
+int Lua_GetBoolean(int arg) {
+    luaL_checktype(L, arg, LUA_TBOOLEAN);
+    return lua_toboolean(L, arg);
+}

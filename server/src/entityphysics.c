@@ -3,7 +3,6 @@
 #include <math.h>
 #include "entityphysics.h"
 #include "mobs.h"
-#include "scripting/luamobs.h"
 #include "world/world.h"
 
 #define SPATIAL_BUCKETS 2048
@@ -161,7 +160,7 @@ void ServerPhysics_Update(float dt) {
             if (!entity->active || entity->pendingRemoval || entity->ownerPlayerId >= 0) continue;
             if (EntityPersistence_IsSaving(entity)) continue;
             if (entity->recovering && entity->body.grounded) entity->recovering = false;
-            LuaMobs_Physics(entity,PHYSICS_STEP);
+            ServerMobs_Update(entity,PHYSICS_STEP);
             if (!entity->active || entity->pendingRemoval || !entity->body.enabled) continue;
             Vector3 previous = entity->position;
             Steer(entity);

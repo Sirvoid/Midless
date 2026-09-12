@@ -10,6 +10,6 @@ void ServerTextures_SendTerrain(Player *player);
 void ServerTextures_Update(void);
 void ServerTextures_Shutdown(void);
 void ServerTextures_Acknowledge(Player *player, int id, uint32_t revision, uint32_t offset);
-int ServerTextures_SetBreaking(void);
+bool ServerTextures_SetBreaking(int id);
 void ServerTextures_SendBreaking(Player *player);
 #endif

@@ -1,3 +1,11 @@
+#include "luaspawning.h"
+#include "luablockstates.h"
+#include "luaitems.h"
+#include "luaworldgen.h"
+#include "luaentitytexture.h"
+#include "luatextcolors.h"
+#include "luacrafting.h"
+#include "luahudbars.h"
 #include "blockstates.h"
 #include "luaqueries.h"
 #include "luamobs.h"
@@ -11,7 +19,7 @@
 #include "luadigging.h"
 /**
  * Copyright (c) 2021-2022 Sirvoid
- * 
+ *
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT
  */
@@ -38,20 +46,29 @@
 #include "stb_ds.h"
 
 typedef struct LuaMethod {
-  const char *name;
-  void* func;
+    const char *name;
+    void *func;
 } LuaMethod;
 extern lua_State *L;
 static int blockInteractions[256];
+
+static int LuaBindings_SetBreakingTexture(void) {
+    int id = ServerTextures_Find(luaL_checkstring(L, 1));
+    if (!ServerTextures_SetBreaking(id)) {
+        return luaL_error(L, "breaking texture must contain ten square frames horizontally, up to "
+                             "64 pixels per frame");
+    }
+    return 0;
+}
 
 //---System---
 
 static int LuaBindings_Sleep(void) {
     int timeWaiting = Lua_GetNumber(1);
     long long beginning = GetTimeMilliseconds();
-    
-    while(GetTimeMilliseconds() < beginning + timeWaiting) {
-        //Wait
+
+    while (GetTimeMilliseconds() < beginning + timeWaiting) {
+        // Wait
     }
 
     return 0;
@@ -61,9 +78,12 @@ static int LuaBindings_Sleep(void) {
 
 static void LuaBindings_PushPosition(Vector3 position) {
     Lua_MakeTable(3);
-    Lua_PushNumber(position.x); Lua_SetField(-2, "x");
-    Lua_PushNumber(position.y); Lua_SetField(-2, "y");
-    Lua_PushNumber(position.z); Lua_SetField(-2, "z");
+    Lua_PushNumber(position.x);
+    Lua_SetField(-2, "x");
+    Lua_PushNumber(position.y);
+    Lua_SetField(-2, "y");
+    Lua_PushNumber(position.z);
+    Lua_SetField(-2, "z");
 }
 
 static Vector3 LuaBindings_ReadPosition(int arg, bool blockPosition) {
@@ -72,12 +92,11 @@ static Vector3 LuaBindings_ReadPosition(int arg, bool blockPosition) {
     float values[3];
     for (int i = 0; i < 3; i++) {
         Lua_PushField(arg, fields[i]);
-        values[i] = blockPosition
-            ? Lua_GetIntRange(-1, -33554430, 33554430)
-            : Lua_GetNumber(-1);
+        values[i] = blockPosition ? Lua_GetIntRange(-1, -33554430, 33554430) : Lua_GetNumber(-1);
         Lua_Pop();
         if (!isfinite(values[i]) || fabsf(values[i]) > 33554430.0f)
-            Lua_Error("position coordinates must be finite and within the network coordinate range");
+            Lua_Error(
+                "position coordinates must be finite and within the network coordinate range");
     }
     return (Vector3){values[0], values[1], values[2]};
 }
@@ -86,14 +105,16 @@ static int *luaReadyCallbacks = NULL;
 static bool luaReadyInvoked;
 
 static int LuaBindings_RegisterReady(void) {
-    if (luaReadyInvoked) return Lua_Error("midless.register_on_ready must be registered during script startup");
+    if (luaReadyInvoked)
+        return Lua_Error("midless.register_on_ready must be registered during script startup");
     int callback = Lua_RefFunction(1);
     arrput(luaReadyCallbacks, callback);
     return 0;
 }
 
-void LuaBindings_InvokeReady(void) {
-    if (!luaRunning || luaReadyInvoked) return;
+void ScriptHooks_Ready(void) {
+    if (!luaRunning || luaReadyInvoked)
+        return;
     luaReadyInvoked = true;
     for (int i = 0; i < arrlen(luaReadyCallbacks); i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaReadyCallbacks[i]);
@@ -109,8 +130,9 @@ static int LuaBindings_RegisterStep(void) {
     return 0;
 }
 
-void LuaBindings_InvokeStep(float delta) {
-    if (!luaRunning) return;
+void ScriptHooks_Step(float delta) {
+    if (!luaRunning)
+        return;
 
     for (int i = 0; i < arrlen(luaStepCallbacks); i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaStepCallbacks[i]);
@@ -126,21 +148,24 @@ static int LuaBindings_RegisterBlockUpdate(void) {
     return 0;
 }
 
-void LuaBindings_InvokeBlockUpdate(Vector3 position, unsigned short blockId, unsigned short previousBlockId) {
-    if(luaRunning == 0) return;
-    for(int i = 0; i < arrlen(luaBlockUpdateCallbacks); i++) {
+void ScriptHooks_BlockUpdate(Vector3 position, unsigned short blockId,
+                             unsigned short previousBlockId) {
+    if (luaRunning == 0)
+        return;
+    for (int i = 0; i < arrlen(luaBlockUpdateCallbacks); i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaBlockUpdateCallbacks[i]);
-            LuaBindings_PushPosition(position);
-            ServerItems_PushId(L, blockId);
-            ServerItems_PushId(L, previousBlockId);
+        LuaBindings_PushPosition(position);
+        LuaItems_PushId(L, blockId);
+        LuaItems_PushId(L, previousBlockId);
         Lua_CallFunc(3, 0);
     }
 }
 
 static int LuaBindings_SetBlock(void) {
     Vector3 position = LuaBindings_ReadPosition(1, true);
-    int blockId = ServerItems_Id(L, 2, true, false);
-    if (!ServerWorld_IsBlockDefined(blockId)) return luaL_error(L, "block is not defined");
+    int blockId = LuaItems_Id(L, 2, true, false);
+    if (!ServerWorld_IsBlockDefined(blockId))
+        return luaL_error(L, "block is not defined");
     ServerWorld_SetBlock(position, blockId, true, false, true);
     return 0;
 }
@@ -156,14 +181,12 @@ static ServerBlockUpdate LuaBindings_ReadBlockUpdate(int table) {
     Lua_Pop();
 
     Lua_PushField(table, "blockId");
-    int blockId = ServerItems_Id(L, -1, true, false);
+    int blockId = LuaItems_Id(L, -1, true, false);
     Lua_Pop();
-    if (!ServerWorld_IsBlockDefined(blockId)) Lua_Error("blockId is not defined");
+    if (!ServerWorld_IsBlockDefined(blockId))
+        Lua_Error("blockId is not defined");
 
-    return (ServerBlockUpdate){
-        .position = position,
-        .blockId = (unsigned char)blockId
-    };
+    return (ServerBlockUpdate){.position = position, .blockId = (unsigned char)blockId};
 }
 
 static int LuaBindings_SetBlocks(void) {
@@ -181,7 +204,8 @@ static int LuaBindings_SetBlocks(void) {
     }
 
     ServerBlockUpdate *updates = count > 0 ? MemAlloc(sizeof(*updates) * count) : NULL;
-    if (count > 0 && updates == NULL) return Lua_Error("could not allocate block update batch");
+    if (count > 0 && updates == NULL)
+        return Lua_Error("could not allocate block update batch");
 
     int changedCount = 0;
     for (int i = 0; i < count; i++) {
@@ -190,7 +214,8 @@ static int LuaBindings_SetBlocks(void) {
         Lua_Pop();
 
         int previousBlockId = ServerWorld_GetBlock(update.position);
-        if (previousBlockId == update.blockId) continue;
+        if (previousBlockId == update.blockId)
+            continue;
         ServerWorld_SetBlock(update.position, update.blockId, false, false, callCallbacks);
         if (ServerWorld_GetBlock(update.position) == update.blockId)
             updates[changedCount++] = update;
@@ -198,11 +223,12 @@ static int LuaBindings_SetBlocks(void) {
 
     for (int offset = 0; offset < changedCount; offset += LUA_BLOCK_BATCH_SIZE) {
         int remaining = changedCount - offset;
-        unsigned short batchCount = (unsigned short)(remaining < LUA_BLOCK_BATCH_SIZE
-            ? remaining : LUA_BLOCK_BATCH_SIZE);
+        unsigned short batchCount =
+            (unsigned short)(remaining < LUA_BLOCK_BATCH_SIZE ? remaining : LUA_BLOCK_BATCH_SIZE);
         for (int playerId = 0; playerId < WORLD_MAX_PLAYERS; playerId++) {
             Player *player = serverWorld.players[playerId];
-            if (player == NULL) continue;
+            if (player == NULL)
+                continue;
             ServerNetwork_Send(player, ServerPacket_CreateBlockBatch(updates + offset, batchCount));
         }
     }
@@ -211,11 +237,10 @@ static int LuaBindings_SetBlocks(void) {
     return 0;
 }
 
-
-
 static int LuaBindings_IntField(int table, const char *name, int fallback, int min, int max) {
     int value = fallback;
-    if (Lua_PushField(table, name)) value = Lua_GetIntRange(-1, min, max);
+    if (Lua_PushField(table, name))
+        value = Lua_GetIntRange(-1, min, max);
     Lua_Pop();
     return value;
 }
@@ -237,11 +262,16 @@ static void LuaBindings_ReadBlockTable(BlockDefinition *d) {
     Lua_PushField(2, "name");
     Lua_CopyString(-1, d->name, sizeof(d->name));
     Lua_Pop();
-    d->modelType = LuaBindings_IntField(2, "model", BLOCK_MODEL_SOLID, BLOCK_MODEL_GAS, BLOCK_MODEL_SPRITE);
-    d->renderType = LuaBindings_IntField(2, "render", BLOCK_RENDER_OPAQUE, BLOCK_RENDER_OPAQUE, BLOCK_RENDER_TRANSLUCENT);
-    d->colliderType = LuaBindings_IntField(2, "collider", BLOCK_COLLIDER_SOLID, BLOCK_COLLIDER_NONE, BLOCK_COLLIDER_LIQUID);
-    d->lightType = LuaBindings_IntField(2, "light", BLOCK_LIGHT_NONE, BLOCK_LIGHT_NONE, BLOCK_LIGHT_EMIT);
-    for (int i = 0; i < 3; i++) d->max[i] = 16;
+    d->modelType =
+        LuaBindings_IntField(2, "model", BLOCK_MODEL_SOLID, BLOCK_MODEL_GAS, BLOCK_MODEL_SPRITE);
+    d->renderType = LuaBindings_IntField(2, "render", BLOCK_RENDER_OPAQUE, BLOCK_RENDER_OPAQUE,
+                                         BLOCK_RENDER_TRANSLUCENT);
+    d->colliderType = LuaBindings_IntField(2, "collider", BLOCK_COLLIDER_SOLID, BLOCK_COLLIDER_NONE,
+                                           BLOCK_COLLIDER_LIQUID);
+    d->lightType =
+        LuaBindings_IntField(2, "light", BLOCK_LIGHT_NONE, BLOCK_LIGHT_NONE, BLOCK_LIGHT_EMIT);
+    for (int i = 0; i < 3; i++)
+        d->max[i] = 16;
     if (Lua_PushField(2, "bounds")) {
         Lua_CheckTable(-1);
         int bounds = Lua_GetTop();
@@ -260,15 +290,18 @@ static void LuaBindings_ReadBlockTable(BlockDefinition *d) {
     for (int i = 0; i < 6; i++) {
         int fallback = (i == 2 || i == 3) ? all : sides;
         int texture = LuaBindings_IntField(textures, faces[i], fallback, 0, 255);
-        if (texture < 0) Lua_Error("textures must specify all faces, using all, sides, or individual face names");
+        if (texture < 0)
+            Lua_Error(
+                "textures must specify all faces, using all, sides, or individual face names");
         d->textures[i] = texture;
     }
     Lua_Pop();
 }
 
 static int LuaBindings_DefineBlock(void) {
-    int blockId = ServerItems_Declare(L, true);
-    if (!blockId || serverWorld.hasBlockDefinition[blockId]) return luaL_error(L, "block already defined");
+    int blockId = LuaItems_Declare(L, true);
+    if (!blockId || serverWorld.hasBlockDefinition[blockId])
+        return luaL_error(L, "block already defined");
     BlockDefinition definition = {0};
     Lua_CheckTable(2);
     LuaBindings_ReadBlockTable(&definition);
@@ -279,16 +312,20 @@ static int LuaBindings_DefineBlock(void) {
         return Lua_Error("midless.define_block must run after world initialization.");
     }
     lua_getfield(L, 2, "on_interact");
-    if (!lua_isnil(L, -1)) luaL_checktype(L, -1, LUA_TFUNCTION);
+    if (!lua_isnil(L, -1))
+        luaL_checktype(L, -1, LUA_TFUNCTION);
     lua_pop(L, 1);
     LuaDigging_Define(blockId, 2, true);
     LuaItemActions_Define(blockId, 2, true);
     LuaMetadata_DefineBlock(blockId, 2);
-    ServerBlockStates_Define(L, blockId, 2, &definition);
+    LuaBlockStates_Define(L, blockId, 2, &definition);
     lua_getfield(L, 2, "item_metadata");
     if (!lua_isnil(L, -1)) {
-        lua_newtable(L); lua_pushvalue(L, -2); lua_setfield(L, -2, "metadata");
-        LuaMetadata_DefineItem(blockId, lua_gettop(L)); lua_pop(L, 1);
+        lua_newtable(L);
+        lua_pushvalue(L, -2);
+        lua_setfield(L, -2, "metadata");
+        LuaMetadata_DefineItem(blockId, lua_gettop(L));
+        lua_pop(L, 1);
     }
     lua_pop(L, 1);
     luaL_unref(L, LUA_REGISTRYINDEX, blockInteractions[blockId]);
@@ -301,9 +338,13 @@ static int LuaBindings_DefineBlock(void) {
 //---------Entity models---------
 
 static void LuaBindings_ModelVector(int table, const char *name, int16_t values[3], bool optional) {
-    if (!Lua_PushField(table, name) && optional) { Lua_Pop(); return; }
+    if (!Lua_PushField(table, name) && optional) {
+        Lua_Pop();
+        return;
+    }
     int vector = Lua_GetTop();
-    if (Lua_TableLength(vector) != 3) Lua_Error("model vectors require exactly three coordinates");
+    if (Lua_TableLength(vector) != 3)
+        Lua_Error("model vectors require exactly three coordinates");
     for (int i = 0; i < 3; i++) {
         Lua_GetRawI(vector, i + 1);
         float value = Lua_GetNumber(-1);
@@ -319,41 +360,50 @@ static int LuaBindings_DefineEntityModel(void) {
     int id = LuaModels_Resolve(1, true);
     Lua_CheckTable(2);
     ModelDefinition d = {0};
-    lua_getfield(L,2,"base");
-    if (!lua_isnil(L,-1)) {
-        int base = LuaModels_Resolve(-1,false);
-        if (base && !serverWorld.modelDefinitions[base]) return Lua_Error("base model is not defined");
+    lua_getfield(L, 2, "base");
+    if (!lua_isnil(L, -1)) {
+        int base = LuaModels_Resolve(-1, false);
+        if (base && !serverWorld.modelDefinitions[base])
+            return Lua_Error("base model is not defined");
         d = base ? *serverWorld.modelDefinitions[base] : ModelDefinition_Humanoid();
-        lua_pop(L,1);
-        lua_getfield(L,2,"parts");
-        if (!lua_isnil(L,-1)) return Lua_Error("model variants cannot also specify parts");
-        lua_pop(L,1);
-        lua_getfield(L,2,"texture");
-        if (!lua_isnil(L,-1)) {
-            int texture = ServerTextures_Find(luaL_checkstring(L,-1));
-            if (texture<0) return Lua_Error("texture is not defined");
+        lua_pop(L, 1);
+        lua_getfield(L, 2, "parts");
+        if (!lua_isnil(L, -1))
+            return Lua_Error("model variants cannot also specify parts");
+        lua_pop(L, 1);
+        lua_getfield(L, 2, "texture");
+        if (!lua_isnil(L, -1)) {
+            int texture = ServerTextures_Find(luaL_checkstring(L, -1));
+            if (texture < 0)
+                return Lua_Error("texture is not defined");
             d.texture = texture;
         }
-        lua_pop(L,1);
-        lua_getfield(L,2,"name");
-        if (!lua_isnil(L,-1)) Lua_CopyString(-1,d.name,sizeof(d.name));
-        lua_pop(L,1);
-        if (!ServerWorld_DefineEntityModel(id,&d)) return Lua_Error("invalid model variant");
-        LuaModels_BindName(1,id);
+        lua_pop(L, 1);
+        lua_getfield(L, 2, "name");
+        if (!lua_isnil(L, -1))
+            Lua_CopyString(-1, d.name, sizeof(d.name));
+        lua_pop(L, 1);
+        if (!ServerWorld_DefineEntityModel(id, &d))
+            return Lua_Error("invalid model variant");
+        LuaModels_BindName(1, id);
         return 0;
     }
-    lua_pop(L,1);
-    Lua_PushField(2, "name"); Lua_CopyString(-1, d.name, sizeof(d.name)); Lua_Pop();
+    lua_pop(L, 1);
+    Lua_PushField(2, "name");
+    Lua_CopyString(-1, d.name, sizeof(d.name));
+    Lua_Pop();
     Lua_PushField(2, "texture");
     const char *texture = Lua_GetString(-1);
-    int textureId=ServerTextures_Find(texture);
-    if(textureId<0) return Lua_Error("texture is not defined");
-    d.texture=textureId;
+    int textureId = ServerTextures_Find(texture);
+    if (textureId < 0)
+        return Lua_Error("texture is not defined");
+    d.texture = textureId;
     Lua_Pop();
     Lua_PushField(2, "parts");
     int parts = Lua_GetTop();
     int count = Lua_TableLength(parts);
-    if (count < 1 || count > ENTITY_MODEL_MAX_PARTS) return Lua_Error("models require 1 to 64 parts");
+    if (count < 1 || count > ENTITY_MODEL_MAX_PARTS)
+        return Lua_Error("models require 1 to 64 parts");
     d.partCount = count;
     static const char *faces[] = {"east", "west", "up", "down", "north", "south"};
     for (int i = 0; i < count; i++) {
@@ -362,20 +412,25 @@ static int LuaBindings_DefineEntityModel(void) {
         Lua_CheckTable(part);
         ModelPartDefinition *p = &d.parts[i];
         p->role = LuaBindings_IntField(part, "role", 0, 0, 5);
-        if (Lua_PushField(part, "first_person_visible")) p->firstPersonVisible = Lua_GetBoolean(-1);
+        if (Lua_PushField(part, "first_person_visible"))
+            p->firstPersonVisible = Lua_GetBoolean(-1);
         Lua_Pop();
-        if (Lua_PushField(part, "grip")) p->hasGrip = true;
+        if (Lua_PushField(part, "grip"))
+            p->hasGrip = true;
         Lua_Pop();
-        if (p->hasGrip) LuaBindings_ModelVector(part, "grip", p->grip, false);
+        if (p->hasGrip)
+            LuaBindings_ModelVector(part, "grip", p->grip, false);
         LuaBindings_ModelVector(part, "position", p->position, true);
         LuaBindings_ModelVector(part, "min", p->min, false);
         LuaBindings_ModelVector(part, "max", p->max, false);
         Lua_PushField(part, "uv");
-        int uv = Lua_GetTop(); Lua_CheckTable(uv);
+        int uv = Lua_GetTop();
+        Lua_CheckTable(uv);
         for (int f = 0; f < 6; f++) {
             Lua_PushField(uv, faces[f]);
             int rectangle = Lua_GetTop();
-            if (Lua_TableLength(rectangle) != 4) return Lua_Error("UV rectangles require x, y, width, height");
+            if (Lua_TableLength(rectangle) != 4)
+                return Lua_Error("UV rectangles require x, y, width, height");
             for (int a = 0; a < 4; a++) {
                 Lua_GetRawI(rectangle, a + 1);
                 p->uv[f][a] = Lua_GetIntRange(-1, -32768, 32767);
@@ -383,23 +438,27 @@ static int LuaBindings_DefineEntityModel(void) {
             }
             Lua_Pop();
         }
-        Lua_Pop(); Lua_Pop();
+        Lua_Pop();
+        Lua_Pop();
     }
     Lua_Pop();
-    if (!ServerWorld_DefineEntityModel(id, &d)) return Lua_Error("invalid entity model or allocation failed");
+    if (!ServerWorld_DefineEntityModel(id, &d))
+        return Lua_Error("invalid entity model or allocation failed");
     LuaModels_BindName(1, id);
     return 0;
 }
 static int LuaBindings_RemoveEntityModel(void) {
     int id = LuaModels_Resolve(1, false);
-    if (id == 0) return Lua_Error("cannot remove the built-in humanoid model");
+    if (id == 0)
+        return Lua_Error("cannot remove the built-in humanoid model");
     ServerWorld_RemoveEntityModel(id);
     return 0;
 }
 static int LuaBindings_SetEntityModel(void) {
     int entityId = Lua_GetIntRange(1, 0, WORLD_MAX_ENTITIES - 1);
     int modelId = LuaModels_Resolve(2, false);
-    if (!ServerWorld_SetEntityModel(entityId, modelId)) return Lua_Error("entity or model is not defined");
+    if (!ServerWorld_SetEntityModel(entityId, modelId))
+        return Lua_Error("entity or model is not defined");
     return 0;
 }
 
@@ -414,15 +473,19 @@ typedef struct LuaPlayerHandle {
 } LuaPlayerHandle;
 
 Entity *LuaBindings_TestPlayerEntity(lua_State *state, int index) {
-    LuaPlayerHandle *h = luaL_testudata(state,index,LUA_PLAYER_TYPE);
-    Player *p = h && serverWorld.players && h->id>=0 && h->id<WORLD_MAX_PLAYERS ? serverWorld.players[h->id] : NULL;
-    if (!p || p->disconnected || !p->movementReady || p->connectionId!=h->connectionId ||
-        !serverWorld.entities || p->entityId<0 || p->entityId>=WORLD_MAX_ENTITIES) return NULL;
+    LuaPlayerHandle *h = luaL_testudata(state, index, LUA_PLAYER_TYPE);
+    Player *p = h && serverWorld.players && h->id >= 0 && h->id < WORLD_MAX_PLAYERS
+                    ? serverWorld.players[h->id]
+                    : NULL;
+    if (!p || p->disconnected || !p->movementReady || p->connectionId != h->connectionId ||
+        !serverWorld.entities || p->entityId < 0 || p->entityId >= WORLD_MAX_ENTITIES)
+        return NULL;
     Entity *e = &serverWorld.entities[p->entityId];
-    return e->active && !e->pendingRemoval && e->ownerPlayerId==p->id ? e : NULL;
+    return e->active && !e->pendingRemoval && e->ownerPlayerId == p->id ? e : NULL;
 }
 static int IsPlayerValid(void) {
-    lua_pushboolean(L,LuaBindings_TestPlayerEntity(L,1)!=NULL); return 1;
+    lua_pushboolean(L, LuaBindings_TestPlayerEntity(L, 1) != NULL);
+    return 1;
 }
 
 void LuaBindings_PushPlayer(Player *player) {
@@ -438,7 +501,8 @@ void LuaBindings_PushPlayer(Player *player) {
 static Player *LuaBindings_CheckPlayer(void) {
     LuaPlayerHandle *handle = Lua_CheckObject(1, LUA_PLAYER_TYPE);
     Player *player = serverWorld.players ? serverWorld.players[handle->id] : NULL;
-    if (!player || (player->disconnected && player != luaLeavingPlayer) || player->connectionId != handle->connectionId) {
+    if (!player || (player->disconnected && player != luaLeavingPlayer) ||
+        player->connectionId != handle->connectionId) {
         Lua_Error("player is no longer connected");
         return NULL;
     }
@@ -458,11 +522,14 @@ static int LuaBindings_RegisterPlayerLeave(void) {
 }
 
 static void LuaBindings_InvokePlayerEvent(int playerId, bool leaving) {
-    if (!luaRunning || !serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS) return;
+    if (!luaRunning || !serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS)
+        return;
     Player *player = serverWorld.players[playerId];
-    if (!player || (!leaving && player->disconnected)) return;
+    if (!player || (!leaving && player->disconnected))
+        return;
     Player *previousLeavingPlayer = luaLeavingPlayer;
-    if (leaving) luaLeavingPlayer = player;
+    if (leaving)
+        luaLeavingPlayer = player;
     int count = leaving ? arrlen(luaLeaveCallbacks) : arrlen(luaJoinCallbacks);
     for (int i = 0; i < count; i++) {
         int callback = leaving ? luaLeaveCallbacks[i] : luaJoinCallbacks[i];
@@ -473,11 +540,11 @@ static void LuaBindings_InvokePlayerEvent(int playerId, bool leaving) {
     luaLeavingPlayer = previousLeavingPlayer;
 }
 
-void LuaBindings_InvokePlayerJoin(int playerId) {
+void ScriptHooks_PlayerJoin(int playerId) {
     LuaBindings_InvokePlayerEvent(playerId, false);
 }
 
-void LuaBindings_InvokePlayerLeave(int playerId) {
+void ScriptHooks_PlayerLeave(int playerId) {
     LuaBindings_InvokePlayerEvent(playerId, true);
 }
 
@@ -487,10 +554,12 @@ static int LuaBindings_RegisterPlayerLand(void) {
     return 0;
 }
 
-void LuaBindings_InvokePlayerLand(int playerId, float distance) {
-    if (!luaRunning || !serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS) return;
+void ScriptHooks_PlayerLand(int playerId, float distance) {
+    if (!luaRunning || !serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS)
+        return;
     Player *player = serverWorld.players[playerId];
-    if (!player || player->disconnected) return;
+    if (!player || player->disconnected)
+        return;
     int count = arrlen(luaLandCallbacks);
     for (int i = 0; i < count; i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaLandCallbacks[i]);
@@ -528,12 +597,14 @@ static int LuaBindings_GetPlayerId(void) {
 
 static int LuaBindings_ListPlayers(void) {
     Lua_MakeTable(0);
-    if (!serverWorld.players) return 1;
+    if (!serverWorld.players)
+        return 1;
 
     int index = 1;
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         Player *player = serverWorld.players[i];
-        if (!player || player->disconnected) continue;
+        if (!player || player->disconnected)
+            continue;
         LuaBindings_PushPlayer(player);
         Lua_SetRawI(-2, index++);
     }
@@ -547,7 +618,8 @@ static int LuaBindings_GetPlayerName(void) {
 
 static Entity *LuaBindings_CheckPlayerEntity(void) {
     int id = LuaBindings_CheckPlayer()->entityId;
-    if (!serverWorld.entities || id < 0 || id >= WORLD_MAX_ENTITIES || !serverWorld.entities[id].active) {
+    if (!serverWorld.entities || id < 0 || id >= WORLD_MAX_ENTITIES ||
+        !serverWorld.entities[id].active) {
         Lua_Error("player has no entity");
         return NULL;
     }
@@ -572,15 +644,15 @@ static int LuaBindings_GetPlayerLookDirection(void) {
     float yaw = rotation.y;
     float pitch = rotation.x;
     float horizontal = cosf(pitch);
-    LuaBindings_PushPosition((Vector3){
-        sinf(yaw) * horizontal, -sinf(pitch), cosf(yaw) * horizontal
-    });
+    LuaBindings_PushPosition(
+        (Vector3){sinf(yaw) * horizontal, -sinf(pitch), cosf(yaw) * horizontal});
     return 1;
 }
 
 static int LuaBindings_TeleportPlayer(void) {
     Player *player = LuaBindings_CheckPlayer();
-    if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
+    if (player->disconnected || player == luaLeavingPlayer)
+        return Lua_Error("player is leaving");
     int id = player->entityId;
     Vector3 position = LuaBindings_ReadPosition(2, false);
     if (!serverWorld.entities || id < 0 || !serverWorld.entities[id].active) {
@@ -593,53 +665,76 @@ static int LuaBindings_TeleportPlayer(void) {
 static int LuaBindings_SendPlayerMessage(void) {
     Player *player = LuaBindings_CheckPlayer();
     const char *message = Lua_GetString(2);
-    if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
+    if (player->disconnected || player == luaLeavingPlayer)
+        return Lua_Error("player is leaving");
     ServerPlayer_SendMessage(player, message);
     return 0;
 }
 
 static int LuaBindings_SetPlayerModel(void) {
     Player *player = LuaBindings_CheckPlayer();
-    if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
+    if (player->disconnected || player == luaLeavingPlayer)
+        return Lua_Error("player is leaving");
     int modelId = LuaModels_Resolve(2, false);
-    if (!ServerWorld_SetEntityModel(player->entityId, modelId)) return Lua_Error("model is not defined");
+    if (!ServerWorld_SetEntityModel(player->entityId, modelId))
+        return Lua_Error("model is not defined");
     return 0;
 }
 
-static int GetPlayerInventory(void) { return LuaInventory_Get(L, LuaBindings_CheckPlayer()); }
-static int ShowPlayerInventory(void) { return LuaInventory_Show(L, LuaBindings_CheckPlayer()); }
-static int ClosePlayerInventory(void) { return LuaInventory_Close(L, LuaBindings_CheckPlayer()); }
-bool LuaBindings_InteractBlock(Player *player, Vector3 position, int blockId) {
+static int GetPlayerInventory(void) {
+    return LuaInventory_Get(L, LuaBindings_CheckPlayer());
+}
+static int ShowPlayerInventory(void) {
+    return LuaInventory_Show(L, LuaBindings_CheckPlayer());
+}
+static int ClosePlayerInventory(void) {
+    return LuaInventory_Close(L, LuaBindings_CheckPlayer());
+}
+bool ScriptHooks_InteractBlock(Player *player, Vector3 position, int blockId) {
     if (!luaRunning || blockId < 1 || blockId > 255 || !serverWorld.hasBlockDefinition[blockId] ||
-        blockInteractions[blockId] < 0) return false;
+        blockInteractions[blockId] < 0)
+        return false;
     int top = lua_gettop(L);
     lua_rawgeti(L, LUA_REGISTRYINDEX, blockInteractions[blockId]);
     LuaBindings_PushPlayer(player);
     LuaMetadata_PushBlock(L, position);
-    if (lua_pcall(L, 2, 0, 0) != LUA_OK) TraceLog(LOG_WARNING, "Block on_interact: %s", lua_tostring(L, -1));
+    if (lua_pcall(L, 2, 0, 0) != LUA_OK)
+        TraceLog(LOG_WARNING, "Block on_interact: %s", lua_tostring(L, -1));
     lua_settop(L, top);
     return true; // A registered interaction consumes right-click, including on error.
 }
 static int GetSelectedStack(void) {
-    ServerItems_PushStack(L,*Inventory_GetSelected(&LuaBindings_CheckPlayer()->inventory)); return 1;
+    LuaItems_PushStack(L, *Inventory_GetSelected(&LuaBindings_CheckPlayer()->inventory));
+    return 1;
 }
 static int GetSelectedSlot(void) {
-    Player *player=LuaBindings_CheckPlayer();
-    lua_pushinteger(L,Inventory_GetSelected(&player->inventory)-player->inventory.slots+1); return 1;
+    Player *player = LuaBindings_CheckPlayer();
+    lua_pushinteger(L, Inventory_GetSelected(&player->inventory) - player->inventory.slots + 1);
+    return 1;
 }
 static int SetSelectedStack(void) {
-    Player *player=LuaBindings_CheckPlayer();
-    if (player->disconnected || player==luaLeavingPlayer) return Lua_Error("player is leaving");
-    ItemStack stack; ServerItems_ReadStack(L,2,&stack);
-    if (stack.count && !ServerItems_IsDefined(stack.itemId)) return Lua_Error("item is not defined");
-    *Inventory_GetSelected(&player->inventory)=stack;
+    Player *player = LuaBindings_CheckPlayer();
+    if (player->disconnected || player == luaLeavingPlayer)
+        return Lua_Error("player is leaving");
+    ItemStack stack;
+    LuaItems_ReadStack(L, 2, &stack);
+    if (stack.count && !ServerItems_IsDefined(stack.itemId))
+        return Lua_Error("item is not defined");
+    *Inventory_GetSelected(&player->inventory) = stack;
     player->inventoryRevision++;
-    ServerInventory_UpdateHeldBlock(player); ServerInventory_Send(player);
+    ServerInventory_UpdateHeldBlock(player);
+    ServerInventory_Send(player);
     return 0;
 }
-static int GetPlayerMetadata(void) { return LuaMetadata_Player(L,LuaBindings_CheckPlayer(),false,false); }
-static int SetPlayerMetadata(void) { return LuaMetadata_Player(L,LuaBindings_CheckPlayer(),true,false); }
-static int ResetPlayerMetadata(void) { return LuaMetadata_Player(L,LuaBindings_CheckPlayer(),true,true); }
+static int GetPlayerMetadata(void) {
+    return LuaMetadata_Player(L, LuaBindings_CheckPlayer(), false, false);
+}
+static int SetPlayerMetadata(void) {
+    return LuaMetadata_Player(L, LuaBindings_CheckPlayer(), true, false);
+}
+static int ResetPlayerMetadata(void) {
+    return LuaMetadata_Player(L, LuaBindings_CheckPlayer(), true, true);
+}
 static float CameraKickOption(const char *name, float fallback, float min, float max) {
     lua_getfield(L, 2, name);
     double value = lua_isnil(L, -1) ? fallback : luaL_checknumber(L, -1);
@@ -651,59 +746,84 @@ static float CameraKickOption(const char *name, float fallback, float min, float
 
 static int CameraKick(void) {
     Player *player = LuaBindings_CheckPlayer();
-    if (player->disconnected || player == luaLeavingPlayer) return Lua_Error("player is leaving");
+    if (player->disconnected || player == luaLeavingPlayer)
+        return Lua_Error("player is leaving");
     luaL_checktype(L, 2, LUA_TTABLE);
     float pitch = CameraKickOption("pitch", 1.5f, -15, 15);
     float roll = CameraKickOption("roll", 3, -15, 15);
     float duration = CameraKickOption("duration", 0.25f, 0.01f, 2);
     unsigned char *packet = ServerPacket_CreateCameraKick(pitch, roll, duration);
-    if (!packet) return Lua_Error("cannot allocate camera kick packet");
+    if (!packet)
+        return Lua_Error("cannot allocate camera kick packet");
     ServerNetwork_Send(player, packet);
     return 0;
 }
 
 static int GetPlayerHP(void) {
-    Player *player=LuaBindings_CheckPlayer();
-    lua_settop(L,1); lua_pushliteral(L,"midless:hp");
-    return LuaMetadata_Player(L,player,false,false);
+    Player *player = LuaBindings_CheckPlayer();
+    lua_settop(L, 1);
+    lua_pushliteral(L, "midless:hp");
+    return LuaMetadata_Player(L, player, false, false);
 }
 static int SetPlayerHP(void) {
-    Player *player=LuaBindings_CheckPlayer();
-    lua_Integer hp=luaL_checkinteger(L,2);
-    if (hp<0 || hp>65535) return luaL_error(L,"hp must be 0..65535");
-    lua_settop(L,1); lua_pushliteral(L,"midless:hp"); lua_pushinteger(L,hp);
-    return LuaMetadata_Player(L,player,true,false);
+    Player *player = LuaBindings_CheckPlayer();
+    lua_Integer hp = luaL_checkinteger(L, 2);
+    if (hp < 0 || hp > 65535)
+        return luaL_error(L, "hp must be 0..65535");
+    lua_settop(L, 1);
+    lua_pushliteral(L, "midless:hp");
+    lua_pushinteger(L, hp);
+    return LuaMetadata_Player(L, player, true, false);
 }
 static int DamagePlayer(void) {
     Player *player = LuaBindings_CheckPlayer();
     Entity *entity = LuaBindings_CheckPlayerEntity();
-    lua_Integer amount = luaL_checkinteger(L,2);
-    if (amount<0 || amount>65535) return luaL_error(L,"damage must be 0..65535");
-    if (lua_isnoneornil(L,3)) { lua_settop(L,2); lua_newtable(L); }
-    luaL_checktype(L,3,LUA_TTABLE);
-    Vector3 impulse = LuaDamage_Impulse(L,3,entity);
-    if (entity->damageBusy || !amount) { lua_pushinteger(L,0); return 1; }
-    lua_pushcfunction(L,(lua_CFunction)GetPlayerHP); lua_pushvalue(L,1); lua_call(L,1,1);
-    lua_Integer hp = lua_tointeger(L,-1);
-    lua_pop(L,1);
-    if (hp<=0) { lua_pushinteger(L,0); return 1; }
+    lua_Integer amount = luaL_checkinteger(L, 2);
+    if (amount < 0 || amount > 65535)
+        return luaL_error(L, "damage must be 0..65535");
+    if (lua_isnoneornil(L, 3)) {
+        lua_settop(L, 2);
+        lua_newtable(L);
+    }
+    luaL_checktype(L, 3, LUA_TTABLE);
+    Vector3 impulse = LuaDamage_Impulse(L, 3, entity);
+    if (entity->damageBusy || !amount) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    lua_pushcfunction(L, (lua_CFunction)GetPlayerHP);
+    lua_pushvalue(L, 1);
+    lua_call(L, 1, 1);
+    lua_Integer hp = lua_tointeger(L, -1);
+    lua_pop(L, 1);
+    if (hp <= 0) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
     entity->damageBusy = true;
-    amount = LuaDamage_PlayerHooks(entity,3,amount);
+    amount = LuaDamage_PlayerHooks(entity, 3, amount);
     // Hooks may change health or teleport; reread before committing damage.
-    lua_pushcfunction(L,(lua_CFunction)GetPlayerHP); lua_pushvalue(L,1); lua_call(L,1,1);
-    hp = lua_tointeger(L,-1); lua_pop(L,1);
-    if (amount>hp) amount=hp;
-    if (amount>0) {
-        ServerPlayer_ApplyImpulse(player,impulse);
+    lua_pushcfunction(L, (lua_CFunction)GetPlayerHP);
+    lua_pushvalue(L, 1);
+    lua_call(L, 1, 1);
+    hp = lua_tointeger(L, -1);
+    lua_pop(L, 1);
+    if (amount > hp)
+        amount = hp;
+    if (amount > 0) {
+        ServerPlayer_ApplyImpulse(player, impulse);
         // HP notifications may respawn the player. Send the impulse first.
-        lua_pushcfunction(L,(lua_CFunction)SetPlayerHP); lua_pushvalue(L,1); lua_pushinteger(L,hp-amount);
-        if (lua_pcall(L,2,0,0)!=LUA_OK) {
+        lua_pushcfunction(L, (lua_CFunction)SetPlayerHP);
+        lua_pushvalue(L, 1);
+        lua_pushinteger(L, hp - amount);
+        if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
             entity->damageBusy = false;
             return lua_error(L);
         }
     }
     entity->damageBusy = false;
-    lua_pushinteger(L,amount); return 1;
+    lua_pushinteger(L, amount);
+    return 1;
 }
 static int GetPlayerSpawnPoint(void) {
     LuaBindings_PushPosition(LuaBindings_CheckPlayer()->spawnPoint);
@@ -718,10 +838,18 @@ static int SetPlayerSpawnPoint(void) {
     player->spawnPoint = position;
     return 0;
 }
-static int SetPlayerNametag(void) { return ServerNametag_Set(L, LuaBindings_CheckPlayerEntity()); }
-static int SetPlayerTexture(void) { return ServerEntityTexture_Set(L,LuaBindings_CheckPlayerEntity()); }
-static int GetPlayerTexture(void) { return ServerEntityTexture_Get(L,LuaBindings_CheckPlayerEntity()); }
-static int SetPlayerHudBar(void) { return ServerHudBars_Set(LuaBindings_CheckPlayer()); }
+static int SetPlayerNametag(void) {
+    return LuaNametag_Set(L, LuaBindings_CheckPlayerEntity());
+}
+static int SetPlayerTexture(void) {
+    return LuaEntityTexture_Set(L, LuaBindings_CheckPlayerEntity());
+}
+static int GetPlayerTexture(void) {
+    return LuaEntityTexture_Get(L, LuaBindings_CheckPlayerEntity());
+}
+static int SetPlayerHudBar(void) {
+    return LuaHudBars_Set(L, LuaBindings_CheckPlayer());
+}
 static int ApplyPlayerImpulse(void) {
     Player *player = LuaBindings_CheckPlayer();
     luaL_checktype(L, 2, LUA_TTABLE);
@@ -731,15 +859,19 @@ static int ApplyPlayerImpulse(void) {
     for (int i = 0; i < 3; i++) {
         lua_getfield(L, 2, names[i]);
         double value = luaL_checknumber(L, -1);
-        if (!isfinite(value) || fabs(value) > 20) return luaL_error(L, "player impulse components must be finite and within -20 to 20 blocks/s");
+        if (!isfinite(value) || fabs(value) > 20)
+            return luaL_error(
+                L, "player impulse components must be finite and within -20 to 20 blocks/s");
         *components[i] = value;
         lua_pop(L, 1);
     }
-    if (!ServerPlayer_ApplyImpulse(player, impulse)) return luaL_error(L, "player is not ready to receive an impulse");
+    if (!ServerPlayer_ApplyImpulse(player, impulse))
+        return luaL_error(L, "player is not ready to receive an impulse");
     return 0;
 }
 static const struct LuaMethod playerLib[] = {
-    {"set_texture", SetPlayerTexture}, {"get_texture", GetPlayerTexture},
+    {"set_texture", SetPlayerTexture},
+    {"get_texture", GetPlayerTexture},
     {"is_valid", IsPlayerValid},
     {"damage", DamagePlayer},
     {"apply_impulse", ApplyPlayerImpulse},
@@ -767,8 +899,7 @@ static const struct LuaMethod playerLib[] = {
     {"get_look_direction", LuaBindings_GetPlayerLookDirection},
     {"teleport", LuaBindings_TeleportPlayer},
     {"send_message", LuaBindings_SendPlayerMessage},
-    {NULL, NULL}
-};
+    {NULL, NULL}};
 
 //---------Chat---------
 
@@ -779,17 +910,21 @@ static int LuaBindings_RegisterChatMessage() {
     return 0;
 }
 
-bool LuaBindings_InvokeChatMessage(int playerId, const char *message) {
-    if(luaRunning == 0) return false;
-    if (!serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS) return false;
+bool ScriptHooks_ChatMessage(int playerId, const char *message) {
+    if (luaRunning == 0)
+        return false;
+    if (!serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS)
+        return false;
     Player *player = serverWorld.players[playerId];
-    if (!player || player->disconnected) return false;
+    if (!player || player->disconnected)
+        return false;
     int count = arrlen(luaChatMessageCallbacks);
-    for(int i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaChatMessageCallbacks[i]);
-            LuaBindings_PushPlayer(player);
-            Lua_PushString(message);
-        if (Lua_CallFuncHandled(2)) return true;
+        LuaBindings_PushPlayer(player);
+        Lua_PushString(message);
+        if (Lua_CallFuncHandled(2))
+            return true;
     }
     return false;
 }
@@ -802,12 +937,15 @@ static int LuaBindings_RegisterPlayerClick(void) {
     return 0;
 }
 
-void LuaBindings_InvokePlayerClick(int playerId, int button) {
-    if (!luaRunning || !serverWorld.players || playerId < 0 ||
-        playerId >= WORLD_MAX_PLAYERS || button < 0 || button > 1) return;
+void ScriptHooks_PlayerClick(int playerId, int button) {
+    if (!luaRunning || !serverWorld.players || playerId < 0 || playerId >= WORLD_MAX_PLAYERS ||
+        button < 0 || button > 1)
+        return;
     Player *player = serverWorld.players[playerId];
-    if (!player || player->disconnected) return;
-    if (button == 0) LuaQueries_Attack(player);
+    if (!player || player->disconnected)
+        return;
+    if (button == 0)
+        ScriptHooks_QueriesAttack(player);
     int count = arrlen(luaPlayerClickCallbacks);
     for (int i = 0; i < count; i++) {
         Lua_GetRawI(Lua_GetRegistryIndex(), luaPlayerClickCallbacks[i]);
@@ -825,15 +963,18 @@ int LuaBindings_BroadcastMessage(void) {
 
 static int LuaBindings_DefineTexture(void) {
     char name[65];
-    Lua_CopyString(1,name,sizeof(name));
+    Lua_CopyString(1, name, sizeof(name));
     char path[1024];
-    Lua_CopyString(2,path,sizeof(path));
-    if(!ServerTextures_Define(name,path)) return Lua_Error("texture registration failed: invalid PNG, limits exceeded, reserved name, or incompatible dimensions");
+    Lua_CopyString(2, path, sizeof(path));
+    if (!ServerTextures_Define(name, path))
+        return Lua_Error("texture registration failed: invalid PNG, limits exceeded, reserved "
+                         "name, or incompatible dimensions");
     return 0;
 }
 static int LuaBindings_SetTerrainTexture(void) {
-    int id=ServerTextures_Find(Lua_GetString(1));
-    if(!ServerTextures_SetTerrain(id)) return Lua_Error("terrain texture must be a defined 256x256 PNG or 'terrain'");
+    int id = ServerTextures_Find(Lua_GetString(1));
+    if (!ServerTextures_SetTerrain(id))
+        return Lua_Error("terrain texture must be a defined 256x256 PNG or 'terrain'");
     return 0;
 }
 static const struct LuaMethod midlessLib[] = {
@@ -849,18 +990,18 @@ static const struct LuaMethod midlessLib[] = {
     {"register_on_player_attack", LuaQueries_RegisterAttack},
     {"define_player_inventory", LuaInventory_Define},
     {"define_player_inventory_screen", LuaInventory_DefineScreen},
-    {"define_recipe", Crafting_Register},
+    {"define_recipe", LuaCrafting_Register},
     {"define_texture", LuaBindings_DefineTexture},
-    {"define_hud_bar", ServerHudBars_Define},
-    {"define_text_color", ServerTextColors_Define},
-    {"remove_text_color", ServerTextColors_Remove},
-    {"escape_text", ServerTextColors_Escape},
-    {"remove_hud_bar", ServerHudBars_Remove},
+    {"define_hud_bar", LuaHudBars_Define},
+    {"define_text_color", LuaTextColors_Define},
+    {"remove_text_color", LuaTextColors_Remove},
+    {"escape_text", LuaTextColors_Escape},
+    {"remove_hud_bar", LuaHudBars_Remove},
     {"define_player_metadata", LuaMetadata_DefinePlayer},
     {"register_on_player_metadata_change", LuaMetadata_RegisterPlayerChange},
     {"register_on_hp_change", LuaMetadata_RegisterHPChange},
     {"register_on_dig_time", LuaDigging_Register},
-    {"set_breaking_texture", ServerTextures_SetBreaking},
+    {"set_breaking_texture", LuaBindings_SetBreakingTexture},
     {"set_terrain_texture", LuaBindings_SetTerrainTexture},
     {"define_entity", LuaEntities_Register},
     {"spawn_entity", LuaEntities_Spawn},
@@ -872,7 +1013,7 @@ static const struct LuaMethod midlessLib[] = {
     {"set_block", LuaBindings_SetBlock},
     {"set_blocks", LuaBindings_SetBlocks},
     {"define_block", LuaBindings_DefineBlock},
-    {"define_item", ServerItems_Define},
+    {"define_item", LuaItems_Define},
     {"define_entity_model", LuaBindings_DefineEntityModel},
     {"remove_entity_model", LuaBindings_RemoveEntityModel},
     {"set_entity_model", LuaBindings_SetEntityModel},
@@ -886,8 +1027,7 @@ static const struct LuaMethod midlessLib[] = {
     {"register_on_block_update", LuaBindings_RegisterBlockUpdate},
     {"broadcast", LuaBindings_BroadcastMessage},
     {"sleep", LuaBindings_Sleep},
-    {NULL, NULL}
-};
+    {NULL, NULL}};
 
 //-------
 
@@ -905,34 +1045,48 @@ static void LuaBindings_ConstantTable(const LuaConstant *constants) {
 }
 
 static void LuaBindings_DefineBlockConstants(void) {
-    static const LuaConstant models[] = {{"GAS", BLOCK_MODEL_GAS}, {"SOLID", BLOCK_MODEL_SOLID}, {"SPRITE", BLOCK_MODEL_SPRITE}, {NULL, 0}};
-    static const LuaConstant renders[] = {{"OPAQUE", BLOCK_RENDER_OPAQUE}, {"TRANSPARENT", BLOCK_RENDER_TRANSPARENT}, {"TRANSLUCENT", BLOCK_RENDER_TRANSLUCENT}, {NULL, 0}};
-    static const LuaConstant colliders[] = {{"NONE", BLOCK_COLLIDER_NONE}, {"SOLID", BLOCK_COLLIDER_SOLID}, {"LIQUID", BLOCK_COLLIDER_LIQUID}, {NULL, 0}};
-    static const LuaConstant lights[] = {{"NONE", BLOCK_LIGHT_NONE}, {"EMIT", BLOCK_LIGHT_EMIT}, {NULL, 0}};
+    static const LuaConstant models[] = {{"GAS", BLOCK_MODEL_GAS},
+                                         {"SOLID", BLOCK_MODEL_SOLID},
+                                         {"SPRITE", BLOCK_MODEL_SPRITE},
+                                         {NULL, 0}};
+    static const LuaConstant renders[] = {{"OPAQUE", BLOCK_RENDER_OPAQUE},
+                                          {"TRANSPARENT", BLOCK_RENDER_TRANSPARENT},
+                                          {"TRANSLUCENT", BLOCK_RENDER_TRANSLUCENT},
+                                          {NULL, 0}};
+    static const LuaConstant colliders[] = {{"NONE", BLOCK_COLLIDER_NONE},
+                                            {"SOLID", BLOCK_COLLIDER_SOLID},
+                                            {"LIQUID", BLOCK_COLLIDER_LIQUID},
+                                            {NULL, 0}};
+    static const LuaConstant lights[] = {
+        {"NONE", BLOCK_LIGHT_NONE}, {"EMIT", BLOCK_LIGHT_EMIT}, {NULL, 0}};
     Lua_MakeTable(4);
-    LuaBindings_ConstantTable(models); Lua_SetField(-2, "model");
-    LuaBindings_ConstantTable(renders); Lua_SetField(-2, "render");
-    LuaBindings_ConstantTable(colliders); Lua_SetField(-2, "collider");
-    LuaBindings_ConstantTable(lights); Lua_SetField(-2, "light");
+    LuaBindings_ConstantTable(models);
+    Lua_SetField(-2, "model");
+    LuaBindings_ConstantTable(renders);
+    Lua_SetField(-2, "render");
+    LuaBindings_ConstantTable(colliders);
+    Lua_SetField(-2, "collider");
+    LuaBindings_ConstantTable(lights);
+    Lua_SetField(-2, "light");
     Lua_SetGlobal("block");
 }
 
 static void LuaBindings_DefineModelConstants(void) {
-    static const LuaConstant roles[] = {
-        {"NONE", 0}, {"HEAD", 1}, {"RIGHT_ARM", 2}, {"LEFT_ARM", 3},
-        {"RIGHT_LEG", 4}, {"LEFT_LEG", 5}, {NULL, 0}
-    };
+    static const LuaConstant roles[] = {{"NONE", 0},     {"HEAD", 1},      {"RIGHT_ARM", 2},
+                                        {"LEFT_ARM", 3}, {"RIGHT_LEG", 4}, {"LEFT_LEG", 5},
+                                        {NULL, 0}};
     Lua_MakeTable(1);
     LuaBindings_ConstantTable(roles);
     Lua_SetField(-2, "part");
     Lua_SetGlobal("model");
 }
 
-void LuaBindings_Init(void) {
+void ScriptHooks_Init(void) {
     LuaDigging_Init();
     LuaItemActions_Init();
     Crafting_Reset();
-    for (int i = 0; i < 256; i++) blockInteractions[i] = LUA_NOREF;
+    for (int i = 0; i < 256; i++)
+        blockInteractions[i] = LUA_NOREF;
     LuaInventory_Init();
     LuaVector_Init();
     LuaMetadata_Init();
@@ -945,7 +1099,7 @@ void LuaBindings_Init(void) {
     LuaWorldgen_Init();
 }
 
-void LuaBindings_Shutdown(void) {
+void ScriptHooks_Shutdown(void) {
     LuaDamage_Reset();
     LuaMobs_Reset();
     LuaQueries_Reset();
@@ -955,7 +1109,8 @@ void LuaBindings_Shutdown(void) {
     LuaItemActions_Shutdown();
     LuaInventory_Shutdown();
     Crafting_Reset();
-    for (int i = 0; i < 256; i++) luaL_unref(L, LUA_REGISTRYINDEX, blockInteractions[i]);
+    for (int i = 0; i < 256; i++)
+        luaL_unref(L, LUA_REGISTRYINDEX, blockInteractions[i]);
     for (int i = 0; i < arrlen(luaPlayerClickCallbacks); i++)
         Lua_Unref(Lua_GetRegistryIndex(), luaPlayerClickCallbacks[i]);
     arrfree(luaPlayerClickCallbacks);
@@ -967,7 +1122,8 @@ void LuaBindings_Shutdown(void) {
     luaJoinCallbacks = NULL;
     arrfree(luaLeaveCallbacks);
     luaLeaveCallbacks = NULL;
-    for (int i = 0; i < arrlen(luaLandCallbacks); i++) Lua_Unref(Lua_GetRegistryIndex(), luaLandCallbacks[i]);
+    for (int i = 0; i < arrlen(luaLandCallbacks); i++)
+        Lua_Unref(Lua_GetRegistryIndex(), luaLandCallbacks[i]);
     arrfree(luaLandCallbacks);
     luaLandCallbacks = NULL;
     luaLeavingPlayer = NULL;
@@ -981,4 +1137,3 @@ void LuaBindings_Shutdown(void) {
     arrfree(luaStepCallbacks);
     luaStepCallbacks = NULL;
 }
-

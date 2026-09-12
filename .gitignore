@@ -1,6 +1,7 @@
 midless.code-workspace
 .vscode/
 tests/*
+tools/*
 examples/*
 *.o
 libs/*.c

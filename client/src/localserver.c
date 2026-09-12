@@ -11,8 +11,7 @@
 #include "../../server/src/world/world.h"
 #include "../../server/src/player.h"
 #include "../../server/src/networkhandler.h"
-#include "../../server/src/scripting/luaengine.h"
-#include "../../server/src/scripting/luabindings.h"
+#include "../../server/src/scripthooks.h"
 
 extern int networkConnectedToServer;
 extern void (*networkClientSend)(unsigned char *, int);
@@ -48,7 +47,7 @@ bool LocalServer_IsRunning(void) {
 static void *LocalServer_Run(void *unused) {
     (void)unused;
 
-    LuaBindings_InvokeReady();
+    ScriptHooks_Ready();
 
     while (LocalServer_IsRunning()) {
         ServerNetwork_ProcessIncomingPackets();
@@ -59,8 +58,8 @@ static void *LocalServer_Run(void *unused) {
 
     ServerNetwork_Shutdown();
     ServerWorld_Shutdown();
-    LuaBindings_Shutdown();
-    Lua_Stop();
+    ScriptHooks_Shutdown();
+    ScriptRuntime_Stop();
     pthread_mutex_lock(&localServerStateMutex);
     localServerFinished = true;
     pthread_mutex_unlock(&localServerStateMutex);
@@ -79,22 +78,22 @@ static void LocalServer_Send(unsigned char *packet, int length) {
 bool LocalServer_Start(void) {
     if (LocalServer_IsRunning()) return true;
 
-    Lua_Init();
-    LuaBindings_Init();
+    ScriptRuntime_Init();
+    ScriptHooks_Init();
     ServerWorld_Init();
     ServerNetwork_Init();
-    if (!Lua_Run()) {
+    if (!ScriptRuntime_Run()) {
         ServerNetwork_Shutdown();
         ServerWorld_Shutdown();
-        LuaBindings_Shutdown();
-        Lua_Stop();
+        ScriptHooks_Shutdown();
+        ScriptRuntime_Stop();
         return false;
     }
     localPlayer = ServerPlayer_Create(NULL, false);
     if (localPlayer == NULL) {
         ServerWorld_Shutdown();
-        LuaBindings_Shutdown();
-        Lua_Stop();
+        ScriptHooks_Shutdown();
+        ScriptRuntime_Stop();
         return false;
     }
     localPlayer->peer = localPlayer;
@@ -109,8 +108,8 @@ bool LocalServer_Start(void) {
         networkConnectedToServer = false;
         ServerNetwork_Shutdown();
         ServerWorld_Shutdown();
-        LuaBindings_Shutdown();
-        Lua_Stop();
+        ScriptHooks_Shutdown();
+        ScriptRuntime_Stop();
         localPlayer = NULL;
         return false;
     }

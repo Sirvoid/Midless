@@ -20,7 +20,7 @@
 #include "entity.h"
 #include "entitytexture.h"
 #include "logger.h"
-#include "luabindings.h"
+#include "scripthooks.h"
 #include "rotation.h"
 #include "world/textures.h"
 #include "serverinventory.h"
@@ -222,7 +222,7 @@ void ServerPacket_HandleIdentification(void) {
     ServerInventory_Send(serverPacketPlayer);
     ServerNetwork_Send(serverPacketPlayer, ServerPacket_CreateWorldTime(serverWorld.time));
     if (serverWorld.players[serverPacketPlayer->id] == serverPacketPlayer)
-        LuaBindings_InvokePlayerJoin(serverPacketPlayer->id);
+        ScriptHooks_PlayerJoin(serverPacketPlayer->id);
 }
 
 
@@ -238,7 +238,7 @@ void ServerPacket_HandlePlayerPosition(void) {
 
 void ServerPacket_HandleMessage(void) {
     char *message = ServerPacket_ReadString();
-    if (LuaBindings_InvokeChatMessage(serverPacketPlayer->id, message)) {
+    if (ScriptHooks_ChatMessage(serverPacketPlayer->id, message)) {
         MemFree(message);
         return;
     }
@@ -279,7 +279,7 @@ void ServerPacket_HandlePlayerClick(void) {
         ServerPacket_CreateEntityAnimation(serverPacketPlayer->entityId, animation),
         serverPacketPlayer->id
     );
-    LuaBindings_InvokePlayerClick(serverPacketPlayer->id, button);
+    ScriptHooks_PlayerClick(serverPacketPlayer->id, button);
 }
 
 void ServerPacket_HandleTextureAck(void) {

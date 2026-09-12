@@ -10,7 +10,17 @@ typedef struct CraftingMatch {
     uint8_t consume[CRAFTING_SLOTS];
 } CraftingMatch;
 
-int Crafting_Register(void);
+typedef struct CraftingRecipe {
+    char group[65];
+    bool shapeless;
+    int width, height, count;
+    ItemStack ingredients[CRAFTING_SLOTS];
+    bool exact[CRAFTING_SLOTS];
+    ItemStack output;
+} CraftingRecipe;
+
+bool Crafting_Register(const CraftingRecipe *recipe);
 void Crafting_Reset(void);
-bool Crafting_Find(const char *group, const ItemStack *slots, int columns, int rows, CraftingMatch *match);
+bool Crafting_Find(const char *group, const ItemStack *slots, int columns, int rows,
+                   CraftingMatch *match);
 #endif

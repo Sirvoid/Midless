@@ -1,7 +1,8 @@
+#include "digging.h"
 #include "blockstates.h"
-#include "scripting/luaitemactions.h"
+#include "scripthooks.h"
+#include "metadata.h"
 #include "raymath.h"
-#include "scripting/luadigging.h"
 #include <math.h>
 #include <stdlib.h>
 #include "serverinventory.h"
@@ -12,9 +13,6 @@
 #include "blockshape.h"
 #include "droppeditems.h"
 #include "items.h"
-#include "scripting/luabindings.h"
-#include "scripting/luametadata.h"
-#include "scripting/luainventory.h"
 
 #define BLOCK_INTERACTION_REACH 8.0f
 
@@ -137,12 +135,12 @@ static bool TryHarvestBlock(Player *player, const InventoryAction *action) {
     Vector3 position = {target.x + 0.5f, target.y + 0.5f, target.z + 0.5f};
     ItemStack stacks[WORLD_MAX_ENTITIES] = {0};
     ItemStack tool=*Inventory_GetSelected(&player->inventory);
-    int loot=LuaItemActions_Drops(player,target,action->targetBlock,tool,stacks,WORLD_MAX_ENTITIES);
+    int loot=ScriptHooks_ItemActionsDrops(player,target,action->targetBlock,tool,stacks,WORLD_MAX_ENTITIES);
     if (loot<0) { ServerPlayer_SendMessage(player,"Cannot break this block: invalid drops."); return false; }
     // Lua callbacks can change the world or the held item. Check again before awarding loot.
     ItemStack held=*Inventory_GetSelected(&player->inventory);
     if (!CanReachTarget(player,action) || held.count!=tool.count || !ItemStack_Matches(held,tool)) return false;
-    int contents = LuaMetadata_CollectBlockItems(target, stacks + loot, WORLD_MAX_ENTITIES - loot);
+    int contents = ServerMetadata_CollectBlockItems(target, stacks + loot, WORLD_MAX_ENTITIES - loot);
     if (contents < 0) {
         ServerPlayer_SendMessage(player, "Cannot break this block: its inventory could not be read.");
         return false;
@@ -203,7 +201,7 @@ void ServerInventory_UpdateDigging(void) {
         ItemStack stack=p->digStack;
         CancelDig(p);
         if (TryHarvestBlock(p,&action)) {
-            LuaDigging_Finished(p,(Vector3){action.x,action.y,action.z},stack);
+            ScriptHooks_DiggingFinished(p,(Vector3){action.x,action.y,action.z},stack);
             p->inventoryRevision++; ServerInventory_UpdateHeldBlock(p); ServerInventory_Send(p);
         }
     }
@@ -213,7 +211,7 @@ static void StartDig(Player *p, const InventoryAction *action) {
     p->digAction=*action;
     p->digStack=*Inventory_GetSelected(&p->inventory);
     p->digSlot=p->inventory.selectedHotbar;
-    double seconds=LuaDigging_Time(p,(Vector3){action->x,action->y,action->z},action->targetBlock,p->digStack);
+    double seconds=ServerDigging_Time(p,(Vector3){action->x,action->y,action->z},action->targetBlock,p->digStack);
     if (seconds<0 || !ValidDig(p)) { SendDigState(p,-1); return; }
     p->digging=true; p->digEnd=GetTime()+seconds;
     SendDigState(p,(int)ceil(seconds*1000));
@@ -246,7 +244,7 @@ static void TryPlaceBlock(Player *player, const InventoryAction *action) {
     stack->count--;
     if (!stack->count) *stack = (ItemStack){0};
     ServerWorld_SetBlock(position, blockId, true, true, true);
-    if (ServerWorld_GetBlock(position)==blockId) LuaItemActions_Placed(player,position,blockId);
+    if (ServerWorld_GetBlock(position)==blockId) ScriptHooks_ItemActionsPlaced(player,position,blockId);
 }
 
 // Resolve entity and empty-space uses on the server; walls and unloaded chunks stop the ray.
@@ -302,14 +300,14 @@ static void TryUseItem(Player *player, const InventoryAction *requested) {
     // A block request must still be valid even when an entity is in front of it.
     bool blockRequest=requested->type==INVENTORY_PLACE;
     if (blockRequest && !CanReachTarget(player,requested)) return;
-    if (entity) { LuaItemActions_Use(player,NULL,entity); return; }
+    if (entity) { ScriptHooks_ItemActionsUse(player,NULL,entity); return; }
     const InventoryAction *block=blockRequest?requested:rayBlock.targetBlock?&rayBlock:NULL;
-    if (!block) { LuaItemActions_Use(player,NULL,NULL); return; }
+    if (!block) { ScriptHooks_ItemActionsUse(player,NULL,NULL); return; }
     if (!CanReachTarget(player,block)) return;
     Vector3 position={block->x,block->y,block->z};
-    if (LuaBindings_InteractBlock(player,position,block->targetBlock)) return;
+    if (ScriptHooks_InteractBlock(player,position,block->targetBlock)) return;
     ItemStack held=*Inventory_GetSelected(&player->inventory);
-    if (LuaItemActions_Use(player,block,NULL)) return;
+    if (ScriptHooks_ItemActionsUse(player,block,NULL)) return;
     ItemStack after=*Inventory_GetSelected(&player->inventory);
     if (!player->inventory.open && after.count==held.count && ItemStack_Matches(after,held) && CanReachTarget(player,block))
         TryPlaceBlock(player,block);
@@ -358,7 +356,7 @@ void ServerInventory_ApplyAction(Player *player, InventoryAction action) {
             ServerPlayer_SendMessage(player, "Cannot drop the held stack here right now.");
         }
     } else if (action.type == INVENTORY_OPEN && !player->inventoryWindow.view.session) {
-        if (!LuaInventory_OpenPlayer(player)) Inventory_ApplyAction(&player->inventory, &action);
+        if (!ScriptHooks_InventoryOpenPlayer(player)) Inventory_ApplyAction(&player->inventory, &action);
     } else if (!player->inventoryWindow.view.session || action.type == INVENTORY_SELECT) {
         Inventory_ApplyAction(&player->inventory, &action);
     }

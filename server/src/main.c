@@ -18,8 +18,7 @@
 #include "stb_ds.h"
 #include "networkhandler.h"
 #include "packet.h"
-#include "luaengine.h"
-#include "luabindings.h"
+#include "scripthooks.h"
 #include "logger.h"
 #include "utils.h"
 #include "runtimepaths.h"
@@ -39,16 +38,16 @@ int main(void) {
 
     ServerLogger_Log("Started Server.");
 
-    Lua_Init();
-    LuaBindings_Init();
+    ScriptRuntime_Init();
+    ScriptHooks_Init();
 
     ServerWorld_Init();
     ServerNetwork_Init();
-    if (!Lua_Run()) {
+    if (!ScriptRuntime_Run()) {
         ServerNetwork_Shutdown();
         ServerWorld_Shutdown();
-        LuaBindings_Shutdown();
-        Lua_Stop();
+        ScriptHooks_Shutdown();
+        ScriptRuntime_Stop();
         Platform_EndTiming();
         return 1;
     }
@@ -61,7 +60,7 @@ int main(void) {
     ServerWss_Init();
     #endif
 
-    LuaBindings_InvokeReady();
+    ScriptHooks_Ready();
     
     #if !defined(SERVER_HEADLESS)
     while (!WindowShouldClose()) {
@@ -100,8 +99,8 @@ int main(void) {
     ServerNetwork_Shutdown();
     ServerWorld_Shutdown();
 
-    LuaBindings_Shutdown();
-    Lua_Stop();
+    ScriptHooks_Shutdown();
+    ScriptRuntime_Stop();
 
     #if !defined(SERVER_HEADLESS)
     CloseWindow();

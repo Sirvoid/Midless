@@ -21,6 +21,15 @@ void ServerMobs_Detach(Entity *entity);
 void ServerMobs_BeginTick(void);
 void ServerMobs_Tick(Entity *entity, float dt);
 Entity *ServerMobs_Target(MobState *state);
-bool ServerMobs_Follow(Entity *entity, const Vector3 *goal, float speed, float acceleration, float jump);
+bool ServerMobs_Follow(Entity *entity, const Vector3 *goal, float speed, float acceleration,
+                       float jump);
 bool ServerMobs_Wander(Entity *entity, float radius, Vector3 *goal);
+typedef struct MobDefinition {
+    bool registered, lineOfSight, moveDuringRecovery;
+    float interval, range, cooldown;
+} MobDefinition;
+void ServerMobs_Define(int id, const MobDefinition *definition);
+bool ServerMobs_IsDefined(int id);
+void ServerMobs_ResetDefinitions(void);
+void ServerMobs_Update(Entity *entity, float dt);
 #endif
