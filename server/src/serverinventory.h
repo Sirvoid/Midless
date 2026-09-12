@@ -13,6 +13,7 @@
 void ServerInventory_Send(Player *player);
 bool ServerInventory_Load(Player *player);
 bool ServerInventory_Save(Player *player);
+bool ServerInventory_Autosave(Player *player);
 void ServerInventory_ApplyAction(Player *player, InventoryAction action);
 void ServerInventory_UpdateHeldBlock(Player *player);
 

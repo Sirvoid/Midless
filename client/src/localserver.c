@@ -16,9 +16,11 @@
 #include <stdio.h>
 #include "localserver.h"
 #include "../../server/src/world/world.h"
+#include "gui/screens.h"
 #include "../../server/src/player.h"
 #include "../../server/src/networkhandler.h"
 #include "../../server/src/scripthooks.h"
+#include "../../server/src/servertiming.h"
 
 extern int networkConnectedToServer;
 extern void (*networkClientSend)(unsigned char *, int);
@@ -60,7 +62,7 @@ static void *LocalServer_Run(void *unused) {
         ServerNetwork_ProcessIncomingPackets();
         ServerWorld_Update();
 
-        WaitTime(0.001);
+        WaitTime(SERVER_SERVICE_WAIT_SECONDS);
     }
 
     ServerNetwork_Shutdown();
@@ -142,19 +144,7 @@ void LocalServer_Stop(void) {
             bool cleaned = World_CleanupChunks();
             cleanupSeconds += GetTime() - cleanupStarted;
             if (finished && cleaned) break;
-            if (IsWindowReady()) {
-                BeginDrawing();
-                ClearBackground((Color){24, 27, 32, 255});
-                const char *message = finished ? "Cleaning up..." : "Saving world...";
-                DrawText(message, (GetScreenWidth() - MeasureText(message, 24)) / 2,
-                         GetScreenHeight() / 2 - 24, 24, RAYWHITE);
-                char elapsed[96];
-                snprintf(elapsed, sizeof(elapsed), "%d chunks left to clean up", World_RemainingCleanupChunks());
-                DrawText(elapsed,
-                         (GetScreenWidth() - MeasureText(elapsed, 18)) / 2,
-                         GetScreenHeight() / 2 + 16, 18, LIGHTGRAY);
-                EndDrawing(); // Keeps window events and presentation running while saving.
-            } else WaitTime(0.001);
+            Screen_DrawSavingWorld(finished, World_RemainingCleanupChunks());
         }
         fprintf(stderr, "Shutdown: server %.2f s, client cleanup %.2f s of work for %d chunks, total %.2f s\n",
                  serverSeconds, cleanupSeconds, chunks, GetTime() - started);

@@ -23,6 +23,7 @@
 #include "utils.h"
 #include "runtimepaths.h"
 #include "platform.h"
+#include "servertiming.h"
 
 int main(void) {
     if (!RuntimePaths_Init()) return 1;
@@ -31,7 +32,7 @@ int main(void) {
     #if !defined(SERVER_HEADLESS)
         InitWindow(400, 400, "Server");
         SetWindowState(FLAG_WINDOW_ALWAYS_RUN);
-        SetTargetFPS(60);
+        SetTargetFPS(0);
     #endif
 
     SetTraceLogLevel(LOG_WARNING);
@@ -61,12 +62,14 @@ int main(void) {
     #endif
 
     ScriptHooks_Ready();
+    #if !defined(SERVER_HEADLESS)
+    double nextDrawTime = 0;
+    #endif
     
     #if !defined(SERVER_HEADLESS)
     while (!WindowShouldClose()) {
     #else
     while(true) {
-        usleep(16 * 1000);
     #endif
 
         #if defined(SERVER_WEB_SUPPORT)
@@ -79,18 +82,23 @@ int main(void) {
         ServerWorld_Update();
 
         #if !defined(SERVER_HEADLESS)
-        BeginDrawing();
-            ClearBackground(BLACK);
-            DrawText("Server Running", 16, 16, 20, WHITE);
-            DrawText(TextFormat("Chunks: %i", hmlen(serverWorld.chunks)), 200, 48, 12, WHITE);
-            DrawText("Players:", 16, 48, 12, WHITE);
-            for (int i = 0; i < 256; i++) {
-                if (serverWorld.players[i]) {
-                    DrawText(TextFormat("%s (ping: %2i ms)", serverWorld.players[i]->name, 0), 16, 64 + (i * 16), 12, WHITE);
+        double now = GetTime();
+        if (now >= nextDrawTime) {
+            nextDrawTime = now + 1.0 / 60.0;
+            BeginDrawing();
+                ClearBackground(BLACK);
+                DrawText("Server Running", 16, 16, 20, WHITE);
+                DrawText(TextFormat("Chunks: %i", hmlen(serverWorld.chunks)), 200, 48, 12, WHITE);
+                DrawText("Players:", 16, 48, 12, WHITE);
+                for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
+                    if (serverWorld.players[i]) {
+                        DrawText(TextFormat("%s (ping: %2i ms)", serverWorld.players[i]->name, 0), 16, 64 + (i * 16), 12, WHITE);
+                    }
                 }
-            }
-        EndDrawing();
+            EndDrawing();
+        }
         #endif
+        WaitTime(SERVER_SERVICE_WAIT_SECONDS);
     }
 
     serverThreadState = -1;

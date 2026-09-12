@@ -21,6 +21,7 @@
 #include "stb_ds.h"
 #include "world.h"
 #include "chunkmanager.h"
+#include "chunksave.h"
 #include "entitypersistence.h"
 #include "playermanager.h"
 #include "textures.h"
@@ -33,10 +34,12 @@
 #include "../utils.h"
 #include "streamprofile.h"
 #include "../items.h"
+#include "../servertiming.h"
 
 World serverWorld;
 static long long lastUpdateMilliseconds;
 static long long lastTimeSyncMilliseconds;
+static double lastSimulationTime;
 
 static void CreateWorldDirectory(void) {
     struct stat status = {0};
@@ -74,6 +77,7 @@ void ServerWorld_Init(void) {
 
     lastUpdateMilliseconds = GetTimeMilliseconds();
     lastTimeSyncMilliseconds = lastUpdateMilliseconds;
+    lastSimulationTime = GetTime();
     CreateWorldDirectory();
     ServerItems_Init();
     ServerWorldGenerator_Init(LoadWorldSeed());
@@ -81,6 +85,7 @@ void ServerWorld_Init(void) {
 }
 
 void ServerWorld_Shutdown(void) {
+    ChunkSave_Flush(NULL);
     ServerPlayerManager_Shutdown();
     ScriptHooks_MetadataFlushChanges();
     EntityPersistence_EnsureChunks();
@@ -129,8 +134,7 @@ void ServerWorld_Update(void) {
     ServerTextures_Update();
     InventoryWindow_Update();
     ServerInventory_UpdateDigging();
-    float dt = elapsedMilliseconds > 0 ? elapsedMilliseconds / 1000.0f : 0.0f;
-    if (dt > 0.25f) dt = 0.25f;
+    float dt = (float)ServerTiming_SimulationStep(GetTime(), &lastSimulationTime);
     if (dt > 0) {
         BlockTimer_Update(dt);
         ScriptHooks_Step(dt);

@@ -10,6 +10,7 @@
 #include "world/world.h"
 #include "binarydata.h"
 #include "savefile.h"
+#include "world/chunksave.h"
 #include "items.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,10 +39,13 @@ static bool Filename(const Player *player, char path[160]) {
 }
 static void WriteStack(BinaryWriter *out, ItemStack stack) { ItemStack_Write(out, stack); }
 static ItemStack ReadStack(BinaryReader *in) { return ItemStack_Read(in); }
-bool ServerInventory_Save(Player *player) {
+static bool SavePlayer(Player *player, bool background) {
     if (!player->inventoryLoaded) return true;
     char path[160];
     if (!ServerItems_Ready() || !Filename(player, path)) return false;
+    // Defer disconnect saving until the older snapshot completes; never overwrite
+    // a newer final save with an autosave still being written by a worker.
+    if (ChunkSave_PathPending(path)) return false;
     BinaryWriter out = {0};
     Binary_Write(&out, "MDPI", 4); Binary_U8(&out, PLAYER_INVENTORY_VERSION);
     Binary_U8(&out, player->inventory.selectedHotbar);
@@ -89,11 +93,14 @@ bool ServerInventory_Save(Player *player) {
     Binary_Float(&out, player->savedPosition.z);
     size_t textureLength = strlen(player->texture);
     Binary_U8(&out,textureLength); Binary_Write(&out,player->texture,textureLength);
-    bool ok = !out.failed && SaveFile_WriteAtomic(path, out.data, out.size);
+    bool ok = !out.failed && (background ? ChunkSave_QueueSnapshot(path, &out) :
+                                         SaveFile_WriteAtomic(path, out.data, out.size));
     free(out.data);
-    if (!ok) TraceLog(LOG_ERROR, "Could not save player inventory %s; original file retained", path);
+    if (!ok && !background) TraceLog(LOG_ERROR, "Could not save player inventory %s; original file retained", path);
     return ok;
 }
+bool ServerInventory_Save(Player *player) { return SavePlayer(player, false); }
+bool ServerInventory_Autosave(Player *player) { return SavePlayer(player, true); }
 static bool DecodePlayer(Player *player, const uint8_t *data, size_t size) {
     BinaryReader in = {data, size};
     const uint8_t *magic = Binary_Read(&in, 4);

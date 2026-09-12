@@ -36,6 +36,8 @@ void Screen_DrawGame(void);
 void Screen_DrawPause(void);
 void Screen_DrawOptions(void);
 void Screen_DrawLoading(void);
+// Presents a complete frame while the local server finishes saving and cleanup.
+void Screen_DrawSavingWorld(bool serverFinished, int remainingChunks);
 void Screen_DrawJoining(void);
 void Screen_DrawLogin(void);
 

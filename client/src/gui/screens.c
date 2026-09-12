@@ -212,9 +212,9 @@ static void Menu_Text(const char *text, float y, int size, Color color) {
              roundf(screenHeight / 2 + y * menuScale), fontSize, color);
 }
 
-static void Menu_Background(const char *title) {
-    bool inWorld = currentScreen == SCREEN_PAUSE ||
-                   (currentScreen == SCREEN_OPTIONS && optionsReturn == SCREEN_PAUSE);
+static void Menu_Background(const char *title, Screen screen) {
+    bool inWorld = screen == SCREEN_PAUSE ||
+                   (screen == SCREEN_OPTIONS && optionsReturn == SCREEN_PAUSE);
     if (inWorld) {
         DrawRectangle(0, 0, screenWidth, screenHeight, (Color){0, 0, 0, 210});
     } else {
@@ -236,13 +236,13 @@ static void Menu_Background(const char *title) {
         (Rectangle){0, 0, menuVignette.width, menuVignette.height},
         (Rectangle){0, 0, screenWidth, screenHeight}, (Vector2){0}, 0, WHITE);
 
-    float width = (currentScreen == SCREEN_OPTIONS ? 504 : 384) * menuScale;
-    int titleWidth = MeasureText(title, Menu_Font(currentScreen == SCREEN_MAIN ? 80 : 30));
+    float width = (screen == SCREEN_OPTIONS ? 504 : 384) * menuScale;
+    int titleWidth = MeasureText(title, Menu_Font(screen == SCREEN_MAIN ? 80 : 30));
     width = fmaxf(width, titleWidth + 64 * menuScale);
     width = fminf(width, screenWidth - 32);
-    float top = currentScreen == SCREEN_LOGIN ? -246 : -208;
+    float top = screen == SCREEN_LOGIN ? -246 : -208;
     Rectangle panel = {roundf((screenWidth - width) / 2),
-        roundf(screenHeight / 2 + top * menuScale), roundf(width), roundf(((currentScreen == SCREEN_OPTIONS ? 176 : 228) - top) * menuScale)};
+        roundf(screenHeight / 2 + top * menuScale), roundf(width), roundf(((screen == SCREEN_OPTIONS ? 176 : 228) - top) * menuScale)};
     DrawRectangleRec(panel, (Color){0, 0, 0, 145});
     DrawRectangleLinesEx(panel, 1, (Color){115, 115, 115, 45});
 }
@@ -253,7 +253,7 @@ static void Menu_Begin(const char *title, int controls) {
     GuiSetStyle(DEFAULT, TEXT_SIZE, Menu_Font(20));
     GuiSetStyle(DEFAULT, BORDER_WIDTH, 1);
     GuiSetStyle(TEXTBOX, TEXT_PADDING, (int)(12 * menuScale));
-    Menu_Background(title);
+    Menu_Background(title, currentScreen);
     Menu_Text(title, currentScreen == SCREEN_LOGIN ? -220 : -180,
               currentScreen == SCREEN_MAIN ? 80 : 30, WHITE);
     controlIndex = 0;
@@ -394,11 +394,11 @@ static void Screen_DrawMain(void) {
 }
 
 void Screen_DrawPause(void) {
-    Menu_Begin("Paused", 4);
+    Menu_Begin("Paused", 3);
     if (Menu_Button(-74, "Resume", true) || Menu_Key(KEY_ESCAPE)) { Screen_Switch(SCREEN_GAME); return; }
     if (Menu_Button(-20, "Settings", true)) { Screen_Switch(SCREEN_OPTIONS); return; }
-    if (Menu_Button(46, "Main Menu", true)) { LeaveConnection(SCREEN_MAIN); return; }
-    if (Menu_Button(100, "Quit", true)) *exitGame = true;
+    const char *leaveLabel = LocalServer_IsRunning() ? "Save & Quit" : "Disconnect";
+    if (Menu_Button(46, leaveLabel, true)) { LeaveConnection(SCREEN_MAIN); return; }
 }
 
 static Rectangle Menu_SettingsRow(float y, const char *label) {
@@ -489,6 +489,23 @@ static void Screen_DrawConnectionError(void) {
     bool busy = Client_IsBusy();
     if (Menu_Button(0, busy ? "Finishing previous connection..." : "Retry", !busy)) { BeginJoin(); return; }
     if (Menu_Button(58, "Back", true) || Menu_Key(KEY_ESCAPE)) { Screen_Switch(SCREEN_LOGIN); }
+}
+
+void Screen_DrawSavingWorld(bool serverFinished, int remainingChunks) {
+    if (!IsWindowReady()) {
+        WaitTime(0.001);
+        return;
+    }
+    screenWidth = GetScreenWidth();
+    screenHeight = GetScreenHeight();
+    menuScale = fminf(2.0f, fminf(screenWidth / 640.0f, screenHeight / 560.0f));
+    const char *title = serverFinished ? "Cleaning up..." : "Saving world...";
+    BeginDrawing();
+    // Use the stone backdrop even when shutdown was requested from a paused world.
+    Menu_Background(title, SCREEN_LOADING);
+    Menu_Text(title, -50, 30, WHITE);
+    Menu_Text(TextFormat("%d chunks left to clean up", remainingChunks), 10, 20, LIGHTGRAY);
+    EndDrawing(); // Presents progress and pumps window events during the shutdown loop.
 }
 
 void Screen_DrawLoading(void) {

@@ -60,6 +60,9 @@ static bool loaderStarted;
 
 static unsigned int unloadCursor;
 static bool backgroundSaving;
+static double autosaveStartTime;
+static double playerAutosaveTimes[WORLD_MAX_PLAYERS];
+static unsigned int autosaveCursor, autosavePlayerCursor;
 
 static bool PositionInLoadRadius(Player *player, Vector3 chunkPosition) {
     Entity entity = serverWorld.entities[player->entityId];
@@ -211,6 +214,9 @@ static void ProcessLoadedChunks(void) {
 void ServerChunkManager_Init(void) {
     serverWorld.chunks = NULL;
     unloadCursor = 0;
+    autosaveCursor = autosavePlayerCursor = 0;
+    autosaveStartTime = GetTime();
+    for (int i = 0; i < WORLD_MAX_PLAYERS; i++) playerAutosaveTimes[i] = autosaveStartTime;
     backgroundSaving = ChunkSave_Init();
     if (!backgroundSaving) TraceLog(LOG_WARNING, "Disk worker unavailable; using synchronous chunk saves");
     serverWorld.pendingBlocks = NULL;
@@ -328,6 +334,32 @@ static void FinishChunkSave(Chunk *chunk, bool success, const BinaryWriter *save
     ServerChunk_Destroy(chunk);
 }
 
+static void UpdateAutosave(void) {
+    const double interval = 120.0;
+    double now = GetTime();
+    if (!backgroundSaving || now - autosaveStartTime < interval) return;
+    // At most one snapshot per server update. The disk workers receive immutable
+    // bytes; simulation resumes immediately without a flush or wait.
+    unsigned int playerIndex = autosavePlayerCursor++ % WORLD_MAX_PLAYERS;
+    Player *player = serverWorld.players[playerIndex];
+    if (player && !player->disconnected && player->inventoryLoaded &&
+        now - playerAutosaveTimes[playerIndex] >= interval && ServerInventory_Autosave(player)) {
+        playerAutosaveTimes[playerIndex] = now;
+        return;
+    }
+    int count = hmlen(serverWorld.chunks);
+    double deadline = now + 0.001;
+    for (int checked = 0; checked < count && checked < 64; checked++) {
+        autosaveCursor %= count;
+        Chunk *chunk = serverWorld.chunks[autosaveCursor++].value;
+        if (!chunk->loadFailed && now - chunk->lastAutosaveTime >= interval) {
+            if (ChunkSave_Autosave(chunk)) chunk->lastAutosaveTime = now;
+            return; // A full queue is retried later, never synchronously flushed.
+        }
+        if (GetTime() >= deadline) break;
+    }
+}
+
 void ServerChunkManager_Update(void) {
     ServerChunkManager_CancelUnusedRequests();
     ProcessLoadedChunks();
@@ -383,6 +415,7 @@ void ServerChunkManager_Update(void) {
         }
         if (GetTime() >= unloadDeadline) break;
     }
+    UpdateAutosave();
 }
 
 void ServerWorld_RemovePlayerFromChunks(Player *playerToRemove) {

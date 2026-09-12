@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 
 #define SAVE_JOBS CHUNK_SAVE_JOBS
 #define SAVE_WORKERS 4
@@ -78,8 +79,17 @@ bool ChunkSave_Init(void) {
     return started;
 }
 
-bool ChunkSave_Queue(Chunk *chunk) {
-    if (!started || chunk->savePending) return false;
+bool ChunkSave_PathPending(const char *path) {
+    bool pending = false;
+    pthread_mutex_lock(&mutex);
+    for (int i = 0; i < SAVE_JOBS; i++)
+        if (jobs[i].state != SAVE_IDLE && !strcmp(jobs[i].path, path)) pending = true;
+    pthread_mutex_unlock(&mutex);
+    return pending;
+}
+
+static SaveJob *AvailableJob(const char *path) {
+    if (!started || ChunkSave_PathPending(path)) return NULL;
     SaveJob *job = NULL;
     pthread_mutex_lock(&mutex);
     if (pendingBytes < SAVE_BYTES) {
@@ -88,6 +98,35 @@ bool ChunkSave_Queue(Chunk *chunk) {
         }
     }
     pthread_mutex_unlock(&mutex);
+    return job;
+}
+
+static void PublishJob(SaveJob *job, const char *path, BinaryWriter snapshot, Chunk *chunk) {
+    job->chunk = chunk;
+    job->snapshot = snapshot;
+    strcpy(job->path, path);
+    pthread_mutex_lock(&mutex);
+    pendingBytes += snapshot.capacity;
+    job->state = SAVE_QUEUED;
+    pthread_cond_signal(&condition);
+    pthread_mutex_unlock(&mutex);
+}
+
+bool ChunkSave_QueueSnapshot(const char *path, BinaryWriter *snapshot) {
+    if (strlen(path) >= sizeof(jobs[0].path) || snapshot->failed) return false;
+    SaveJob *job = AvailableJob(path);
+    if (!job || snapshot->capacity > SAVE_BYTES - pendingBytes) return false;
+    PublishJob(job, path, *snapshot, NULL);
+    *snapshot = (BinaryWriter){0};
+    return true;
+}
+
+static bool QueueChunk(Chunk *chunk, bool autosave) {
+    if (chunk->savePending) return false;
+    char path[160];
+    snprintf(path, sizeof(path), "world/%i.%i.%i.dat",
+             (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
+    SaveJob *job = AvailableJob(path);
     if (!job) return false;
     // Submission and completion run on the main thread; an idle slot is ours
     // until publication. Lua and entity metadata never run on the disk thread.
@@ -96,18 +135,14 @@ bool ChunkSave_Queue(Chunk *chunk) {
         free(snapshot.data);
         return false;
     }
-    job->chunk = chunk;
-    job->snapshot = snapshot;
-    snprintf(job->path, sizeof(job->path), "world/%i.%i.%i.dat",
-             (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z);
-    chunk->savePending = true;
-    pthread_mutex_lock(&mutex);
-    pendingBytes += snapshot.capacity;
-    job->state = SAVE_QUEUED;
-    pthread_cond_signal(&condition);
-    pthread_mutex_unlock(&mutex);
+    // Autosaves own bytes, not live chunks, and must not freeze entity/timer updates.
+    if (!autosave) chunk->savePending = true;
+    PublishJob(job, path, snapshot, autosave ? NULL : chunk);
     return true;
 }
+
+bool ChunkSave_Queue(Chunk *chunk) { return QueueChunk(chunk, false); }
+bool ChunkSave_Autosave(Chunk *chunk) { return QueueChunk(chunk, true); }
 
 void ChunkSave_Poll(void (*completed)(Chunk *, bool, const BinaryWriter *)) {
     ChunkSave_PollUntil(completed, INFINITY);
@@ -124,10 +159,10 @@ void ChunkSave_PollUntil(void (*completed)(Chunk *, bool, const BinaryWriter *),
         bool done = job->state == SAVE_DONE;
         pthread_mutex_unlock(&mutex);
         if (!done) continue;
-        job->chunk->savePending = false;
+        if (job->chunk) job->chunk->savePending = false;
         StreamProfile_Add(&profile, "disk save", job->seconds);
         if (!job->success) TraceLog(LOG_ERROR, "Could not save %s; live chunk retained", job->path);
-        if (completed) completed(job->chunk, job->success, &job->snapshot);
+        if (completed && job->chunk) completed(job->chunk, job->success, &job->snapshot);
         pthread_mutex_lock(&mutex);
         pendingBytes -= job->snapshot.capacity;
         free(job->snapshot.data);

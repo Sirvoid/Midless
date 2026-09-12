@@ -13,6 +13,10 @@
 
 bool ChunkSave_Init(void);
 bool ChunkSave_Queue(Chunk *chunk);
+bool ChunkSave_Autosave(Chunk *chunk);
+bool ChunkSave_PathPending(const char *path);
+// Takes ownership of snapshot only on success; never waits for disk I/O.
+bool ChunkSave_QueueSnapshot(const char *path, BinaryWriter *snapshot);
 void ChunkSave_Poll(void (*completed)(Chunk *, bool, const BinaryWriter *));
 void ChunkSave_PollUntil(void (*completed)(Chunk *, bool, const BinaryWriter *), double deadline);
 void ChunkSave_Shutdown(void);

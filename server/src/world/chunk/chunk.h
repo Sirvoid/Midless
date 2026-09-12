@@ -40,6 +40,7 @@ typedef struct Chunk{
     bool loadFailed;
     bool savePending;
     bool savedOnShutdown;
+    double lastAutosaveTime;
 } Chunk;
 
 //Allocate and initialize a chunk.
