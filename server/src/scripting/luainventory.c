@@ -274,7 +274,8 @@ void LuaInventory_Init(void) {
     lua_setfield(L, -2, "__metatable");
     lua_pop(L, 1);
 }
-int LuaInventory_Define(void) {
+int LuaInventory_Define(lua_State *state) {
+    (void)state;
     size_t length;
     const char *name = luaL_checklstring(L, 1, &length);
     if (!length || length > 64 || memchr(name, 0, length))
@@ -286,7 +287,8 @@ int LuaInventory_Define(void) {
         return luaL_error(L, "player inventory already defined or definition limit reached");
     return 0;
 }
-int LuaInventory_DefineScreen(void) {
+int LuaInventory_DefineScreen(lua_State *state) {
+    (void)state;
     luaL_checktype(L, 1, LUA_TFUNCTION);
     luaL_unref(L, LUA_REGISTRYINDEX, screenCallback);
     lua_pushvalue(L, 1);

@@ -46,7 +46,8 @@ Entity *LuaPlayers_TestEntity(lua_State *state, int index) {
     Entity *e = &serverWorld.entities[p->entityId];
     return e->active && !e->pendingRemoval && e->ownerPlayerId == p->id ? e : NULL;
 }
-static int IsPlayerValid(void) {
+static int IsPlayerValid(lua_State *state) {
+    (void)state;
     lua_pushboolean(L, LuaPlayers_TestEntity(L, 1) != NULL);
     return 1;
 }
@@ -72,13 +73,15 @@ Player *LuaPlayers_Check(void) {
     return player;
 }
 
-int LuaPlayers_RegisterJoin(void) {
+int LuaPlayers_RegisterJoin(lua_State *state) {
+    (void)state;
     int callback = Lua_RefFunction(1);
     arrput(luaJoinCallbacks, callback);
     return 0;
 }
 
-int LuaPlayers_RegisterLeave(void) {
+int LuaPlayers_RegisterLeave(lua_State *state) {
+    (void)state;
     int callback = Lua_RefFunction(1);
     arrput(luaLeaveCallbacks, callback);
     return 0;
@@ -111,7 +114,8 @@ void ScriptHooks_PlayerLeave(int playerId) {
     InvokePlayerEvent(playerId, true);
 }
 
-int LuaPlayers_RegisterLand(void) {
+int LuaPlayers_RegisterLand(lua_State *state) {
+    (void)state;
     int callback = Lua_RefFunction(1);
     arrput(luaLandCallbacks, callback);
     return 0;
@@ -132,13 +136,15 @@ void ScriptHooks_PlayerLand(int playerId, float distance) {
     }
 }
 
-int LuaPlayers_GetById(void) {
+int LuaPlayers_GetById(lua_State *state) {
+    (void)state;
     int id = Lua_GetIntRange(1, 0, WORLD_MAX_PLAYERS - 1);
     LuaPlayers_Push(serverWorld.players ? serverWorld.players[id] : NULL);
     return 1;
 }
 
-int LuaPlayers_GetByName(void) {
+int LuaPlayers_GetByName(lua_State *state) {
+    (void)state;
     const char *name = Lua_GetString(1);
     if (serverWorld.players) {
         for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
@@ -153,12 +159,14 @@ int LuaPlayers_GetByName(void) {
     return 1;
 }
 
-static int GetPlayerId(void) {
+static int GetPlayerId(lua_State *state) {
+    (void)state;
     Lua_PushInt(LuaPlayers_Check()->id);
     return 1;
 }
 
-int LuaPlayers_List(void) {
+int LuaPlayers_List(lua_State *state) {
+    (void)state;
     Lua_MakeTable(0);
     if (!serverWorld.players)
         return 1;
@@ -174,7 +182,8 @@ int LuaPlayers_List(void) {
     return 1;
 }
 
-static int GetPlayerName(void) {
+static int GetPlayerName(lua_State *state) {
+    (void)state;
     Lua_PushString(LuaPlayers_Check()->name);
     return 1;
 }
@@ -189,20 +198,23 @@ static Entity *CheckPlayerEntity(void) {
     return &serverWorld.entities[id];
 }
 
-static int GetPlayerPosition(void) {
+static int GetPlayerPosition(lua_State *state) {
+    (void)state;
     Vector3 position = CheckPlayerEntity()->position;
     LuaValues_PushPosition(position);
     return 1;
 }
 
-static int GetPlayerEyePosition(void) {
+static int GetPlayerEyePosition(lua_State *state) {
+    (void)state;
     Vector3 position = CheckPlayerEntity()->position;
     position.y += 1.5f;
     LuaValues_PushPosition(position);
     return 1;
 }
 
-static int GetPlayerLookDirection(void) {
+static int GetPlayerLookDirection(lua_State *state) {
+    (void)state;
     Vector3 rotation = CheckPlayerEntity()->rotation;
     float yaw = rotation.y;
     float pitch = rotation.x;
@@ -211,7 +223,8 @@ static int GetPlayerLookDirection(void) {
     return 1;
 }
 
-static int TeleportPlayer(void) {
+static int TeleportPlayer(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     if (player->disconnected || player == luaLeavingPlayer)
         return Lua_Error("player is leaving");
@@ -224,7 +237,8 @@ static int TeleportPlayer(void) {
     return 0;
 }
 
-static int SetPlayerModel(void) {
+static int SetPlayerModel(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     if (player->disconnected || player == luaLeavingPlayer)
         return Lua_Error("player is leaving");
@@ -234,25 +248,31 @@ static int SetPlayerModel(void) {
     return 0;
 }
 
-static int GetPlayerInventory(void) {
+static int GetPlayerInventory(lua_State *state) {
+    (void)state;
     return LuaInventory_Get(L, LuaPlayers_Check());
 }
-static int ShowPlayerInventory(void) {
+static int ShowPlayerInventory(lua_State *state) {
+    (void)state;
     return LuaInventory_Show(L, LuaPlayers_Check());
 }
-static int ClosePlayerInventory(void) {
+static int ClosePlayerInventory(lua_State *state) {
+    (void)state;
     return LuaInventory_Close(L, LuaPlayers_Check());
 }
-static int GetSelectedStack(void) {
+static int GetSelectedStack(lua_State *state) {
+    (void)state;
     LuaItems_PushStack(L, *Inventory_GetSelected(&LuaPlayers_Check()->inventory));
     return 1;
 }
-static int GetSelectedSlot(void) {
+static int GetSelectedSlot(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     lua_pushinteger(L, Inventory_GetSelected(&player->inventory) - player->inventory.slots + 1);
     return 1;
 }
-static int SetSelectedStack(void) {
+static int SetSelectedStack(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     if (player->disconnected || player == luaLeavingPlayer)
         return Lua_Error("player is leaving");
@@ -266,13 +286,16 @@ static int SetSelectedStack(void) {
     ServerInventory_Send(player);
     return 0;
 }
-static int GetPlayerMetadata(void) {
+static int GetPlayerMetadata(lua_State *state) {
+    (void)state;
     return LuaMetadata_Player(L, LuaPlayers_Check(), false, false);
 }
-static int SetPlayerMetadata(void) {
+static int SetPlayerMetadata(lua_State *state) {
+    (void)state;
     return LuaMetadata_Player(L, LuaPlayers_Check(), true, false);
 }
-static int ResetPlayerMetadata(void) {
+static int ResetPlayerMetadata(lua_State *state) {
+    (void)state;
     return LuaMetadata_Player(L, LuaPlayers_Check(), true, true);
 }
 static float CameraKickOption(const char *name, float fallback, float min, float max) {
@@ -284,7 +307,8 @@ static float CameraKickOption(const char *name, float fallback, float min, float
     return (float)value;
 }
 
-static int CameraKick(void) {
+static int CameraKick(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     if (player->disconnected || player == luaLeavingPlayer)
         return Lua_Error("player is leaving");
@@ -299,13 +323,15 @@ static int CameraKick(void) {
     return 0;
 }
 
-static int GetPlayerHP(void) {
+static int GetPlayerHP(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     lua_settop(L, 1);
     lua_pushliteral(L, "midless:hp");
     return LuaMetadata_Player(L, player, false, false);
 }
-static int SetPlayerHP(void) {
+static int SetPlayerHP(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     lua_Integer hp = luaL_checkinteger(L, 2);
     if (hp < 0 || hp > 65535)
@@ -315,7 +341,8 @@ static int SetPlayerHP(void) {
     lua_pushinteger(L, hp);
     return LuaMetadata_Player(L, player, true, false);
 }
-static int DamagePlayer(void) {
+static int DamagePlayer(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     Entity *entity = CheckPlayerEntity();
     lua_Integer amount = luaL_checkinteger(L, 2);
@@ -331,7 +358,7 @@ static int DamagePlayer(void) {
         lua_pushinteger(L, 0);
         return 1;
     }
-    lua_pushcfunction(L, (lua_CFunction)GetPlayerHP);
+    lua_pushcfunction(L, GetPlayerHP);
     lua_pushvalue(L, 1);
     lua_call(L, 1, 1);
     lua_Integer hp = lua_tointeger(L, -1);
@@ -343,7 +370,7 @@ static int DamagePlayer(void) {
     entity->damageBusy = true;
     amount = LuaDamage_PlayerHooks(entity, 3, amount);
     // Hooks may change health or teleport; reread before committing damage.
-    lua_pushcfunction(L, (lua_CFunction)GetPlayerHP);
+    lua_pushcfunction(L, GetPlayerHP);
     lua_pushvalue(L, 1);
     lua_call(L, 1, 1);
     hp = lua_tointeger(L, -1);
@@ -353,7 +380,7 @@ static int DamagePlayer(void) {
     if (amount > 0) {
         ServerPlayer_ApplyImpulse(player, impulse);
         // HP notifications may respawn the player. Send the impulse first.
-        lua_pushcfunction(L, (lua_CFunction)SetPlayerHP);
+        lua_pushcfunction(L, SetPlayerHP);
         lua_pushvalue(L, 1);
         lua_pushinteger(L, hp - amount);
         if (lua_pcall(L, 2, 0, 0) != LUA_OK) {
@@ -365,11 +392,13 @@ static int DamagePlayer(void) {
     lua_pushinteger(L, amount);
     return 1;
 }
-static int GetPlayerSpawnPoint(void) {
+static int GetPlayerSpawnPoint(lua_State *state) {
+    (void)state;
     LuaValues_PushPosition(LuaPlayers_Check()->spawnPoint);
     return 1;
 }
-static int SetPlayerSpawnPoint(void) {
+static int SetPlayerSpawnPoint(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     Vector3 position = LuaValues_ReadPosition(2, false);
     if (!isfinite(position.x) || !isfinite(position.y) || !isfinite(position.z) ||
@@ -378,19 +407,24 @@ static int SetPlayerSpawnPoint(void) {
     player->spawnPoint = position;
     return 0;
 }
-static int SetPlayerNametag(void) {
+static int SetPlayerNametag(lua_State *state) {
+    (void)state;
     return LuaNametag_Set(L, CheckPlayerEntity());
 }
-static int SetPlayerTexture(void) {
+static int SetPlayerTexture(lua_State *state) {
+    (void)state;
     return LuaEntityTexture_Set(L, CheckPlayerEntity());
 }
-static int GetPlayerTexture(void) {
+static int GetPlayerTexture(lua_State *state) {
+    (void)state;
     return LuaEntityTexture_Get(L, CheckPlayerEntity());
 }
-static int SetPlayerHudBar(void) {
+static int SetPlayerHudBar(lua_State *state) {
+    (void)state;
     return LuaHudBars_Set(L, LuaPlayers_Check());
 }
-static int ApplyPlayerImpulse(void) {
+static int ApplyPlayerImpulse(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     luaL_checktype(L, 2, LUA_TTABLE);
     Vector3 impulse;
@@ -409,7 +443,7 @@ static int ApplyPlayerImpulse(void) {
         return luaL_error(L, "player is not ready to receive an impulse");
     return 0;
 }
-static const struct LuaMethod playerLib[] = {{"set_texture", SetPlayerTexture},
+static const LuaMethod playerLib[] = {{"set_texture", SetPlayerTexture},
                                              {"get_texture", GetPlayerTexture},
                                              {"is_valid", IsPlayerValid},
                                              {"damage", DamagePlayer},
@@ -442,7 +476,8 @@ static const struct LuaMethod playerLib[] = {{"set_texture", SetPlayerTexture},
 
 static int *luaPlayerClickCallbacks;
 
-int LuaPlayers_RegisterClick(void) {
+int LuaPlayers_RegisterClick(lua_State *state) {
+    (void)state;
     int callback = Lua_RefFunction(1);
     arrput(luaPlayerClickCallbacks, callback);
     return 0;

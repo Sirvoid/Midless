@@ -12,7 +12,8 @@
 
 extern lua_State *L;
 
-int LuaTextures_Define(void) {
+int LuaTextures_Define(lua_State *state) {
+    (void)state;
     char name[65];
     Lua_CopyString(1, name, sizeof(name));
     char path[1024];
@@ -23,14 +24,16 @@ int LuaTextures_Define(void) {
     return 0;
 }
 
-int LuaTextures_SetTerrain(void) {
+int LuaTextures_SetTerrain(lua_State *state) {
+    (void)state;
     int id = ServerTextures_Find(Lua_GetString(1));
     if (!ServerTextures_SetTerrain(id))
         return Lua_Error("terrain texture must be a defined 256x256 PNG or 'terrain'");
     return 0;
 }
 
-int LuaTextures_SetBreaking(void) {
+int LuaTextures_SetBreaking(lua_State *state) {
+    (void)state;
     int id = ServerTextures_Find(luaL_checkstring(L, 1));
     if (!ServerTextures_SetBreaking(id)) {
         return luaL_error(L, "breaking texture must contain ten square frames horizontally, up to "

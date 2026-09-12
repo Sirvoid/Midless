@@ -14,7 +14,8 @@ static int *luaReadyCallbacks;
 static int *luaStepCallbacks;
 static bool luaReadyInvoked;
 
-int LuaLifecycle_RegisterReady(void) {
+int LuaLifecycle_RegisterReady(lua_State *state) {
+    (void)state;
     if (luaReadyInvoked)
         return Lua_Error("midless.register_on_ready must be registered during script startup");
     int callback = Lua_RefFunction(1);
@@ -32,7 +33,8 @@ void ScriptHooks_Ready(void) {
     }
 }
 
-int LuaLifecycle_RegisterStep(void) {
+int LuaLifecycle_RegisterStep(lua_State *state) {
+    (void)state;
     int callback = Lua_RefFunction(1);
     arrput(luaStepCallbacks, callback);
     return 0;
@@ -49,7 +51,8 @@ void ScriptHooks_Step(float delta) {
     }
 }
 
-int LuaLifecycle_Sleep(void) {
+int LuaLifecycle_Sleep(lua_State *state) {
+    (void)state;
     int timeWaiting = Lua_GetNumber(1);
     long long beginning = GetTimeMilliseconds();
 

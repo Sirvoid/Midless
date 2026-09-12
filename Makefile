@@ -5,7 +5,7 @@ COMPILER_PATH ?= C:/mingw64/bin
 BUILD_WEB_SHELL       ?= shell.html
 BUILD_WEB_HEAP_SIZE   ?= 134217728
 BUILD_WEB_RESOURCES   ?= TRUE
-BUILD_WEB_RESOURCES_PATH  ?= client/bin/textures
+BUILD_WEB_RESOURCES_PATH  ?= build/client/textures
 BUILD_WEB_RAYLIB_LIB = libs/libraylibweb.a
 EMSDK_PATH ?= C:/emsdk
 
@@ -100,8 +100,17 @@ BUILD_FLAVOR := $(if $(filter TRUE,$(BUILD_SERVER)),server,client)-$(PLATFORM)-$
 BUILD_FLAVOR := $(BUILD_FLAVOR)-websocket$(if $(filter TRUE,$(SERVER_WEB_SUPPORT)),1,0)-headless$(if $(filter TRUE,$(SERVER_HEADLESS)),1,0)
 OBJ_DIR ?= build/obj/$(BUILD_FLAVOR)
 OBJS := $(patsubst ./%.c,$(OBJ_DIR)/%.o,$(SRC_C))
+LINK_OBJECTS = $(OBJS)
+ifeq ($(PLATFORM),PLATFORM_WEB)
+	LINK_OBJECTS = @$(OBJ_DIR)/link-objects.rsp
+endif
 
-CFLAGS = -Wall -std=c99 -D_DEFAULT_SOURCE -Wno-missing-braces
+CFLAGS = -Wall -D_DEFAULT_SOURCE -Wno-missing-braces
+ifeq ($(PLATFORM),PLATFORM_WEB)
+	CFLAGS += -std=gnu99 -Werror=incompatible-function-pointer-types
+else
+	CFLAGS += -std=c99
+endif
 ifeq ($(DEBUG), TRUE)
 	CFLAGS += -g -Og
 else
@@ -119,6 +128,9 @@ ifeq ($(PLATFORM),PLATFORM_WEB)
 endif
 
 INCLUDE_PATHS = $(DIR_INC) -I./server/src -I./server/src/world -I./server/src/world/chunk -I./server/src/scripting -I$(RAYLIB_PATH)/src -I$(RAYLIB_PATH)/src/external -I$(RAYLIB_PATH)/src/extras -I./libs
+ifeq ($(PLATFORM),PLATFORM_WEB)
+	INCLUDE_PATHS := $(filter-out -I$(RAYLIB_PATH)/src/external,$(INCLUDE_PATHS)) -idirafter $(RAYLIB_PATH)/src/external
+endif
 LDFLAGS = -L. -L$(RAYLIB_PATH)/src -L./libs
 
 ifeq ($(SERVER_WEB_SUPPORT), TRUE)
@@ -127,7 +139,8 @@ endif
 
 ifeq ($(PLATFORM),PLATFORM_WEB)
 	LDFLAGS += -s USE_GLFW=3 -s TOTAL_MEMORY=$(BUILD_WEB_HEAP_SIZE) -s FORCE_FILESYSTEM=1
-	LDFLAGS += --preload-file $(BUILD_WEB_RESOURCES_PATH)
+	LDFLAGS += --preload-file $(BUILD_WEB_RESOURCES_PATH)@/client/bin/textures
+	LDFLAGS += --preload-file build/client/mods@/mods
 	ifeq ($(DEBUG),TRUE)
         LDFLAGS += -s ASSERTIONS=1 --profiling
     endif
@@ -162,7 +175,10 @@ ifeq ($(PLATFORM_OS),WINDOWS)
 else
 		@mkdir -p "$(@D)"
 endif
-	$(CC) $(OBJS) -o $(BUILD_DIR) $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LDLIBS) $(CDIRECTIVES)
+ifeq ($(PLATFORM),PLATFORM_WEB)
+	$(file >$(OBJ_DIR)/link-objects.rsp,$(OBJS))
+endif
+	$(CC) $(LINK_OBJECTS) -o $(BUILD_DIR) $(CFLAGS) $(INCLUDE_PATHS) $(LDFLAGS) $(LDLIBS) $(CDIRECTIVES)
 
 ifeq ($(PLATFORM_OS),WINDOWS)
 $(OBJ_DIR)/%.o: %.c Makefile

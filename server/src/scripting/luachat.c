@@ -13,7 +13,8 @@
 
 static int *luaChatMessageCallbacks;
 
-int LuaChat_RegisterMessage(void) {
+int LuaChat_RegisterMessage(lua_State *state) {
+    (void)state;
     int callback = Lua_RefFunction(1);
     arrput(luaChatMessageCallbacks, callback);
     return 0;
@@ -38,13 +39,15 @@ bool ScriptHooks_ChatMessage(int playerId, const char *message) {
     return false;
 }
 
-int LuaChat_Broadcast(void) {
+int LuaChat_Broadcast(lua_State *state) {
+    (void)state;
     const char *message = Lua_GetString(1);
     ServerWorld_SendMessage(message);
     return 0;
 }
 
-int LuaChat_SendPlayerMessage(void) {
+int LuaChat_SendPlayerMessage(lua_State *state) {
+    (void)state;
     Player *player = LuaPlayers_Check();
     const char *message = Lua_GetString(2);
     if (LuaPlayers_IsLeaving(player))

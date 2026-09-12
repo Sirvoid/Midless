@@ -32,7 +32,7 @@
 #include "../hudbars.h"
 #include "../textcolors.h"
 
-static const struct LuaMethod midlessLib[] = {
+static const LuaMethod midlessLib[] = {
     {"raycast", LuaQueries_Raycast},
     {"get_entities_in_radius", LuaQueries_Entities},
     {"get_players_in_radius", LuaQueries_Players},

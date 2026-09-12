@@ -31,7 +31,8 @@ static ItemStack ReadIngredient(int index, bool *exact) {
     return stack;
 }
 
-int LuaCrafting_Register(void) {
+int LuaCrafting_Register(lua_State *state) {
+    (void)state;
     luaL_checktype(L, 1, LUA_TTABLE);
     CraftingRecipe recipe = {0};
     lua_getfield(L, 1, "group");

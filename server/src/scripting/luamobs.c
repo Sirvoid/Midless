@@ -110,7 +110,8 @@ static void ReadIntent(MobState *s) {
     lua_pop(L, 1);
     s->attack = Boolean(table, "attack", false);
 }
-int LuaMobs_Register(void) {
+int LuaMobs_Register(lua_State *state) {
+    (void)state;
     const char *name = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TTABLE);
     lua_settop(L, 2);
@@ -172,7 +173,7 @@ int LuaMobs_Register(void) {
         lua_setfield(L, 2, "body");
     }
     lua_pop(L, 1);
-    LuaEntities_Register();
+    LuaEntities_Register(L);
     int id = ServerEntities_Find(name);
     int *references[] = {&refs.brain, &refs.movement, &refs.attack};
     for (int i = 0; i < 3; i++) {

@@ -7,11 +7,12 @@
 
 #ifndef MIDLESS_LUA_MODELS_H
 #define MIDLESS_LUA_MODELS_H
+#include "minilua.h"
 #include <stdbool.h>
 int LuaModels_Resolve(int argument, bool defining);
 void LuaModels_BindName(int argument, int id);
-int LuaModels_Define(void);
-int LuaModels_Remove(void);
-int LuaModels_SetEntity(void);
+int LuaModels_Define(lua_State *state);
+int LuaModels_Remove(lua_State *state);
+int LuaModels_SetEntity(lua_State *state);
 void LuaModels_Init(void);
 #endif

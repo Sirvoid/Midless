@@ -5,8 +5,16 @@
  * https://opensource.org/licenses/MIT
  */
 
+#if defined(OS_WINDOWS)
+    #define WIN32_LEAN_AND_MEAN
+    #define NOGDI
+    #define NOUSER
+#endif
+
 #define LUA_IMPL
 #include "minilua.h"
+#undef LUA_IMPL
+#include "luaengine.h"
 #include "pthread.h"
 #include <dirent.h>
 #include <sys/stat.h>
@@ -18,13 +26,13 @@ bool Worldgen_Freeze(void);
 lua_State *L;
 int luaRunning = 0;
 
-void Lua_DefineLib(char *name, const void *functions) {
+void Lua_DefineLib(char *name, const LuaMethod *functions) {
     lua_newtable(L);
     luaL_setfuncs(L, functions, 0);
     lua_setglobal(L, name);
 }
 
-void Lua_PushFunc(void *function) {
+void Lua_PushFunc(lua_CFunction function) {
     lua_pushcfunction(L, function);
 }
 
@@ -40,7 +48,7 @@ void Lua_SetGlobal(const char *name) {
     lua_setglobal(L, name);
 }
 
-void Lua_DefineGlobalFunc(char *name, void *function) {
+void Lua_DefineGlobalFunc(char *name, lua_CFunction function) {
     lua_pushcfunction(L, function);
     lua_setglobal(L, name);
 }
@@ -284,7 +292,7 @@ void Lua_Pop(void) {
     lua_pop(L, 1);
 }
 
-void Lua_DefineObjectType(const char *name, const void *methods) {
+void Lua_DefineObjectType(const char *name, const LuaMethod *methods) {
     luaL_newmetatable(L, name);
     lua_newtable(L);
     luaL_setfuncs(L, methods, 0);

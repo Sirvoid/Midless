@@ -7,11 +7,12 @@
 
 #ifndef MIDLESS_LUA_BLOCKS_H
 #define MIDLESS_LUA_BLOCKS_H
+#include "minilua.h"
 
-int LuaBlocks_SetBlock(void);
-int LuaBlocks_SetBlocks(void);
-int LuaBlocks_DefineBlock(void);
-int LuaBlocks_RegisterBlockUpdate(void);
+int LuaBlocks_SetBlock(lua_State *state);
+int LuaBlocks_SetBlocks(lua_State *state);
+int LuaBlocks_DefineBlock(lua_State *state);
+int LuaBlocks_RegisterBlockUpdate(lua_State *state);
 void LuaBlocks_Init(void);
 void LuaBlocks_Shutdown(void);
 #endif

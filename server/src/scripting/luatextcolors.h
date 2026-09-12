@@ -10,8 +10,8 @@
 #include "minilua.h"
 #include "../entity.h"
 
-int LuaTextColors_Define(void);
-int LuaTextColors_Remove(void);
-int LuaTextColors_Escape(void);
+int LuaTextColors_Define(lua_State *state);
+int LuaTextColors_Remove(lua_State *state);
+int LuaTextColors_Escape(lua_State *state);
 int LuaNametag_Set(lua_State *state, Entity *entity);
 #endif

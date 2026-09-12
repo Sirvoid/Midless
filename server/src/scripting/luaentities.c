@@ -324,7 +324,8 @@ static bool Call(Entity *e, int ref, float dt, bool step) {
     lua_settop(L, top);
     return ok;
 }
-int LuaEntities_Register(void) {
+int LuaEntities_Register(lua_State *state) {
+    (void)state;
     size_t length;
     const char *name = luaL_checklstring(L, 1, &length);
     if (!length || length > 64 || memchr(name, 0, length))
@@ -420,7 +421,8 @@ int LuaEntities_Register(void) {
     ServerEntities_Register(&d);
     return 0;
 }
-int LuaEntities_Spawn(void) {
+int LuaEntities_Spawn(lua_State *state) {
+    (void)state;
     const char *name = luaL_checkstring(L, 1);
     Vector3 position = ReadVector(L, 2, 33554430.0f);
     int definition = -1;
@@ -450,7 +452,7 @@ bool ScriptHooks_EntitiesTrySpawn(int definition, Vector3 position) {
     if (!name)
         return false;
     int top = lua_gettop(L);
-    lua_pushcfunction(L, (lua_CFunction)LuaEntities_Spawn);
+    lua_pushcfunction(L, LuaEntities_Spawn);
     lua_pushstring(L, name);
     PushVector(L, position);
     bool ok = lua_pcall(L, 2, 1, 0) == LUA_OK;

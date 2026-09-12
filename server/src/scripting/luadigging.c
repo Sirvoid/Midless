@@ -79,7 +79,8 @@ void LuaDigging_Define(int id, int table, bool block) {
     luaL_unref(L, LUA_REGISTRYINDEX, finished[id]);
     finished[id] = luaL_ref(L, LUA_REGISTRYINDEX);
 }
-int LuaDigging_Register(void) {
+int LuaDigging_Register(lua_State *state) {
+    (void)state;
     luaL_checktype(L, 1, LUA_TFUNCTION);
     if (callbackCount == 64)
         return luaL_error(L, "too many dig time callbacks");

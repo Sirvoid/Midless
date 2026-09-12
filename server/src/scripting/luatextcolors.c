@@ -44,19 +44,22 @@ static unsigned char ReadCode(void) {
     return *code;
 }
 
-int LuaTextColors_Define(void) {
+int LuaTextColors_Define(lua_State *state) {
+    (void)state;
     unsigned char code = ReadCode();
     ServerTextColors_Define(code, ReadColor(L, 2));
     return 0;
 }
 
-int LuaTextColors_Remove(void) {
+int LuaTextColors_Remove(lua_State *state) {
+    (void)state;
     unsigned char code = ReadCode();
     ServerTextColors_Remove(code);
     return 0;
 }
 
-int LuaTextColors_Escape(void) {
+int LuaTextColors_Escape(lua_State *state) {
+    (void)state;
     size_t length;
     const char *text = luaL_checklstring(L, 1, &length);
     if (memchr(text, 0, length))

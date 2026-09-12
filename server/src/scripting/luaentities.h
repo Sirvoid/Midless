@@ -16,7 +16,7 @@ Entity *LuaEntities_Test(lua_State *state, int index);
 void LuaEntities_Push(Entity *entity);
 void LuaEntities_Init(void);
 void LuaEntities_Shutdown(void);
-int LuaEntities_Register(void);
-int LuaEntities_Spawn(void);
+int LuaEntities_Register(lua_State *state);
+int LuaEntities_Spawn(lua_State *state);
 int LuaEntities_Instance(const Entity *entity);
 #endif

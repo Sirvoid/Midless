@@ -778,7 +778,8 @@ static int InventoryAdd(lua_State *state) {
     lua_pushboolean(state, true);
     return 1;
 }
-int LuaMetadata_GetBlock(void) {
+int LuaMetadata_GetBlock(lua_State *state) {
+    (void)state;
     luaL_checktype(L, 1, LUA_TTABLE);
     Vector3 position;
     float *coordinates[] = {&position.x, &position.y, &position.z};

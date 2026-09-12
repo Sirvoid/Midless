@@ -59,7 +59,8 @@ int LuaItems_Id(lua_State *state, int index, bool block, bool reserve) {
     return id;
 }
 
-int LuaItems_Define(void) {
+int LuaItems_Define(lua_State *state) {
+    (void)state;
     int id = LuaItems_Declare(L, false);
     if (id < 256 || id >= ITEM_LIMIT || serverItems[id].defined)
         return luaL_error(L, "item already defined or ID out of range");

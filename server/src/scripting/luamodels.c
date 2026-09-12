@@ -72,7 +72,8 @@ static void ModelVector(int table, const char *name, int16_t values[3], bool opt
     Lua_Pop();
 }
 
-int LuaModels_Define(void) {
+int LuaModels_Define(lua_State *state) {
+    (void)state;
     int id = LuaModels_Resolve(1, true);
     Lua_CheckTable(2);
     ModelDefinition d = {0};
@@ -164,7 +165,8 @@ int LuaModels_Define(void) {
     return 0;
 }
 
-int LuaModels_Remove(void) {
+int LuaModels_Remove(lua_State *state) {
+    (void)state;
     int id = LuaModels_Resolve(1, false);
     if (id == 0)
         return Lua_Error("cannot remove the built-in humanoid model");
@@ -172,7 +174,8 @@ int LuaModels_Remove(void) {
     return 0;
 }
 
-int LuaModels_SetEntity(void) {
+int LuaModels_SetEntity(lua_State *state) {
+    (void)state;
     int entityId = Lua_GetIntRange(1, 0, WORLD_MAX_ENTITIES - 1);
     int modelId = LuaModels_Resolve(2, false);
     if (!ServerWorld_SetEntityModel(entityId, modelId))

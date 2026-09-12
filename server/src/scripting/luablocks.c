@@ -25,7 +25,8 @@ static int *luaBlockUpdateCallbacks;
 #define LUA_BLOCK_BATCH_SIZE 4096
 #define LUA_MAX_BLOCK_UPDATES 1000000
 
-int LuaBlocks_RegisterBlockUpdate(void) {
+int LuaBlocks_RegisterBlockUpdate(lua_State *state) {
+    (void)state;
     int callback = Lua_RefFunction(1);
     arrput(luaBlockUpdateCallbacks, callback);
     return 0;
@@ -44,7 +45,8 @@ void ScriptHooks_BlockUpdate(Vector3 position, unsigned short blockId,
     }
 }
 
-int LuaBlocks_SetBlock(void) {
+int LuaBlocks_SetBlock(lua_State *state) {
+    (void)state;
     Vector3 position = LuaValues_ReadPosition(1, true);
     int blockId = LuaItems_Id(L, 2, true, false);
     if (!ServerWorld_IsBlockDefined(blockId))
@@ -69,7 +71,8 @@ static ServerBlockUpdate ReadBlockUpdate(int table) {
     return (ServerBlockUpdate){.position = position, .blockId = (unsigned char)blockId};
 }
 
-int LuaBlocks_SetBlocks(void) {
+int LuaBlocks_SetBlocks(lua_State *state) {
+    (void)state;
     Lua_CheckTable(1);
     bool callCallbacks = Lua_GetTop() < 2 || Lua_GetBoolean(2);
     int count = Lua_TableLength(1);
@@ -170,7 +173,8 @@ static void ReadBlockTable(BlockDefinition *d) {
     Lua_Pop();
 }
 
-int LuaBlocks_DefineBlock(void) {
+int LuaBlocks_DefineBlock(lua_State *state) {
+    (void)state;
     int blockId = LuaItems_Declare(L, true);
     if (!blockId || serverWorld.hasBlockDefinition[blockId])
         return luaL_error(L, "block already defined");

@@ -7,9 +7,10 @@
 
 #ifndef MIDLESS_LUA_CHAT_H
 #define MIDLESS_LUA_CHAT_H
+#include "minilua.h"
 
-int LuaChat_RegisterMessage(void);
-int LuaChat_Broadcast(void);
-int LuaChat_SendPlayerMessage(void);
+int LuaChat_RegisterMessage(lua_State *state);
+int LuaChat_Broadcast(lua_State *state);
+int LuaChat_SendPlayerMessage(lua_State *state);
 void LuaChat_Shutdown(void);
 #endif

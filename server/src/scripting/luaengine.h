@@ -8,25 +8,23 @@
 #ifndef MIDLESS_SERVER_LUA_ENGINE_H
 #define MIDLESS_SERVER_LUA_ENGINE_H
 #include "../scripthooks.h"
+#include "minilua.h"
 
 #include <stddef.h>
 #include <stdbool.h>
 
-typedef struct LuaMethod {
-    const char *name;
-    void *func;
-} LuaMethod;
+typedef luaL_Reg LuaMethod;
 
 extern int luaRunning;
-void Lua_DefineObjectType(const char *name, const void *methods);
+void Lua_DefineObjectType(const char *name, const LuaMethod *methods);
 void *Lua_NewObject(const char *name, size_t size);
 void *Lua_CheckObject(int arg, const char *name);
 
 void Lua_MakeTable(int fields);
 void Lua_SetField(int idx, const char *name);
-void Lua_DefineLib(char *name, const void *functions);
-void Lua_PushFunc(void *function);
-void Lua_DefineGlobalFunc(char *name, void *function);
+void Lua_DefineLib(char *name, const LuaMethod *functions);
+void Lua_PushFunc(lua_CFunction function);
+void Lua_DefineGlobalFunc(char *name, lua_CFunction function);
 int Lua_GetGlobal(char *name);
 void Lua_SetGlobal(const char *name);
 void Lua_GetField(char *name);

@@ -46,7 +46,8 @@ static bool Section(const char *name) {
     return true;
 }
 
-int LuaSpawning_Register(void) {
+int LuaSpawning_Register(lua_State *state) {
+    (void)state;
     if (!callbacksInitialized)
         ScriptHooks_ResetSpawnFilters();
     SpawnRule r = {.interval = 5,

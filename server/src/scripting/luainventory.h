@@ -12,8 +12,8 @@
 #include "../player.h"
 void LuaInventory_Init(void);
 void LuaInventory_Shutdown(void);
-int LuaInventory_Define(void);
-int LuaInventory_DefineScreen(void);
+int LuaInventory_Define(lua_State *state);
+int LuaInventory_DefineScreen(lua_State *state);
 int LuaInventory_Get(lua_State *state, Player *player);
 int LuaInventory_Show(lua_State *state, Player *player);
 int LuaInventory_Close(lua_State *state, Player *player);

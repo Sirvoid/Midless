@@ -24,7 +24,7 @@ void LuaMetadata_PushItem(lua_State *state, ItemStack stack);
 void LuaMetadata_DefineBlock(int blockId, int definition);
 void LuaMetadata_Init(void);
 void LuaMetadata_Shutdown(void);
-int LuaMetadata_GetBlock(void);
+int LuaMetadata_GetBlock(lua_State *state);
 int LuaMetadata_Get(lua_State *state, int schema, Metadata *value, int key);
 int LuaMetadata_Set(lua_State *state, int schema, Metadata *value, int key, int input);
 int LuaMetadata_Inventory(lua_State *state, int schema, int owner, int key);

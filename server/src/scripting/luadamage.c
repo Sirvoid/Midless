@@ -80,7 +80,8 @@ int LuaDamage_Result(lua_State *state, int index, int amount) {
     TraceLog(LOG_WARNING, "Damage callback must return nil, false or damage 0..65535");
     return 0;
 }
-int LuaDamage_RegisterPlayer(void) {
+int LuaDamage_RegisterPlayer(lua_State *state) {
+    (void)state;
     luaL_checktype(L, 1, LUA_TFUNCTION);
     if (playerCallbackCount == 64)
         return luaL_error(L, "too many player damage callbacks");

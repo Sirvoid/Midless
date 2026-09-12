@@ -73,7 +73,8 @@ static void PushHit(WorldHit hit) {
     lua_pushnumber(L, hit.distance);
     lua_setfield(L, -2, "distance");
 }
-int LuaQueries_Raycast(void) {
+int LuaQueries_Raycast(lua_State *state) {
+    (void)state;
     Vector3 from = ReadPosition(1), to = ReadPosition(2);
     if (hypotf(hypotf(to.x - from.x, to.z - from.z), to.y - from.y) > 128)
         return luaL_error(L, "raycast is limited to 128 blocks");
@@ -135,13 +136,16 @@ static int Nearby(bool players) {
     }
     return 1;
 }
-int LuaQueries_Entities(void) {
+int LuaQueries_Entities(lua_State *state) {
+    (void)state;
     return Nearby(false);
 }
-int LuaQueries_Players(void) {
+int LuaQueries_Players(lua_State *state) {
+    (void)state;
     return Nearby(true);
 }
-int LuaQueries_Light(void) {
+int LuaQueries_Light(lua_State *state) {
+    (void)state;
     Vector3 pos = ReadPosition(1);
     int block, sky, level;
     if (!ServerLighting_Get(pos, &block, &sky, &level)) {
@@ -157,7 +161,8 @@ int LuaQueries_Light(void) {
     lua_setfield(L, -2, "level");
     return 1;
 }
-int LuaQueries_NearestPlayer(void) {
+int LuaQueries_NearestPlayer(lua_State *state) {
+    (void)state;
     Vector3 pos = ReadPosition(1);
     double radius = luaL_checknumber(L, 2);
     if (!isfinite(radius) || radius < 0 || radius > 128)
@@ -190,7 +195,8 @@ int LuaQueries_NearestPlayer(void) {
     LuaPlayers_Push(nearest);
     return 1;
 }
-int LuaQueries_FindPath(void) {
+int LuaQueries_FindPath(lua_State *state) {
+    (void)state;
     Entity *e = LuaEntities_Check(L, 1);
     Vector3 goal = ReadPosition(2), path[512];
     int count = ServerQuery_FindPath(e->body, e->position, goal, path, 512);
@@ -205,12 +211,14 @@ int LuaQueries_FindPath(void) {
     }
     return 1;
 }
-int LuaQueries_CanWalk(void) {
+int LuaQueries_CanWalk(lua_State *state) {
+    (void)state;
     Entity *e = LuaEntities_Check(L, 1);
     lua_pushboolean(L, ServerQuery_CanWalk(e->body, e->position, ReadPosition(2)));
     return 1;
 }
-int LuaQueries_RegisterAttack(void) {
+int LuaQueries_RegisterAttack(lua_State *state) {
+    (void)state;
     luaL_checktype(L, 1, LUA_TFUNCTION);
     if (attackCount == 64)
         return luaL_error(L, "too many attack callbacks");
