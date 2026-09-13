@@ -9,8 +9,10 @@
 #define MIDLESS_CLIENT_LOCAL_SERVER_H
 
 #include <stdbool.h>
+#include "../../server/src/savedatabase.h"
 
-bool LocalServer_Start(void);
+bool LocalServer_Start(bool acceptGeneratorChange);
+bool LocalServer_GetGeneratorChange(SavedGenerator *previous, SavedGenerator *current);
 void LocalServer_Stop(void);
 bool LocalServer_IsRunning(void);
 

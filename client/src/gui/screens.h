@@ -17,7 +17,8 @@ typedef enum Screen {
     SCREEN_JOINING,
     SCREEN_LOGIN,
     SCREEN_OPTIONS,
-    SCREEN_INVENTORY
+    SCREEN_INVENTORY,
+    SCREEN_GENERATOR_CHANGED
 } Screen;
 
 extern Screen currentScreen;

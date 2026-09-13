@@ -42,6 +42,7 @@ Color uiColBg;
 static Screen optionsReturn = SCREEN_MAIN;
 static int focus, controlIndex, pendingDistance, fpsChoice;
 static bool skipMenuKeys, loadingNextFrame, loadingStarted, intentionalDisconnect;
+static bool acceptGeneratorChange;
 static Screen disconnectReturn = SCREEN_MAIN;
 static double joiningStarted;
 static char nameInput[16] = "Player";
@@ -515,11 +516,41 @@ void Screen_DrawLoading(void) {
     if (loadingNextFrame) {
         loadingNextFrame = false;
         loadingStarted = true;
-        if (!LocalServer_Start()) {
+        bool acceptChange = acceptGeneratorChange;
+        acceptGeneratorChange = false;
+        if (!LocalServer_Start(acceptChange)) {
+            SavedGenerator previous, current;
+            if (LocalServer_GetGeneratorChange(&previous, &current)) {
+                Screen_Switch(SCREEN_GENERATOR_CHANGED);
+                return;
+            }
             snprintf(preferencesError, sizeof(preferencesError), "Could not start singleplayer. Check the game log.");
             Screen_Switch(SCREEN_MAIN);
         }
     } else loadingNextFrame = true;
+}
+
+static void Screen_DrawGeneratorChanged(void) {
+    SavedGenerator previous, current;
+    if (!LocalServer_GetGeneratorChange(&previous, &current)) {
+        Screen_Switch(SCREEN_MAIN);
+        return;
+    }
+    Menu_Begin("World generator changed", 2);
+    Menu_Text(TextFormat("Saved: %.40s v%d", previous.name, previous.version), -100, 16, LIGHTGRAY);
+    Menu_Text(TextFormat("Updated: %.40s v%d", current.name, current.version), -72, 16, WHITE);
+    if (!strcmp(previous.name, current.name) && previous.version == current.version)
+        Menu_Text("Generation settings changed.", -44, 16, LIGHTGRAY);
+    Menu_Text("Saved terrain and builds will be kept.", -8, 18, WHITE);
+    Menu_Text("New terrain may have seams along old borders.", 18, 16, LIGHTGRAY);
+    if (Menu_Button(64, "Back", true) || Menu_Key(KEY_ESCAPE)) {
+        Screen_Switch(SCREEN_MAIN);
+        return;
+    }
+    if (Menu_Button(118, "Use updated generator", true)) {
+        acceptGeneratorChange = true;
+        Screen_Switch(SCREEN_LOADING);
+    }
 }
 
 void Screen_Draw(void) {
@@ -536,6 +567,7 @@ void Screen_Draw(void) {
         case SCREEN_LOGIN: Screen_DrawLogin(); break;
         case SCREEN_JOINING: Screen_DrawJoining(); break;
         case SCREEN_LOADING: Screen_DrawLoading(); break;
+        case SCREEN_GENERATOR_CHANGED: Screen_DrawGeneratorChanged(); break;
         case SCREEN_CONNECTION_ERROR: Screen_DrawConnectionError(); break;
     }
     GuiSetStyle(DEFAULT, TEXT_SIZE, textSize);

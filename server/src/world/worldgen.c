@@ -16,6 +16,16 @@
 #include <stdlib.h>
 
 WGConfig worldgen;
+static bool generatorChanged;
+static SavedGenerator previousGenerator;
+static SavedGenerator currentGenerator;
+
+bool Worldgen_GetChange(SavedGenerator *previous, SavedGenerator *current) {
+    if (!generatorChanged) return false;
+    *previous = previousGenerator;
+    *current = currentGenerator;
+    return true;
+}
 
 uint32_t Worldgen_Hash(const char *name) {
     uint32_t h = 2166136261u;
@@ -47,6 +57,7 @@ static int FloorDivide(int a, int b) {
 }
 
 void Worldgen_Reset(int seed) {
+    generatorChanged = false;
     Worldgen_ClearFeatures();
     Worldgen_ClearSkyCache();
     memset(&worldgen, 0, sizeof(worldgen));
@@ -632,7 +643,8 @@ static bool ValidateBlockId(int id) {
     return false;
 }
 
-bool Worldgen_Freeze(void) {
+bool Worldgen_Freeze(bool acceptGeneratorChange) {
+    generatorChanged = false;
     if (worldgen.frozen)
         return true;
     for (int i = 0; i < worldgen.ruleCount; i++)
@@ -674,9 +686,10 @@ bool Worldgen_Freeze(void) {
                                   b->max[1] == 16 && b->max[2] == 16;
         }
     }
-    /* Record the definition fingerprint with the seed. Refuse accidental seams
-     * caused by enabling/disabling a worldgen mod on an established world. */
+    // Existing worlds require explicit approval before using different definitions.
     uint32_t fingerprint = CalculateDefinitionFingerprint();
+    SavedGenerator generator = {.version = worldgen.version, .fingerprint = fingerprint};
+    strcpy(generator.name, worldgen.id);
     SavedGenerator saved;
     SaveResult result = SaveDatabase_LoadGenerator(&saved);
     if (result == SAVE_ERROR) return false;
@@ -684,13 +697,25 @@ bool Worldgen_Freeze(void) {
         bool match = !strcmp(saved.name, worldgen.id) && saved.version == worldgen.version &&
                      saved.fingerprint == fingerprint;
         if (!match) {
-            TraceLog(LOG_ERROR, "Worldgen definitions differ from the saved world. Restore the "
-                                "world's mods or use a new world directory.");
-            return false;
+            if (!acceptGeneratorChange) {
+                previousGenerator = saved;
+                currentGenerator = generator;
+                generatorChanged = true;
+                TraceLog(LOG_ERROR, "World generator changed from %s v%d (%08x) to %s v%d (%08x). "
+                         "Approval is required; new terrain may have seams.", saved.name,
+                         saved.version, saved.fingerprint, generator.name, generator.version,
+                         generator.fingerprint);
+                return false;
+            }
+            if (!SaveDatabase_SaveGenerator(&generator)) {
+                TraceLog(LOG_ERROR, "Could not save updated world generation settings");
+                return false;
+            }
+            TraceLog(LOG_WARNING, "Accepted world generator change: %s v%d (%08x) -> %s v%d (%08x). "
+                     "Saved chunks and seed preserved.", saved.name, saved.version, saved.fingerprint,
+                     generator.name, generator.version, generator.fingerprint);
         }
     } else {
-        SavedGenerator generator = {.version = worldgen.version, .fingerprint = fingerprint};
-        strcpy(generator.name, worldgen.id);
         if (!SaveDatabase_SaveGenerator(&generator)) {
             TraceLog(LOG_ERROR, "Could not save world generation settings");
             return false;

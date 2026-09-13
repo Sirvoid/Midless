@@ -9,6 +9,7 @@
 #define MIDLESS_WORLDGEN_H
 
 #include <stdint.h>
+#include "../savedatabase.h"
 #include "FastNoiseLite.h"
 #include "chunk/chunk.h"
 
@@ -199,7 +200,8 @@ typedef struct WGConfig {
 
 extern WGConfig worldgen;
 void Worldgen_Reset(int seed);
-bool Worldgen_Freeze(void);
+bool Worldgen_Freeze(bool acceptGeneratorChange);
+bool Worldgen_GetChange(SavedGenerator *previous, SavedGenerator *current);
 void Worldgen_Generate(Chunk *chunk);
 void Worldgen_SkyMask(Chunk *chunk);
 uint32_t Worldgen_Hash(const char *name);

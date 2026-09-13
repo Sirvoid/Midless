@@ -15,6 +15,7 @@
 #include "server.h"
 #include "serverwss.h"
 #include "world/world.h"
+#include "world/worldgen.h"
 #include "stb_ds.h"
 #include "networkhandler.h"
 #include "packet.h"
@@ -26,7 +27,16 @@
 #include "servertiming.h"
 #include "serverconfig.h"
 
-int main(void) {
+int main(int argc, char **argv) {
+    bool acceptGeneratorChange = false;
+    for (int i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--accept-generator-change")) {
+            acceptGeneratorChange = true;
+        } else {
+            fprintf(stderr, "Usage: %s [--accept-generator-change]\n", argv[0]);
+            return 1;
+        }
+    }
     if (!RuntimePaths_Init()) return 1;
     if (!ServerConfig_Load("server.cfg")) return 1;
     Platform_BeginTiming();
@@ -53,7 +63,13 @@ int main(void) {
     serverWorld.maxPlayers = serverConfig.maxPlayers;
     serverWorld.maxDrawDistance = serverConfig.maxRenderDistance;
     ServerNetwork_Init();
-    if (!ScriptRuntime_Run()) {
+    if (!ScriptRuntime_Run(acceptGeneratorChange)) {
+        SavedGenerator previous, current;
+        if (Worldgen_GetChange(&previous, &current)) {
+            fprintf(stderr, "To approve this generator update, restart with --accept-generator-change.\n"
+                            "Saved terrain stays intact; new terrain may have seams.\n"
+                            "Otherwise restore the world's previous generator and mods.\n");
+        }
         ServerNetwork_Shutdown();
         ServerWorld_Shutdown();
         ScriptHooks_Shutdown();

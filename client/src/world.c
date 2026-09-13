@@ -130,7 +130,7 @@ void World_LoadMultiplayer(void) {
 }
 
 void World_LoadSingleplayer(void) {
-    LocalServer_Start();
+    LocalServer_Start(false);
 }
 
 void World_UpdateChunksWithBudget(double budgetMs) {

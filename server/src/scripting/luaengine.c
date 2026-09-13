@@ -21,7 +21,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdlib.h>
-bool Worldgen_Freeze(void);
+bool Worldgen_Freeze(bool acceptGeneratorChange);
 
 lua_State *L;
 int luaRunning = 0;
@@ -163,12 +163,12 @@ static bool Lua_LoadModFolder(const char *folder) {
     return success;
 }
 
-bool ScriptRuntime_Run(void) {
+bool ScriptRuntime_Run(bool acceptGeneratorChange) {
 
     int error = 0;
     if (L != NULL) {
         luaL_openlibs(L);
-        if (!Lua_LoadModFolder("mods") || !Worldgen_Freeze())
+        if (!Lua_LoadModFolder("mods") || !Worldgen_Freeze(acceptGeneratorChange))
             return false;
         luaRunning = 1;
     }

@@ -20,6 +20,7 @@
 #include "localserver.h"
 #include "../../server/src/savedatabase.h"
 #include "../../server/src/world/world.h"
+#include "../../server/src/world/worldgen.h"
 #include "gui/screens.h"
 #include "../../server/src/player.h"
 #include "../../server/src/networkhandler.h"
@@ -38,6 +39,9 @@ bool World_CleanupChunks(void);
 int World_RemainingCleanupChunks(void);
 
 static Player *localPlayer;
+static bool generatorChanged;
+static SavedGenerator previousGenerator;
+static SavedGenerator currentGenerator;
 static bool localServerRunning;
 static bool localServerThreadCreated;
 static bool localServerFinished;
@@ -88,8 +92,16 @@ static void LocalServer_Send(unsigned char *packet, int length) {
     ServerNetwork_Receive(localPlayer, packet, length);
 }
 
-bool LocalServer_Start(void) {
+bool LocalServer_GetGeneratorChange(SavedGenerator *previous, SavedGenerator *current) {
+    if (!generatorChanged) return false;
+    *previous = previousGenerator;
+    *current = currentGenerator;
+    return true;
+}
+
+bool LocalServer_Start(bool acceptGeneratorChange) {
     if (LocalServer_IsRunning()) return true;
+    generatorChanged = false;
 
     ScriptRuntime_Init();
     ScriptHooks_Init();
@@ -99,7 +111,8 @@ bool LocalServer_Start(void) {
         return false;
     }
     ServerNetwork_Init();
-    if (!ScriptRuntime_Run()) {
+    if (!ScriptRuntime_Run(acceptGeneratorChange)) {
+        generatorChanged = Worldgen_GetChange(&previousGenerator, &currentGenerator);
         ServerNetwork_Shutdown();
         ServerWorld_Shutdown();
         ScriptHooks_Shutdown();

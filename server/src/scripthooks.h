@@ -50,7 +50,7 @@ int ScriptHooks_ItemActionsDrops(Player *player, Vector3 position, int block, It
 bool ScriptHooks_InventoryOpenPlayer(Player *player);
 void ScriptHooks_QueriesAttack(Player *player);
 void ScriptRuntime_Init(void);
-bool ScriptRuntime_Run(void);
+bool ScriptRuntime_Run(bool acceptGeneratorChange);
 void ScriptRuntime_Stop(void);
 bool ScriptHooks_SpawnFilter(int id, const SpawnRule *rule, Vector3 position, int playerId);
 void ScriptHooks_ResetSpawnFilters(void);
