@@ -6,6 +6,7 @@
  */
 
 #include "version.h"
+#include "../savedatabase.h"
 #include "worldgen.h"
 #include "worldgenerator.h"
 #include "world.h"
@@ -676,21 +677,24 @@ bool Worldgen_Freeze(void) {
     /* Record the definition fingerprint with the seed. Refuse accidental seams
      * caused by enabling/disabling a worldgen mod on an established world. */
     uint32_t fingerprint = CalculateDefinitionFingerprint();
-    char expected[160];
-    snprintf(expected, sizeof(expected), "MIDLESS_WORLDGEN 1\n%s\n%d\n%08x\n", worldgen.id,
-             worldgen.version, (unsigned)fingerprint);
-    if (FileExists("world/worldgen.meta")) {
-        char *saved = LoadFileText("world/worldgen.meta");
-        bool match = saved && !strcmp(saved, expected);
-        UnloadFileText(saved);
+    SavedGenerator saved;
+    SaveResult result = SaveDatabase_LoadGenerator(&saved);
+    if (result == SAVE_ERROR) return false;
+    if (result == SAVE_OK) {
+        bool match = !strcmp(saved.name, worldgen.id) && saved.version == worldgen.version &&
+                     saved.fingerprint == fingerprint;
         if (!match) {
-            TraceLog(LOG_ERROR, "Worldgen definitions differ from world/worldgen.meta. Restore the "
+            TraceLog(LOG_ERROR, "Worldgen definitions differ from the saved world. Restore the "
                                 "world's mods or use a new world directory.");
             return false;
         }
-    } else if (!SaveFileText("world/worldgen.meta", expected)) {
-        TraceLog(LOG_ERROR, "Could not save world/worldgen.meta");
-        return false;
+    } else {
+        SavedGenerator generator = {.version = worldgen.version, .fingerprint = fingerprint};
+        strcpy(generator.name, worldgen.id);
+        if (!SaveDatabase_SaveGenerator(&generator)) {
+            TraceLog(LOG_ERROR, "Could not save world generation settings");
+            return false;
+        }
     }
     for (int i = 0; i < worldgen.fieldCount; i++)
         worldgen.fields[i].noise.seed =

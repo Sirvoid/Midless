@@ -27,6 +27,7 @@ Midless is a cross-platform, open-source voxel game engine written in C99, built
 | [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) | -       | Single-File | Client / Server
 | [stb_ds](https://github.com/nothings/stb/blob/master/stb_ds.h) | -       | Single-File | Client / Server
 | [MiniLua](https://github.com/edubart/minilua) | -       | Single-File | Server
+| [SQLite](https://www.sqlite.org/) | 3.53.4 | Single-Files (.c, .h)  | Client / Server |
 | For Optional Server's Websocket Support:
 | [mongoose](https://github.com/cesanta/mongoose/) | 7.8       | Single-Files (.c, .h) | Server
 | [OpenSSL](https://github.com/openssl/openssl) | -       | Linked | Server

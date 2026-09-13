@@ -25,6 +25,7 @@
 #include "networkhandler.h"
 #include "chat.h"
 #include "localserver.h"
+#include "../../server/src/savedatabase.h"
 #include "runtimepaths.h"
 #include "platform.h"
 
@@ -117,6 +118,7 @@ int main(void) {
 }
 
 void Game_RunLoop(void) {
+    SaveDatabase_SyncBrowser(false);
     Network_ProcessIncomingPackets();
     
     // Update

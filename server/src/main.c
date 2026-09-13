@@ -44,7 +44,12 @@ int main(void) {
     ScriptRuntime_Init();
     ScriptHooks_Init();
 
-    ServerWorld_Init();
+    if (!ServerWorld_Init()) {
+        ScriptHooks_Shutdown();
+        ScriptRuntime_Stop();
+        Platform_EndTiming();
+        return 1;
+    }
     serverWorld.maxPlayers = serverConfig.maxPlayers;
     serverWorld.maxDrawDistance = serverConfig.maxRenderDistance;
     ServerNetwork_Init();

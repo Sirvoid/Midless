@@ -144,7 +144,7 @@ ifeq ($(PLATFORM),PLATFORM_WEB)
 	ifeq ($(DEBUG),TRUE)
         LDFLAGS += -s ASSERTIONS=1 --profiling
     endif
-	LDFLAGS += --shell-file $(BUILD_WEB_SHELL)
+	LDFLAGS += --shell-file $(BUILD_WEB_SHELL) --pre-js client/src/worldstorage.js
 	LDLIBS = $(BUILD_WEB_RAYLIB_LIB) -pthread -sPTHREAD_POOL_SIZE=5 -sFORCE_FILESYSTEM -sALLOW_MEMORY_GROWTH -lwebsocket.js -sWEBSOCKET_SUBPROTOCOL:'binary'
 	BUILD_DEPENDENCIES += $(BUILD_WEB_RAYLIB_LIB)
 else
@@ -165,6 +165,14 @@ else
 	endif
 	
 	
+endif
+
+.DEFAULT_GOAL := all
+
+$(OBJ_DIR)/libs/sqlite3.o: CDIRECTIVES += -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_DQS=0
+ifeq ($(PLATFORM),PLATFORM_WEB)
+$(OBJ_DIR)/libs/sqlite3.o: CDIRECTIVES += -DSQLITE_DISABLE_LFS -DSQLITE_THREADSAFE=0
+$(BUILD_DIR): client/src/worldstorage.js
 endif
 
 all: $(BUILD_DIR)

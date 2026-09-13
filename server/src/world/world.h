@@ -35,7 +35,7 @@ typedef struct World{
 
 extern World serverWorld;
 
-void ServerWorld_Init(void);
+bool ServerWorld_Init(void);
 bool ServerWorld_DefineEntityModel(int id, const ModelDefinition *definition);
 void ServerWorld_RemoveEntityModel(int id);
 void ServerWorld_SendEntityModels(Player *player);

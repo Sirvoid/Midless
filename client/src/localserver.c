@@ -14,7 +14,11 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdio.h>
+#if defined(PLATFORM_WEB)
+#include <emscripten/threading.h>
+#endif
 #include "localserver.h"
+#include "../../server/src/savedatabase.h"
 #include "../../server/src/world/world.h"
 #include "gui/screens.h"
 #include "../../server/src/player.h"
@@ -89,7 +93,11 @@ bool LocalServer_Start(void) {
 
     ScriptRuntime_Init();
     ScriptHooks_Init();
-    ServerWorld_Init();
+    if (!ServerWorld_Init()) {
+        ScriptHooks_Shutdown();
+        ScriptRuntime_Stop();
+        return false;
+    }
     ServerNetwork_Init();
     if (!ScriptRuntime_Run()) {
         ServerNetwork_Shutdown();
@@ -136,6 +144,9 @@ void LocalServer_Stop(void) {
         double serverSeconds = -1, cleanupSeconds = 0;
         int chunks = World_RemainingCleanupChunks();
         for (;;) {
+#if defined(PLATFORM_WEB)
+            emscripten_current_thread_process_queued_calls();
+#endif
             pthread_mutex_lock(&localServerStateMutex);
             bool finished = localServerFinished;
             pthread_mutex_unlock(&localServerStateMutex);
@@ -151,6 +162,7 @@ void LocalServer_Stop(void) {
         pthread_join(localServerThread, NULL);
         localServerThreadCreated = false;
     }
+    SaveDatabase_SyncBrowser(true);
     localPlayer = NULL;
     World_Clear();
     Network_ClearQueue();

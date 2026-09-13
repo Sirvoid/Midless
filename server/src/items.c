@@ -8,7 +8,7 @@
 #include "items.h"
 #include "world/world.h"
 #include "world/textures.h"
-#include "savefile.h"
+#include "savedatabase.h"
 #include "networkhandler.h"
 #include "packet.h"
 #include "binarydata.h"
@@ -16,30 +16,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <errno.h>
 
 ItemDefinition serverItems[ITEM_LIMIT];
 static bool ready;
-static bool SaveNames(void) {
-    BinaryWriter out = {0};
-    Binary_Write(&out, "MDID", 4);
-    Binary_U16(&out, 1);
-    int count = 0;
-    for (int i = 1; i < ITEM_LIMIT; i++)
-        if (serverItems[i].identifier[0])
-            count++;
-    Binary_U16(&out, count);
-    for (int i = 1; i < ITEM_LIMIT; i++)
-        if (serverItems[i].identifier[0]) {
-            Binary_U16(&out, i);
-            int length = strlen(serverItems[i].identifier);
-            Binary_U8(&out, length);
-            Binary_Write(&out, serverItems[i].identifier, length);
-        }
-    bool ok = !out.failed && SaveFile_WriteAtomic("world/items.dat", out.data, out.size);
-    free(out.data);
-    return ok;
-}
 bool ServerItems_Ready(void) {
     return ready;
 }
@@ -54,48 +33,27 @@ bool ServerItems_Init(void) {
         serverItems[i].defined = true;
         serverItems[i].maxStack = 64;
     }
-    FILE *file = fopen("world/items.dat", "rb");
-    if (!file)
-        return ready = errno == ENOENT;
-    unsigned char *data = malloc(ITEM_LIMIT * 68);
-    if (!data) {
-        fclose(file);
-        return false;
-    }
-    size_t size = fread(data, 1, ITEM_LIMIT * 68, file);
-    bool ok = !ferror(file);
-    fclose(file);
-    BinaryReader in = {data, size};
-    const void *magic = Binary_Read(&in, 4);
-    if (!magic || memcmp(magic, "MDID", 4) || Binary_ReadU16(&in) != 1)
-        ok = false;
-    bool seen[ITEM_LIMIT] = {0};
-    int count = Binary_ReadU16(&in);
-    if (count >= ITEM_LIMIT)
-        ok = false;
+    SavedItem *saved = calloc(ITEM_LIMIT, sizeof(*saved));
+    if (!saved) return false;
+    int count = 0;
+    bool ok = SaveDatabase_LoadItems(saved, ITEM_LIMIT, &count);
     for (int entry = 0; ok && entry < count; entry++) {
-        int id = Binary_ReadU16(&in), length = Binary_ReadU8(&in);
-        const char *name = (const char *)Binary_Read(&in, length);
-        if (!name || id < 1 || id >= ITEM_LIMIT || seen[id] || !length || length > 64 ||
-            memchr(name, 0, length)) {
+        int id = saved[entry].id;
+        const char *identifier = saved[entry].identifier;
+        if (id < 1 || id >= ITEM_LIMIT) {
             ok = false;
             break;
         }
-        char identifier[65] = {0};
-        memcpy(identifier, name, length);
         for (int j = 0; j < ITEM_LIMIT; j++)
-            if (j != id && !strcmp(serverItems[j].identifier, identifier))
-                ok = false;
-        if (id < 19 && strcmp(serverItems[id].identifier, identifier))
-            ok = false;
+            if (j != id && !strcmp(serverItems[j].identifier, identifier)) ok = false;
+        if (id < 19 && strcmp(serverItems[id].identifier, identifier)) ok = false;
         strcpy(serverItems[id].identifier, identifier);
-        seen[id] = true;
     }
-    ready = ok && Binary_End(&in);
-    free(data);
+    ready = ok;
+    free(saved);
     if (!ready)
         TraceLog(LOG_ERROR,
-                 "Cannot read world/items.dat; refusing item registration and player joins");
+                 "Cannot read saved item IDs; refusing item registration and player joins");
     return ready;
 }
 bool ServerItems_IsDefined(int id) {
@@ -153,7 +111,7 @@ const char *ServerItems_Reserve(const char *name, bool block, int *result) {
         if (serverItems[id].identifier[0] || serverItems[id].defined)
             continue;
         strcpy(serverItems[id].identifier, name);
-        if (!SaveNames()) {
+        if (!SaveDatabase_SaveItem(id, serverItems[id].identifier)) {
             serverItems[id].identifier[0] = 0;
             return "cannot save item name mapping";
         }
@@ -176,7 +134,7 @@ const char *ServerItems_ReserveLegacy(int id, bool block) {
         return NULL;
     }
     snprintf(serverItems[id].identifier, 65, "legacy:%s_%d", block ? "block" : "item", id);
-    if (!SaveNames()) {
+    if (!SaveDatabase_SaveItem(id, serverItems[id].identifier)) {
         serverItems[id].identifier[0] = 0;
         return "cannot save item mapping";
     }

@@ -20,6 +20,7 @@
 #include "raylib.h"
 #include "stb_ds.h"
 #include "world.h"
+#include "worldstate.h"
 #include "chunkmanager.h"
 #include "chunksave.h"
 #include "entitypersistence.h"
@@ -34,12 +35,20 @@
 #include "../utils.h"
 #include "streamprofile.h"
 #include "../items.h"
+#include "../savedatabase.h"
 #include "../servertiming.h"
 
 World serverWorld;
 static long long lastUpdateMilliseconds;
 static long long lastTimeSyncMilliseconds;
 static double lastSimulationTime;
+static double lastWorldStateSaveTime;
+
+static void SaveWorldState(void) {
+    WorldState state = {.time = serverWorld.time};
+    if (!WorldState_Save(&state))
+        TraceLog(LOG_WARNING, "Could not save world time");
+}
 
 static void CreateWorldDirectory(void) {
     struct stat status = {0};
@@ -51,23 +60,24 @@ static void CreateWorldDirectory(void) {
 #endif
 }
 
-static int LoadWorldSeed(void) {
-    int seed = rand();
-    if (FileExists("./world/seed.dat")) {
-        unsigned int bytesRead = 0;
-        unsigned char *data = LoadFileData("./world/seed.dat", &bytesRead);
-        if (data != NULL && bytesRead >= 4) {
-            seed = (int)(data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3]);
-        }
-        UnloadFileData(data);
-    } else {
-        char data[4] = {(char)(seed >> 24), (char)(seed >> 16), (char)(seed >> 8), (char)seed};
-        SaveFileData("./world/seed.dat", data, 4);
-    }
-    return seed;
+static bool LoadWorldSeed(int *seed) {
+    SaveResult result = SaveDatabase_LoadSeed(seed);
+    if (result == SAVE_ERROR) return false;
+    if (result == SAVE_OK) return true;
+    *seed = rand();
+    return SaveDatabase_SaveSeed(*seed);
 }
 
-void ServerWorld_Init(void) {
+bool ServerWorld_Init(void) {
+    CreateWorldDirectory();
+    if (!SaveDatabase_Open()) return false;
+    int seed = 0;
+    WorldState state;
+    if (!LoadWorldSeed(&seed) || !WorldState_Load(&state) || !ServerItems_Init()) {
+        TraceLog(LOG_ERROR, "Cannot load saved world; refusing to overwrite it");
+        SaveDatabase_Close();
+        return false;
+    }
     serverWorld = (World){0};
     serverWorld.players = MemAlloc(sizeof(Player *) * WORLD_MAX_PLAYERS);
     memset(serverWorld.players, 0, sizeof(Player *) * WORLD_MAX_PLAYERS);
@@ -79,18 +89,21 @@ void ServerWorld_Init(void) {
     lastUpdateMilliseconds = GetTimeMilliseconds();
     lastTimeSyncMilliseconds = lastUpdateMilliseconds;
     lastSimulationTime = GetTime();
-    CreateWorldDirectory();
-    ServerItems_Init();
-    ServerWorldGenerator_Init(LoadWorldSeed());
+    serverWorld.time = state.time;
+    lastWorldStateSaveTime = GetTime();
+    ServerWorldGenerator_Init(seed);
     ServerChunkManager_Init();
+    return true;
 }
 
 void ServerWorld_Shutdown(void) {
+    SaveWorldState();
     ChunkSave_Flush(NULL);
     ServerPlayerManager_Shutdown();
     ScriptHooks_MetadataFlushChanges();
     EntityPersistence_EnsureChunks();
     ServerChunkManager_Shutdown();
+    SaveDatabase_Close();
     ServerEntities_Shutdown();
     ServerTextures_Shutdown();
     Worldgen_ClearFeatures();
@@ -125,6 +138,12 @@ void ServerWorld_Update(void) {
     if (nowMilliseconds - lastTimeSyncMilliseconds >= WORLD_TIME_SYNC_INTERVAL_MILLISECONDS) {
         ServerWorld_Broadcast(ServerPacket_CreateWorldTime(serverWorld.time));
         lastTimeSyncMilliseconds = nowMilliseconds;
+    }
+
+    double saveTime = GetTime();
+    if (saveTime - lastWorldStateSaveTime >= 120.0) {
+        SaveWorldState();
+        lastWorldStateSaveTime = saveTime;
     }
 
     stageStart = GetTime();

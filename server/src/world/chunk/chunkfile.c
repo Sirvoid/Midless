@@ -7,11 +7,10 @@
 
 #include "version.h"
 #include "chunkfile.h"
-#include "../../savefile.h"
+#include "../../savedatabase.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #include <math.h>
 
 enum { SECTION_BLOCKS = 1, SECTION_METADATA = 2, SECTION_ENTITIES = 3, SECTION_TIMERS = 4 };
@@ -187,28 +186,21 @@ done:
     return result;
 }
 
-static void Filename(const Chunk *chunk, char path[160], const char *suffix) {
-    snprintf(path, 160, "world/%i.%i.%i.dat%s", (int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z, suffix);
-}
 ChunkFileResult ChunkFile_Load(Chunk *chunk) {
-    char path[160]; Filename(chunk, path, "");
-    FILE *file = fopen(path, "rb");
-    if (!file) return errno == ENOENT ? CHUNK_FILE_MISSING : CHUNK_FILE_CORRUPT;
-    if (fseek(file, 0, SEEK_END)) { fclose(file); return CHUNK_FILE_CORRUPT; }
-    long size = ftell(file);
-    if (size <= 0 || size > 16 * 1024 * 1024 || fseek(file, 0, SEEK_SET)) { fclose(file); return CHUNK_FILE_CORRUPT; }
-    void *data = malloc(size);
-    bool read = data && fread(data, 1, size, file) == (size_t)size;
-    fclose(file);
-    ChunkFileResult result = read ? ChunkFile_Decode(chunk, data, size) : CHUNK_FILE_CORRUPT;
+    SavePosition position = {(int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z};
+    unsigned char *data = NULL;
+    size_t size = 0;
+    SaveResult saved = SaveDatabase_LoadChunk(position, &data, &size);
+    if (saved == SAVE_MISSING) return CHUNK_FILE_MISSING;
+    ChunkFileResult result = saved == SAVE_OK ? ChunkFile_Decode(chunk, data, size) : CHUNK_FILE_CORRUPT;
     free(data);
     return result;
 }
 bool ChunkFile_Save(Chunk *chunk) {
     BinaryWriter out = {0};
-    char path[160]; Filename(chunk, path, "");
-    bool ok = !chunk->loadFailed && ChunkFile_Encode(chunk, &out) && SaveFile_WriteAtomic(path, out.data, out.size);
+    SavePosition position = {(int)chunk->position.x, (int)chunk->position.y, (int)chunk->position.z};
+    bool ok = !chunk->loadFailed && ChunkFile_Encode(chunk, &out) && SaveDatabase_SaveChunk(position, out.data, out.size);
     free(out.data);
-    if (!ok) TraceLog(LOG_ERROR, "Could not save chunk %s; original file retained", path);
+    if (!ok) TraceLog(LOG_ERROR, "Could not save chunk (%d, %d, %d); previous save retained", position.x, position.y, position.z);
     return ok;
 }

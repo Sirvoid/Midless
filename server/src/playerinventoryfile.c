@@ -9,43 +9,22 @@
 #include "serverinventory.h"
 #include "world/world.h"
 #include "binarydata.h"
-#include "savefile.h"
+#include "savedatabase.h"
 #include "world/chunksave.h"
 #include "items.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #include <math.h>
-#if defined(OS_WINDOWS)
-#include <direct.h>
-#else
-#include <sys/stat.h>
-#endif
 
-static bool Filename(const Player *player, char path[160]) {
-    size_t length = player->name ? strlen(player->name) : 0;
-    if (!length || length > 64) return false;
-    // Hex encoding is collision-free and keeps names out of filesystem paths.
-    strcpy(path, "world/players/");
-    const char *hex = "0123456789abcdef";
-    for (size_t i = 0; i < length; i++) {
-        unsigned char c = player->name[i];
-        path[14 + 2*i] = hex[c >> 4];
-        path[15 + 2*i] = hex[c & 15];
-    }
-    strcpy(path + 14 + 2*length, ".dat");
-    return true;
-}
 static void WriteStack(BinaryWriter *out, ItemStack stack) { ItemStack_Write(out, stack); }
 static ItemStack ReadStack(BinaryReader *in) { return ItemStack_Read(in); }
 static bool SavePlayer(Player *player, bool background) {
     if (!player->inventoryLoaded) return true;
-    char path[160];
-    if (!ServerItems_Ready() || !Filename(player, path)) return false;
+    if (!ServerItems_Ready() || !player->name || !player->name[0] || strlen(player->name) > 64) return false;
     // Defer disconnect saving until the older snapshot completes; never overwrite
     // a newer final save with an autosave still being written by a worker.
-    if (ChunkSave_PathPending(path)) return false;
+    if (ChunkSave_PlayerPending(player->name)) return false;
     BinaryWriter out = {0};
     Binary_Write(&out, "MDPI", 4); Binary_U8(&out, PLAYER_INVENTORY_VERSION);
     Binary_U8(&out, player->inventory.selectedHotbar);
@@ -93,10 +72,10 @@ static bool SavePlayer(Player *player, bool background) {
     Binary_Float(&out, player->savedPosition.z);
     size_t textureLength = strlen(player->texture);
     Binary_U8(&out,textureLength); Binary_Write(&out,player->texture,textureLength);
-    bool ok = !out.failed && (background ? ChunkSave_QueueSnapshot(path, &out) :
-                                         SaveFile_WriteAtomic(path, out.data, out.size));
+    bool ok = !out.failed && (background ? ChunkSave_QueuePlayer(player->name, &out) :
+                                         SaveDatabase_SavePlayer(player->name, out.data, out.size));
     free(out.data);
-    if (!ok && !background) TraceLog(LOG_ERROR, "Could not save player inventory %s; original file retained", path);
+    if (!ok && !background) TraceLog(LOG_ERROR, "Could not save player inventory %s; previous save retained", player->name);
     return ok;
 }
 bool ServerInventory_Save(Player *player) { return SavePlayer(player, false); }
@@ -197,20 +176,17 @@ static bool DecodePlayer(Player *player, const uint8_t *data, size_t size) {
 
 bool ServerInventory_Load(Player *player) {
     player->inventoryLoaded = false;
-    char path[160];
-    if (!ServerItems_Ready() || !Filename(player, path)) return false;
+    if (!ServerItems_Ready() || !player->name || !player->name[0] || strlen(player->name) > 64) return false;
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         Player *other = serverWorld.players[i];
         if (other && other != player && other->name && !strcmp(other->name, player->name)) return false;
     }
-#if defined(OS_WINDOWS)
-    if (_mkdir("world/players") && errno != EEXIST) return false;
-#else
-    if (mkdir("world/players", 0755) && errno != EEXIST) return false;
-#endif
-    FILE *file = fopen(path, "rb");
-    if (!file) {
-        if (errno != ENOENT) return false;
+    unsigned char *data = NULL;
+    size_t size = 0;
+    // Inventories plus sixteen maximum-sized metadata payloads.
+    SaveResult result = SaveDatabase_LoadPlayer(player->name, &data, &size);
+    if (result == SAVE_ERROR) return false;
+    if (result == SAVE_MISSING) {
         Inventory_Init(&player->inventory);
         if (!ServerPlayer_FindSpawnPoint(&player->spawnPoint)) return false;
         player->savedPosition = (Vector3){0};
@@ -224,12 +200,7 @@ bool ServerInventory_Load(Player *player) {
         player->inventoryLoaded = false;
         return false;
     }
-    const size_t limit=1400000; // Inventories plus sixteen maximum-sized metadata payloads.
-    uint8_t *data=malloc(limit);
-    if (!data) { fclose(file); return false; }
-    size_t size=fread(data,1,limit,file);
-    bool ok=!ferror(file) && fgetc(file)==EOF;
-    fclose(file);
-    if (ok) ok=DecodePlayer(player,data,size);
-    free(data); return ok;
+    bool ok = DecodePlayer(player, data, size);
+    free(data);
+    return ok;
 }
