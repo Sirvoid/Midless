@@ -32,7 +32,7 @@ end
 
 midless.define_block(FURNACE, {
     name = "Furnace",
-    textures = {all = 1, front = 18},
+    textures = {all = 34, front = 18},
     hardness = 3.5, dig_group = "stone",
     metadata = {
         {name = "items", type = "inventory", slots = 3, rules = {
