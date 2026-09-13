@@ -95,7 +95,18 @@ static void AddFace(MeshBuffers *buffers, MeshSnapshot *chunk, const Block *defi
 
     const Block *next = &definitions[chunk->cells[nextIndex].block];
     bool sprite = block->modelType == BLOCK_MODEL_SPRITE;
+    // Fluid height variants share their base ID. Hide faces covered by the same liquid.
+    if (block->colliderType == BLOCK_COLLIDER_LIQUID && next->colliderType == BLOCK_COLLIDER_LIQUID &&
+        model->baseId == templates[next - definitions].baseId &&
+        !block->geometry.enabled && !next->geometry.enabled && model->boundary[templateFace]) {
+        if (face == BLOCK_FACE_TOP && next->minBB.y == 0) return;
+        if (face == BLOCK_FACE_BOTTOM && next->maxBB.y == 16) return;
+        if (face != BLOCK_FACE_TOP && face != BLOCK_FACE_BOTTOM &&
+            next->minBB.y <= block->minBB.y && next->maxBB.y >= block->maxBB.y) return;
+    }
     if (!sprite && model->boundary[templateFace]) {
+        // Even a shallow liquid's boundary face is fully covered by an opaque cube.
+        if (block->colliderType == BLOCK_COLLIDER_LIQUID && next->fastOpaqueCube) return;
         if (next->geometry.enabled) { if(next->fastOpaqueCube) return; }
         else if(block->geometry.enabled) { if(next->fastOpaqueCube) return; }
         else if(!FaceVisible(block,next)) return;

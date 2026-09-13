@@ -7,6 +7,7 @@ midless.set_terrain_texture("midless:terrain")
 assert(loadfile(path .. "/health.lua"))(path)
 
 assert(loadfile(path .. "/items.lua"))(path)
+dofile(path .. "/block_physics.lua")
 dofile(path .. "/classic_terrain.lua")
 dofile(path .. "/containers.lua")
 dofile(path .. "/furnace.lua")

@@ -9,6 +9,7 @@
 #include "blockstates.h"
 #include "metadata.h"
 #include "world/world.h"
+#include "world/blockphysics.h"
 #include "world/chunk/chunk.h"
 #include "packet.h"
 #include "networkhandler.h"
@@ -98,6 +99,8 @@ void ServerBlockStates_Changed(Chunk *c, int index) {
     Vector3 local = ServerChunk_IndexToPos(index),
             p = {c->blockPosition.x + local.x, c->blockPosition.y + local.y,
                  c->blockPosition.z + local.z};
+    if (ServerBlockPhysics_Defer(c, index))
+        return;
     if (!serverWorld.players)
         return;
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {

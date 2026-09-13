@@ -15,6 +15,9 @@ typedef struct BlockMetadata { uint16_t index; Metadata value; } BlockMetadata;
 struct Chunk;
 Metadata *ChunkMetadata_Get(struct Chunk *chunk, int index);
 bool ChunkMetadata_Set(struct Chunk *chunk, int index, const Metadata *value);
+bool ChunkMetadata_Reserve(struct Chunk *chunk);
+// Takes ownership without allocating. Reserve before committing a block move/change.
+void ChunkMetadata_Assign(struct Chunk *chunk, int index, Metadata *value);
 void ChunkMetadata_Clear(struct Chunk *chunk, int index);
 void ChunkMetadata_Free(struct Chunk *chunk);
 bool Metadata_Copy(Metadata *target, const Metadata *source);

@@ -9,6 +9,7 @@
 #include "blockstates.h"
 #include "scripthooks.h"
 #include "world/world.h"
+#include "world/blockphysics.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -112,6 +113,7 @@ bool ServerMetadata_BlockInventory(Vector3 position, const char *name, ItemStack
     if (!success)
         return false;
     ServerBlockStates_Changed(chunk, index);
+    ServerBlockPhysics_Changed(position);
     ScriptHooks_MetadataInventoryChanged(position, name);
     return true;
 }

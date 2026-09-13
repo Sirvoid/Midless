@@ -23,6 +23,7 @@ void ScriptHooks_PlayerLand(int playerId, float distance);
 void ScriptHooks_PlayerClick(int playerId, int button);
 void ScriptHooks_BlockUpdate(Vector3 position, unsigned short blockId,
                              unsigned short previousBlockId);
+void ScriptHooks_BlockPhysics(Vector3 position, int blockId);
 bool ScriptHooks_ChatMessage(int playerId, const char *message);
 bool ScriptHooks_InteractBlock(struct Player *player, Vector3 position, int blockId);
 void ScriptHooks_EntitiesStep(Entity *entity, float dt);

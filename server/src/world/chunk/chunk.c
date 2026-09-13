@@ -17,6 +17,7 @@
 #include "chunk.h"
 #include "chunkfile.h"
 #include "../worldgenerator.h"
+#include "../blockphysics.h"
 
 static void ServerChunk_Init(Chunk *chunk, Vector3 pos) {
     *chunk = (Chunk){0};
@@ -44,6 +45,7 @@ Chunk *ServerChunk_Create(Vector3 pos) {
 
 void ServerChunk_Destroy(Chunk *chunk) {
     if (chunk == NULL) return;
+    ServerBlockPhysics_Forget(chunk);
     ServerLighting_Forget(chunk);
 
     arrfree(chunk->players);

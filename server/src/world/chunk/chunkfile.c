@@ -169,6 +169,9 @@ ChunkFileResult ChunkFile_Decode(Chunk *chunk, const void *data, size_t size) {
     free(chunk->savedEntities);
     chunk->metadata = parsed.metadata;
     chunk->metadataCount = parsed.metadataCount;
+    chunk->metadataCapacity = parsed.metadataCapacity;
+    chunk->metadataSlots = parsed.metadataSlots;
+    parsed.metadataSlots = NULL;
     parsed.metadata = NULL; parsed.metadataCount = 0;
     result = CHUNK_FILE_OK;
 done:

@@ -22,6 +22,7 @@
 #include "world.h"
 #include "worldstate.h"
 #include "chunkmanager.h"
+#include "blockphysics.h"
 #include "chunksave.h"
 #include "entitypersistence.h"
 #include "playermanager.h"
@@ -103,6 +104,7 @@ void ServerWorld_Shutdown(void) {
     ScriptHooks_MetadataFlushChanges();
     EntityPersistence_EnsureChunks();
     ServerChunkManager_Shutdown();
+    ServerBlockPhysics_Reset();
     SaveDatabase_Close();
     ServerEntities_Shutdown();
     ServerTextures_Shutdown();
@@ -156,6 +158,7 @@ void ServerWorld_Update(void) {
     ServerInventory_UpdateDigging();
     float dt = (float)ServerTiming_SimulationStep(GetTime(), &lastSimulationTime);
     if (dt > 0) {
+        ServerBlockPhysics_Update(dt);
         BlockTimer_Update(dt);
         ScriptHooks_Step(dt);
         ServerEntities_Update(dt);

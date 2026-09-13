@@ -32,6 +32,11 @@ typedef struct Chunk{
     Player* *players;
     BlockMetadata *metadata;
     int metadataCount;
+    int metadataCapacity;
+    uint16_t *metadataSlots; // Record index + 1, allocated only for chunks with metadata.
+    int *physicsSlots; // Heap index + 1; one pending update per cell.
+    unsigned char physicsDirty[CHUNK_SIZE/8];
+    bool physicsChanged;
     BlockTimer *timers;
     int timerCount;
     unsigned char *savedEntities; // Pending records; only unavailable types remain after activation.

@@ -15,6 +15,7 @@
 
 typedef struct BlockMeshTemplate {
     int faceCount;
+    unsigned char baseId;
     unsigned char directions[6 * BLOCK_MODEL_MAX_BOXES];
     bool boundary[6 * BLOCK_MODEL_MAX_BOXES];
     unsigned char vertices[6 * BLOCK_MODEL_MAX_BOXES][12];

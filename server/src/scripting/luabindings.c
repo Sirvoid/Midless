@@ -9,6 +9,7 @@
 #include "luaengine.h"
 #include "luaplayers.h"
 #include "luablocks.h"
+#include "luablockphysics.h"
 #include "luachat.h"
 #include "lualifecycle.h"
 #include "luatextures.h"
@@ -66,6 +67,9 @@ static const LuaMethod midlessLib[] = {
     {"get_players", LuaPlayers_List},
     {"get_block", LuaMetadata_GetBlock},
     {"set_block", LuaBlocks_SetBlock},
+    {"set_block_state", LuaBlockPhysics_SetState},
+    {"move_block", LuaBlockPhysics_Move},
+    {"schedule_block_update", LuaBlockPhysics_Schedule},
     {"set_blocks", LuaBlocks_SetBlocks},
     {"define_block", LuaBlocks_DefineBlock},
     {"define_item", LuaItems_Define},

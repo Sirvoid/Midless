@@ -258,6 +258,46 @@ midless.define_block("my_mod:door", {
 
 Collision and selection default to the model boxes. Override with `collision_boxes` or `selection_boxes` (0–8 boxes each). Empty selection boxes make a block untargetable.
 
+### Block physics
+
+Add a `physics` table to enable either behavior for your own blocks:
+
+```lua
+midless.define_block("my_mod:water", {
+    name = "Water", textures = {all = 14},
+    physics = {type = "fluid", interval = 0.20, max_level = 7, renewable_sources = true},
+})
+midless.define_block("my_mod:sand", {
+    name = "Sand", textures = {all = 11},
+    physics = {type = "falling", interval = 0.05,
+        replaceable = {"midless:air", "my_mod:water"}},
+})
+```
+
+`interval` is seconds (0.05..86400). Falling blocks default to 0.05 seconds and replace air or built-in water. Fluids default to 0.20 seconds and replace air. `replaceable` overrides these defaults.
+
+Water flows down, then sideways, and drains when its source is removed. `max_level` limits horizontal spread (1..15, default 7). `renewable_sources` defaults to false; enable it to let two adjacent sources create another over solid ground.
+
+Fluids automatically get translucent rendering, liquid collision, height models, and three metadata fields:
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `source` | `true` | Persistent supply; full height. |
+| `level` | `0` | Flow distance; higher levels render lower. |
+| `falling` | `false` | Downward flow; full height. |
+
+Omit custom shapes, variants, and `state_fields` for fluids. Additional metadata is allowed; these three names are reserved.
+
+```lua
+midless.set_block(pos, "my_mod:water") -- Source.
+midless.set_block(pos, "my_mod:water", {source = false, level = 3})
+midless.set_block_state(pos, {level = 5}) -- Keep other fields.
+```
+
+For custom behavior, add `on_physics(pos)` and `physics = {interval = 0.05}`. The callback replaces built-in physics; its return value is ignored. `midless.schedule_block_update(pos, seconds)` schedules another update (default 0.05).
+
+`midless.move_block(from, to)` preserves metadata and clears timers. It returns false if either cell is unavailable or the destination is not replaceable under the source's physics settings.
+
 ### Block callbacks and timers
 
 | Definition callback | When / return value |
@@ -268,6 +308,7 @@ Collision and selection default to the model boxes. Override with `collision_box
 | `on_dig(player, block, stack)` | Its item successfully breaks a block. |
 | `on_inventory_changed(block, field)` | After inventory changes, including Lua changes. |
 | `on_timer(block, dt)` | Timer fires; return `true` to repeat, `false`/`nil` to stop. |
+| `on_physics(pos)` | Scheduled block physics; see [Block physics](#block-physics). |
 
 Use this placement callback with the door's `facing` field to face its +Z side toward the player:
 

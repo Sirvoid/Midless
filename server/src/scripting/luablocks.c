@@ -14,6 +14,8 @@
 #include "luaitemactions.h"
 #include "luametadata.h"
 #include "luablockstates.h"
+#include "luablockphysics.h"
+#include "../blockstates.h"
 #include "../world/world.h"
 #include "../networkhandler.h"
 #include "../packet.h"
@@ -51,6 +53,20 @@ int LuaBlocks_SetBlock(lua_State *state) {
     int blockId = LuaItems_Id(L, 2, true, false);
     if (!ServerWorld_IsBlockDefined(blockId))
         return luaL_error(L, "block is not defined");
+    if (lua_gettop(L) >= 3 && !lua_isnil(L, 3)) {
+        int index;
+        Chunk *chunk = ServerBlockPhysics_Find(position, &index);
+        if (!chunk || chunk->savePending) {
+            lua_pushboolean(L, false);
+            return 1;
+        }
+        Metadata *value = lua_newuserdata(L, sizeof(*value));
+        *value = (Metadata){0};
+        luaL_setmetatable(L, "midless.MetadataValue");
+        LuaBlockPhysics_ReadState(L, blockId, 3, value);
+        lua_pushboolean(L, ServerBlockPhysics_Place(position, blockId, value));
+        return 1;
+    }
     ServerWorld_SetBlock(position, blockId, true, false, true);
     return 0;
 }
@@ -181,6 +197,7 @@ int LuaBlocks_DefineBlock(lua_State *state) {
     BlockDefinition definition = {0};
     Lua_CheckTable(2);
     ReadBlockTable(&definition);
+    BlockPhysicsDefinition physics = LuaBlockPhysics_Read(L, 2, &definition);
     if (!BlockDefinition_Validate(blockId, &definition)) {
         return Lua_Error("invalid block definition");
     }
@@ -194,7 +211,11 @@ int LuaBlocks_DefineBlock(lua_State *state) {
     LuaDigging_Define(blockId, 2, true);
     LuaItemActions_Define(blockId, 2, true);
     LuaMetadata_DefineBlock(blockId, 2);
-    LuaBlockStates_Define(L, blockId, 2, &definition);
+    ServerBlockPhysics_Define(blockId, &physics);
+    if (physics.type == BLOCK_PHYSICS_FLUID) {
+        if (!ServerBlockPhysics_FluidModels(blockId, &definition))
+            return luaL_error(L, "out of memory");
+    } else LuaBlockStates_Define(L, blockId, 2, &definition);
     lua_getfield(L, 2, "item_metadata");
     if (!lua_isnil(L, -1)) {
         lua_newtable(L);
@@ -207,6 +228,7 @@ int LuaBlocks_DefineBlock(lua_State *state) {
     luaL_unref(L, LUA_REGISTRYINDEX, blockInteractions[blockId]);
     lua_getfield(L, 2, "on_interact");
     blockInteractions[blockId] = luaL_ref(L, LUA_REGISTRYINDEX);
+    LuaBlockPhysics_Define(L, blockId, 2);
     ServerWorld_DefineBlock(blockId, &definition);
     return 0;
 }
@@ -253,12 +275,14 @@ static void LuaBlocks_InitConstants(void) {
 }
 
 void LuaBlocks_Init(void) {
+    LuaBlockPhysics_Init();
     for (int i = 0; i < 256; i++)
         blockInteractions[i] = LUA_NOREF;
     LuaBlocks_InitConstants();
 }
 
 void LuaBlocks_Shutdown(void) {
+    LuaBlockPhysics_Shutdown();
     for (int i = 0; i < 256; i++) {
         luaL_unref(L, LUA_REGISTRYINDEX, blockInteractions[i]);
         blockInteractions[i] = LUA_NOREF;

@@ -61,6 +61,7 @@ void BlockMesh_BuildTemplate(int id) {
     if(id<0 || id>=BLOCK_RUNTIME_COUNT) return;
     const Block *block=&blockDefinitions[id]; BlockMeshTemplate *out=&templates[id];
     memset(out,0,sizeof(*out));
+    out->baseId = id & 255;
     int boxes=block->geometry.enabled?block->geometry.boxCount:1;
     static const int rotatedFace[6]={5,4,2,3,0,1};
     for(int box=0;box<boxes;box++) {

@@ -15,6 +15,7 @@
 #include "raymath.h"
 #include "stb_ds.h"
 #include "chunkmanager.h"
+#include "blockphysics.h"
 #include "world.h"
 #include "entitypersistence.h"
 #include "chunk/chunk.h"
@@ -85,9 +86,11 @@ static void WriteGeneratedBlock(Chunk *chunk, Vector3 blockPosition, int blockId
         floorf(blockPosition.z) - chunk->blockPosition.z
     };
     if (!ServerChunk_IsValidPos(localPosition)) return;
+    ServerBlockPhysics_Cancel(chunk, ServerChunk_PosToIndex(localPosition));
     ServerChunk_SetBlock(chunk, localPosition, blockId);
 
     ServerLighting_Changed(chunk);
+    ServerBlockPhysics_Changed(blockPosition);
     if (arrlen(chunk->players) > 0) {
         arrput(serverWorld.generatedBlockUpdates, ((GeneratedBlockUpdate){
             .chunk = chunk,
@@ -200,7 +203,11 @@ static void ProcessLoadedChunks(void) {
                 ServerChunk_Destroy(chunk);
                 chunk = NULL;
             }
-            if (chunk) { ApplyPendingBlocks(chunk); ServerLighting_Changed(chunk); }
+            if (chunk) {
+                ApplyPendingBlocks(chunk);
+                ServerLighting_Changed(chunk);
+                ServerBlockPhysics_Loaded(chunk);
+            }
         } else {
             ServerChunk_Destroy(chunk);
             chunk = ServerWorld_GetChunkAt(result->position);
@@ -444,6 +451,7 @@ Chunk *ServerWorld_AddChunk(Vector3 position) {
     }
     ApplyPendingBlocks(chunk);
     ServerLighting_Changed(chunk);
+    ServerBlockPhysics_Loaded(chunk);
     return chunk;
 }
 
@@ -550,9 +558,12 @@ void ServerWorld_SetBlock(Vector3 blockPosition, int blockId, bool broadcast, bo
     int previousBlock = ServerChunk_GetBlock(chunk, localPosition);
     ServerInventory_InvalidateDig(blockPosition);
     if (previousBlock == blockId) return;
+    ServerBlockPhysics_Cancel(chunk, ServerChunk_PosToIndex(localPosition));
     InventoryWindow_Invalidate((Vector3){floorf(blockPosition.x), floorf(blockPosition.y), floorf(blockPosition.z)});
     ServerChunk_SetBlock(chunk, localPosition, blockId);
     ServerLighting_Changed(chunk);
-    if (broadcast) ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockId, blockPosition, byPlayer));
+    ServerBlockPhysics_Changed(blockPosition);
+    if (broadcast && !ServerBlockPhysics_Defer(chunk, ServerChunk_PosToIndex(localPosition)))
+        ServerWorld_Broadcast(ServerPacket_CreateSetBlock(blockId, blockPosition, byPlayer));
     if (callCallbacks) ScriptHooks_BlockUpdate(blockPosition, blockId, previousBlock);
 }

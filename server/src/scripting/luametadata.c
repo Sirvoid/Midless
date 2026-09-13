@@ -16,6 +16,7 @@
 #include "luaentities.h"
 #include "../items.h"
 #include "../world/world.h"
+#include "luablockphysics.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -508,6 +509,7 @@ static int BlockWrite(lua_State *state, bool reset) {
         luaL_setmetatable(state, "midless.MetadataValue");
     }
     // The setter commits only after encoding succeeds, so existing data needs no backup.
+    LuaBlockPhysics_CheckField(state, chunk->data[index], 2, reset ? 0 : 3);
     LuaMetadata_Set(state, serverBlockSchemas[chunk->data[index]], value, 2, reset ? 0 : 3);
     if (existing) {
         if (!value->size)
@@ -518,6 +520,7 @@ static int BlockWrite(lua_State *state, bool reset) {
         Metadata_Free(value);
     }
     ServerBlockStates_Changed(chunk, index);
+    ServerBlockPhysics_Changed(LuaMetadata_CheckBlock(state, 1));
     const MetadataField *field = FindField(state, GetSchema(state, serverBlockSchemas[chunk->data[index]]), 2);
     if (field->type == FIELD_INVENTORY)
         ScriptHooks_MetadataInventoryChanged(LuaMetadata_CheckBlock(state, 1), field->name);
