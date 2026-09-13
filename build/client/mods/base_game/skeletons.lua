@@ -5,10 +5,10 @@ midless.define_entity_model("midless:skeleton", {
     texture = "midless:skeleton",
 })
 
-local speed, detection_range = 2.25, 36
+local speed, detection_range = 4, 36
 local horizontal, upward = 8, 4
 local function initialize(self)
-    self.object:set_nametag({text = "&2Skeleton"})
+    self.object:set_nametag({text = "&bSkeleton"})
 end
 
 midless.register_mob("midless:skeleton", {

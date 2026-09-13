@@ -38,6 +38,8 @@ typedef struct Player{
     PlayerCameraMode cameraMode;
     EntityModel entityModel;
     EntityAnimation animation;
+    Color flashColor;
+    double flashEnd;
 } Player;
 extern Player player;
 

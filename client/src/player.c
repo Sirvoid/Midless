@@ -71,6 +71,7 @@ void Player_Init(void) {
     player.modelId = 0;
     player.hasEntityModel = false;
     player.cameraMode = PLAYER_CAMERA_FIRST_PERSON;
+    player.flashEnd = 0;
     player.entityModel = (EntityModel){0};
     EntityAnimation_Init(&player.animation, player.position);
 
@@ -126,6 +127,8 @@ void Player_Draw(void) {
     localEntity.position = (Vector3){player.position.x + 0.5f, player.position.y, player.position.z + 0.5f};
     localEntity.rotation = (Vector3){0, -playerCameraAngle.x + PI / 2.0f, 0};
     localEntity.model = player.entityModel;
+    localEntity.flashColor = player.flashColor;
+    localEntity.flashEnd = player.flashEnd;
     localEntity.animation = player.animation;
     localEntity.heldBlock = player.blockSelected;
     if (player.cameraMode == PLAYER_CAMERA_FIRST_PERSON) {

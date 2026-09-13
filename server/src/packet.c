@@ -73,6 +73,7 @@ int serverPacketLengths[256] = {
     PACKET_VARIABLE_SIZE, // 34
     RESET_CHUNKS_PACKET_SIZE, // 35
     CAMERA_KICK_PACKET_SIZE, // 36
+    ENTITY_FLASH_PACKET_SIZE, // 37
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -457,6 +458,19 @@ unsigned char *ServerPacket_CreateCameraKick(float pitch, float roll, float dura
     ServerPacket_WriteByte(packet, PACKET_CAMERA_KICK);
     ServerPacket_WriteShort(packet, (short)roundf(pitch * 100));
     ServerPacket_WriteShort(packet, (short)roundf(roll * 100));
+    ServerPacket_WriteUShort(packet, (unsigned short)roundf(duration * 1000));
+    return packet;
+}
+
+unsigned char *ServerPacket_CreateEntityFlash(unsigned short entityId, Color color, float duration) {
+    unsigned char *packet = MemAlloc(ENTITY_FLASH_PACKET_SIZE);
+    if (!packet) return NULL;
+    serverPacketWriterIndex = 0;
+    ServerPacket_WriteByte(packet, PACKET_ENTITY_FLASH);
+    ServerPacket_WriteUShort(packet, entityId);
+    ServerPacket_WriteByte(packet, color.r);
+    ServerPacket_WriteByte(packet, color.g);
+    ServerPacket_WriteByte(packet, color.b);
     ServerPacket_WriteUShort(packet, (unsigned short)roundf(duration * 1000));
     return packet;
 }

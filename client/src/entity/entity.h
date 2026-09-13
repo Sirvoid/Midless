@@ -40,6 +40,8 @@ typedef struct Entity{
     float targetHeadPitch;
     EntityModel model;
     EntityAnimation animation;
+    Color flashColor;
+    double flashEnd;
 } Entity;
 
 typedef struct EntityArmSwing {

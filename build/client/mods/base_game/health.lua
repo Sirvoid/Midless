@@ -32,6 +32,8 @@ end)
 midless.register_on_player_land(function(player, distance)
     local damage = math.max(0, math.floor(distance - 4))
     if damage > 0 then
-        player:set_hp(math.max(0, player:get_hp() - damage))
+        player:damage(damage, {
+            cause = "fall"
+        })
     end
 end)

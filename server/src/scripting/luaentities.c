@@ -8,6 +8,7 @@
 #include "../entityregistry.h"
 #include "../scripthooks.h"
 #include "luaentitytexture.h"
+#include "luaentityeffects.h"
 #include "luatextcolors.h"
 #include "minilua.h"
 #include <math.h>
@@ -60,6 +61,9 @@ static Entity *Check(lua_State *state) {
 }
 static int SetTexture(lua_State *state) {
     return LuaEntityTexture_Set(state, Check(state));
+}
+static int FlashColor(lua_State *state) {
+    return LuaEntityEffects_Flash(state, Check(state));
 }
 static int GetTexture(lua_State *state) {
     return LuaEntityTexture_Get(state, Check(state));
@@ -505,6 +509,7 @@ void LuaEntities_Init(void) {
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++)
         instances[i] = LUA_NOREF;
     static const luaL_Reg methods[] = {{"set_texture", SetTexture},
+                                       {"flash_color", FlashColor},
                                        {"get_texture", GetTexture},
                                        {"follow_ground_path", LuaMobs_Follow},
                                        {"wander_goal", LuaMobs_Wander},

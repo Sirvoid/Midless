@@ -7,6 +7,7 @@
 
 #include "entityregistry.h"
 #include "entityphysics.h"
+#include "entityeffects.h"
 #include "world/world.h"
 #include <string.h>
 
@@ -110,8 +111,10 @@ int ServerEntities_Damage(Entity *entity, int amount, Vector3 impulse,
     if (amount > entity->hp)
         amount = entity->hp;
     entity->hp -= amount;
-    if (amount > 0)
+    if (amount > 0) {
+        ServerEntityEffects_DamageFlash(entity);
         ServerPhysics_ApplyImpulse(entity, impulse);
+    }
     if (entity->hp == 0 && !entity->pendingRemoval) {
         entity->dead = true;
         if (hooks && hooks->death)

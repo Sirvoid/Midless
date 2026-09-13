@@ -635,6 +635,18 @@ void World_RemoveEntity(int id) {
     Entity_Destroy(&world.entities[id]);
 }
 
+void World_FlashEntity(int id, Color color, float duration) {
+    double end = GetTime() + duration;
+    if (id == 65535) {
+        player.flashColor = color;
+        player.flashEnd = end;
+        return;
+    }
+    if (!world.entities || id < 0 || id >= WORLD_MAX_ENTITIES || !world.entities[id].type) return;
+    world.entities[id].flashColor = color;
+    world.entities[id].flashEnd = end;
+}
+
 void World_PlayEntityAnimation(int id, EntityAnimationType animation) {
     if (id < 0 || id >= WORLD_MAX_ENTITIES) return;
     if (world.entities[id].type == 0) return;

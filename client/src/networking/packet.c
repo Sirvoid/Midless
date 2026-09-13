@@ -385,6 +385,18 @@ void Packet_HandleWorldTime(void) {
     world.time = timeMilliseconds / 1000.0f;
 }
 
+void Packet_HandleEntityFlash(void) {
+    if (packetDataLength != ENTITY_FLASH_PACKET_SIZE) return;
+    int id = Packet_ReadUShort();
+    Color color = {0, 0, 0, 255};
+    color.r = Packet_ReadByte();
+    color.g = Packet_ReadByte();
+    color.b = Packet_ReadByte();
+    float duration = Packet_ReadUShort() / 1000.0f;
+    if (duration > 60) return;
+    World_FlashEntity(id, color, duration);
+}
+
 void Packet_HandleEntityAnimation(void) {
     int id = Packet_ReadUShort();
     EntityAnimationType animation = (EntityAnimationType)Packet_ReadByte();

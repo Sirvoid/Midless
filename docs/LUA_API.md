@@ -101,6 +101,7 @@ end)
 | `player:send_message(text)` | Private chat message. |
 | `player:set_model(name)` | Change model. |
 | `player:get_texture()` / `player:set_texture(name)` | Texture override; `nil` restores the model default. |
+| `player:flash_color(r, g, b, duration)` | Temporarily tint the player model; RGB integers 0–255, duration 0–60 seconds. |
 | `player:set_nametag(options)` | Set text, color, visibility, or offset. |
 | `player:get_inventory(name)` | Main inventory when name is omitted. |
 | `player:get_selected_slot()` | Selected slot in the main inventory, starting at 1. |
@@ -610,6 +611,7 @@ Loaded entities get new runtime IDs, invalidating old handles. `save = false` di
 | `entity:damage(amount, context)` | Apply damage; returns HP lost. |
 | `entity:set_model(name)` | Change model. |
 | `entity:get_texture()` / `entity:set_texture(name)` | Texture override; `nil` clears it. |
+| `entity:flash_color(r, g, b, duration)` | Temporarily tint the entity model; same arguments as the player method. |
 | `entity:set_nametag(options)` | Change nametag. |
 | `entity:remove()` | Remove entity. |
 

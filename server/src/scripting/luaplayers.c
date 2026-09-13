@@ -17,6 +17,8 @@
 #include "luahudbars.h"
 #include "luatextcolors.h"
 #include "luaentitytexture.h"
+#include "luaentityeffects.h"
+#include "../entityeffects.h"
 #include "../serverinventory.h"
 #include "../world/world.h"
 #include "../networkhandler.h"
@@ -387,6 +389,7 @@ static int DamagePlayer(lua_State *state) {
             entity->damageBusy = false;
             return lua_error(L);
         }
+        ServerEntityEffects_DamageFlash(entity);
     }
     entity->damageBusy = false;
     lua_pushinteger(L, amount);
@@ -410,6 +413,9 @@ static int SetPlayerSpawnPoint(lua_State *state) {
 static int SetPlayerNametag(lua_State *state) {
     (void)state;
     return LuaNametag_Set(L, CheckPlayerEntity());
+}
+static int FlashColor(lua_State *state) {
+    return LuaEntityEffects_Flash(state, CheckPlayerEntity());
 }
 static int SetPlayerTexture(lua_State *state) {
     (void)state;
@@ -444,6 +450,7 @@ static int ApplyPlayerImpulse(lua_State *state) {
     return 0;
 }
 static const LuaMethod playerLib[] = {{"set_texture", SetPlayerTexture},
+                                             {"flash_color", FlashColor},
                                              {"get_texture", GetPlayerTexture},
                                              {"is_valid", IsPlayerValid},
                                              {"damage", DamagePlayer},

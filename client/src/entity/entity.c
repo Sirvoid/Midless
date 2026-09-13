@@ -19,8 +19,9 @@ static float Entity_GetBrightness(Vector3 position) {
 static void Entity_ApplyBrightness(Entity *entity) {
     float brightness = Entity_GetBrightness(entity->position);
     unsigned char value = (unsigned char)(brightness * 255.0f);
+    Color tint = entity->flashEnd > GetTime() ? entity->flashColor : WHITE;
     entity->model.material.maps[MATERIAL_MAP_DIFFUSE].color =
-        (Color){value, value, value, 255};
+        (Color){value * tint.r / 255, value * tint.g / 255, value * tint.b / 255, 255};
 }
 
 EntityArmSwing Entity_EvaluateArmSwing(float progress) {

@@ -10,7 +10,7 @@
 
 #define GAME_VERSION "Pre-Alpha 1.5 dev"
 #define GAME_VERSION_TEXT "Midless " GAME_VERSION
-#define GAME_PROTOCOL_VERSION 24
+#define GAME_PROTOCOL_VERSION 25
 
 // On-disk formats are still in development.
 #define CHUNK_FILE_VERSION 1
