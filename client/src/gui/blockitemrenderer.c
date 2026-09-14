@@ -79,7 +79,7 @@ static void BuildIcon(int blockId, Material material) {
     const Block *block = Block_GetDefinition(blockId);
     Mesh mesh = BuildMesh(blockId, block);
     RenderTexture2D target = LoadRenderTexture(BLOCK_ITEM_TEXTURE_SIZE, BLOCK_ITEM_TEXTURE_SIZE);
-    SetTextureFilter(target.texture, TEXTURE_FILTER_BILINEAR);
+    SetTextureFilter(target.texture, TEXTURE_FILTER_POINT);
     Camera3D camera = {
         .position = {1.7f, 1.35f, 1.7f},
         .target = {0.0f, 0.0f, 0.0f},
@@ -157,6 +157,10 @@ void BlockItemRenderer_Draw(int blockId, Rectangle bounds) {
 
     Texture2D texture = icons[blockId].target.texture;
     Rectangle source = {0.0f, 0.0f, (float)texture.width, -(float)texture.height};
+    bounds.x = roundf(bounds.x);
+    bounds.y = roundf(bounds.y);
+    bounds.width = roundf(bounds.width);
+    bounds.height = roundf(bounds.height);
     DrawTexturePro(texture, source, bounds, (Vector2){0.0f, 0.0f}, 0.0f, WHITE);
 }
 

@@ -72,8 +72,13 @@ void ClientItems_Draw(int id, Rectangle bounds) {
     Texture2D texture=definitions[id].texture ? ClientTextures_Get(definitions[id].texture) : (Texture2D){0};
     if (!texture.id) { DrawRectangleRec(bounds,MAGENTA); return; }
     float scale=fminf(bounds.width/texture.width,bounds.height/texture.height);
+    if (scale >= 1.0f) scale = floorf(scale);
     Rectangle target={bounds.x+(bounds.width-texture.width*scale)/2,bounds.y+(bounds.height-texture.height*scale)/2,
         texture.width*scale,texture.height*scale};
+    target.x = roundf(target.x);
+    target.y = roundf(target.y);
+    target.width = roundf(target.width);
+    target.height = roundf(target.height);
     DrawTexturePro(texture,(Rectangle){0,0,texture.width,texture.height},target,(Vector2){0},0,WHITE);
 }
 bool ClientItems_Draw3D(int id, Matrix transform, float brightness, bool thirdPerson) {

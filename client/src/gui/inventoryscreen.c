@@ -15,7 +15,9 @@
 
 static void DrawStack(ItemStack stack, Rectangle bounds) {
     if (!stack.count) return;
-    BlockItemRenderer_Draw(stack.itemId, (Rectangle){bounds.x + 3, bounds.y + 3, bounds.width - 6, bounds.height - 6});
+    float padding = stack.itemId >= 256 ? 2 : 3;
+    BlockItemRenderer_Draw(stack.itemId, (Rectangle){bounds.x + padding, bounds.y + padding,
+        bounds.width - 2 * padding, bounds.height - 2 * padding});
     float fraction;
     bool bar = ClientItems_Bar(stack, &fraction);
     if (bar) {
@@ -27,6 +29,7 @@ static void DrawStack(ItemStack stack, Rectangle bounds) {
             (unsigned char)(255 * fminf(1, 2 * fraction)), 0, 255};
         DrawRectangleRec(track, color);
     }
+    if (stack.count == 1) return;
     int fontSize = bounds.width >= 40 ? 18 : 12;
     const char *count = TextFormat("%i", stack.count);
     int x = (int)(bounds.x + bounds.width - MeasureText(count, fontSize) - 4);
@@ -37,7 +40,7 @@ static void DrawStack(ItemStack stack, Rectangle bounds) {
 }
 
 static void DrawView(const InventoryView *view, const Inventory *inventory) {
-    float size = fminf(52, fminf((GetScreenWidth() - 32) / view->width, (GetScreenHeight() - 110) / view->height));
+    float size = fminf(56, fminf((GetScreenWidth() - 32) / view->width, (GetScreenHeight() - 110) / view->height));
     if (size < 8) return;
     float left = (GetScreenWidth() - view->width * size) / 2;
     float top = (GetScreenHeight() - view->height * size) / 2;
@@ -114,7 +117,7 @@ void ClientInventory_Draw(bool showStorage) {
     const Inventory *inventory = ClientInventory_Get();
     const InventoryView *view = ClientInventory_GetView();
     if (showStorage && view) { DrawView(view, inventory); return; }
-    float size = fminf(52, fminf((GetScreenWidth() - 32) / 9.0f, (GetScreenHeight() - 100) / 4.5f));
+    float size = fminf(56, fminf((GetScreenWidth() - 32) / 9.0f, (GetScreenHeight() - 100) / 4.5f));
     if (size < 12) return;
     float left = (GetScreenWidth() - 9 * size) / 2;
     float top = showStorage ? (GetScreenHeight() - size * 4.35f) / 2 : GetScreenHeight() - size - 12;
