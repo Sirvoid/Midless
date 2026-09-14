@@ -30,6 +30,8 @@
 #define WATER_MAX_FALL_SPEED 0.2f
 #define WATER_SWIM_ACCELERATION 0.025f
 #define WATER_DRAG 0.8f
+#define PLAYER_PHYSICS_STEP (1.0 / 60.0)
+#define PLAYER_MAX_CATCHUP_STEPS 6
 
 Vector2 playerOldMousePosition = {0.0f, 0.0f};
 Vector2 playerCameraAngle = {0.0f, 0.0f};
@@ -37,6 +39,15 @@ double playerLastPositionPacketTime;
 Player player;
 static float kickPitch, kickRoll, kickDuration;
 static double kickStart;
+static double physicsAccumulator;
+static Vector3 previousPhysicsPosition;
+static Vector3 movementInput;
+static bool jumpHeld, jumpPending;
+
+static Vector3 Player_RenderPosition(void) {
+    float alpha = Clamp((float)(physicsAccumulator / PLAYER_PHYSICS_STEP), 0, 1);
+    return Vector3Lerp(previousPhysicsPosition, player.position, alpha);
+}
 
 void Player_CameraKick(float pitch, float roll, float duration) {
     if (!isfinite(pitch) || !isfinite(roll) || !isfinite(duration) ||
@@ -50,6 +61,9 @@ void Player_CameraKick(float pitch, float roll, float duration) {
 
 void Player_Init(void) {
     kickDuration = 0;
+    physicsAccumulator = 0;
+    movementInput = (Vector3){0};
+    jumpHeld = jumpPending = false;
 
     Camera camera = { 0 };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
@@ -61,7 +75,8 @@ void Player_Init(void) {
     player.velocity = (Vector3) {0, 0, 0};
     player.impulseFlight = false;
     player.position = (Vector3) { 0, 80, 0 };
-    player.speed = 0.125f / 6;
+    previousPhysicsPosition = player.position;
+    player.speed = 7.5f; // Blocks per second
     
     player.collisionBox.min = (Vector3) { 0.2f, 0, 0.2f };
     player.collisionBox.max = (Vector3) { 0.8f, 1.5f, 0.8f };
@@ -99,7 +114,11 @@ void Player_ClearEntityModel(void) {
 }
 
 void Player_Teleport(Vector3 position) {
+    physicsAccumulator = 0;
+    movementInput = (Vector3){0};
+    jumpHeld = jumpPending = false;
     player.position = position;
+    previousPhysicsPosition = position;
     player.animation.lastPosition = position;
     player.velocity = (Vector3){0};
     player.impulseFlight = false;
@@ -124,7 +143,7 @@ void Player_Draw(void) {
     Entity localEntity = {0};
     localEntity.type = (char)player.entityType;
     localEntity.modelId = player.modelId;
-    localEntity.position = (Vector3){player.position.x + 0.5f, player.position.y, player.position.z + 0.5f};
+    localEntity.position = Vector3Add(Player_RenderPosition(), (Vector3){0.5f, 0, 0.5f});
     localEntity.rotation = (Vector3){0, -playerCameraAngle.x + PI / 2.0f, 0};
     localEntity.model = player.entityModel;
     localEntity.flashColor = player.flashColor;
@@ -141,7 +160,13 @@ void Player_Draw(void) {
 }
 
 void Player_CheckInputs() {
-    if (currentScreen != SCREEN_GAME && currentScreen != SCREEN_INVENTORY) return;
+    movementInput = (Vector3){0};
+    jumpHeld = false;
+    if (screenCursorEnabled) jumpPending = false;
+    if (currentScreen != SCREEN_GAME && currentScreen != SCREEN_INVENTORY) {
+        jumpPending = false;
+        return;
+    }
     if (IsKeyPressed(KEY_F3)) {
         screenShowDebug = !screenShowDebug;
     }
@@ -206,26 +231,10 @@ void Player_CheckInputs() {
     float cx90 = cosf(playerCameraAngle.x + PI / 2);
     float sx90 = sinf(playerCameraAngle.x + PI / 2);
     
-    float sy = sinf(playerCameraAngle.y);
-    float cy = cosf(playerCameraAngle.y);
-    
-    float forwardX = cx * sy;
-    float forwardY = cy;
-    float forwardZ = sx * sy;
-    Vector3 forward = {forwardX, forwardY, forwardZ};
-    Vector3 eyePosition = {player.position.x + 0.5f, player.position.y + 1.5f, player.position.z + 0.5f};
-    
     if (!screenCursorEnabled) {
         //Handle keys & mouse
-        if (IsKeyDown(KEY_SPACE)) {
-            if (player.liquidSubmersion > 0.0f) {
-                player.velocity.y += WATER_SWIM_ACCELERATION * (GetFrameTime() * 60.0f);
-                if (player.velocity.y > 0.2f) player.velocity.y = 0.2f;
-            } else if (player.canJump) {
-                player.velocity.y += 0.2f;
-                player.canJump = false;
-            }
-        }
+        jumpHeld = IsKeyDown(KEY_SPACE);
+        jumpPending = jumpPending || IsKeyPressed(KEY_SPACE);
         Vector3 moveDir = { 0 };
         
         if (IsKeyDown(KEY_W)) {
@@ -248,15 +257,16 @@ void Player_CheckInputs() {
             moveDir.x += cx90;
         }
 
-        moveDir = Vector3ClampValue(moveDir, 0.0f, 1.0f); // normalize
-        Vector3 moveVel = Vector3Scale(moveDir, player.speed);
-        if (player.liquidSubmersion > 0.0f) {
-            moveVel = Vector3Scale(moveVel, WATER_MOVE_SCALE);
-        }
-        // A launch carries its own momentum; movement input must not accelerate
-        // without bound while airborne drag is suspended.
-        if (!player.impulseFlight) player.velocity = Vector3Add(player.velocity, moveVel);
-        
+        movementInput = Vector3ClampValue(moveDir, 0.0f, 1.0f);
+    }
+    if (screenCursorEnabled) jumpPending = false;
+}
+
+static void Player_CheckActions(void) {
+    if (currentScreen != SCREEN_GAME && currentScreen != SCREEN_INVENTORY) return;
+    Vector3 forward = Player_GetForwardVector();
+    Vector3 eyePosition = Vector3Add(Player_RenderPosition(), (Vector3){0.5f, 1.5f, 0.5f});
+    if (!screenCursorEnabled) {
         float wheel = GetMouseWheelMove();
         if (wheel > 0.35f) ClientInventory_Scroll(-1);
         if (wheel < -0.35f) ClientInventory_Scroll(1);
@@ -283,6 +293,11 @@ void Player_CheckInputs() {
     }
     ClientInventory_Dig(!screenCursorEnabled && IsMouseButtonDown(MOUSE_LEFT_BUTTON),
         player.rayResult.hitPos, player.rayResult.normal, player.rayResult.hitblockId);
+}
+
+static void Player_UpdateCamera(void) {
+    Vector3 forward = Player_GetForwardVector();
+    Vector3 eyePosition = Vector3Add(Player_RenderPosition(), (Vector3){0.5f, 1.5f, 0.5f});
     player.camera.position = eyePosition;
     if (player.cameraMode != PLAYER_CAMERA_FIRST_PERSON) {
         Vector3 cameraDirection = player.cameraMode == PLAYER_CAMERA_THIRD_PERSON_BEHIND
@@ -321,29 +336,21 @@ void Player_ApplyImpulse(Vector3 impulse) {
     if (impulse.y > 0) player.canJump = false;
 }
 
-void Player_Update(void) {
-    ClientInventory_Update();
-    
-    if(GetTime() - playerLastPositionPacketTime > 0.05) {
-        Network_Send(Packet_CreatePlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector3) {playerCameraAngle.y - PI / 2, -playerCameraAngle.x + PI / 2, 0}));
-        playerLastPositionPacketTime = GetTime();
-    }
-
-    float frameScale = GetFrameTime() * 60.0f;
+static void Player_PhysicsStep(void) {
     player.liquidSubmersion = Player_GetLiquidSubmersion();
 
     if (player.liquidSubmersion > 0.0f) {
-        player.velocity.y -= WATER_GRAVITY * frameScale;
+        player.velocity.y -= WATER_GRAVITY;
         if (player.velocity.y < -WATER_MAX_FALL_SPEED) {
             player.velocity.y = -WATER_MAX_FALL_SPEED;
         }
     } else {
-        player.velocity.y -= 0.012f * frameScale;
+        player.velocity.y -= 0.012f;
         if (player.velocity.y <= -1) player.velocity.y = -1;
     }
     
-    //Calculate velocity with delta time
-    Vector3 velXdt = Vector3Scale(player.velocity, frameScale);
+    // Velocity is stored in blocks per fixed 60 Hz tick.
+    Vector3 velXdt = player.velocity;
     
     int steps = 8;
     
@@ -387,19 +394,52 @@ void Player_Update(void) {
         }
     }
 
-    World_LoadChunks();
-
     if (player.canJump || player.liquidSubmersion > 0.0f) player.impulseFlight = false;
     if (player.liquidSubmersion > 0.0f) {
-        float drag = powf(WATER_DRAG, frameScale);
-        player.velocity = Vector3Scale(player.velocity, drag);
+        player.velocity = Vector3Scale(player.velocity, WATER_DRAG);
     } else if (!player.impulseFlight) {
         player.velocity.x -= player.velocity.x / 6.0f;
         player.velocity.z -= player.velocity.z / 6.0f;
     }
-    
+    if (jumpHeld || jumpPending) {
+        if (player.liquidSubmersion > 0.0f) {
+            player.velocity.y = fminf(0.2f, player.velocity.y + WATER_SWIM_ACCELERATION);
+        } else if (player.canJump) {
+            player.velocity.y += 0.2f;
+            player.canJump = false;
+        }
+    }
+    jumpPending = false;
+    // Balance the 1/6 drag per tick while exposing speed in blocks/second.
+    Vector3 moveVel = Vector3Scale(movementInput, player.speed / 60.0f / 6.0f);
+    if (player.liquidSubmersion > 0.0f) moveVel = Vector3Scale(moveVel, WATER_MOVE_SCALE);
+    if (!player.impulseFlight) player.velocity = Vector3Add(player.velocity, moveVel);
+}
+
+static void Player_AdvancePhysics(float dt) {
+    if (!isfinite(dt) || dt <= 0) return;
+    physicsAccumulator += fmin((double)dt, PLAYER_PHYSICS_STEP * PLAYER_MAX_CATCHUP_STEPS);
+    int steps = 0;
+    while (physicsAccumulator >= PLAYER_PHYSICS_STEP && steps < PLAYER_MAX_CATCHUP_STEPS) {
+        physicsAccumulator -= PLAYER_PHYSICS_STEP;
+        previousPhysicsPosition = player.position;
+        Player_PhysicsStep();
+        steps++;
+    }
+}
+
+void Player_Update(void) {
+    ClientInventory_Update();
     Player_CheckInputs();
-    EntityAnimation_Update(&player.animation, player.position, GetFrameTime());
+    Player_AdvancePhysics(GetFrameTime());
+    World_LoadChunks();
+    Player_CheckActions();
+    Player_UpdateCamera();
+    if(GetTime() - playerLastPositionPacketTime > 0.05) {
+        Network_Send(Packet_CreatePlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector3) {playerCameraAngle.y - PI / 2, -playerCameraAngle.x + PI / 2, 0}));
+        playerLastPositionPacketTime = GetTime();
+    }
+    EntityAnimation_Update(&player.animation, Player_RenderPosition(), GetFrameTime());
 }
 
 bool Player_TestCollision(Vector3 offset) {

@@ -124,7 +124,7 @@ void World_Init(void) {
 }
 
 void World_LoadMultiplayer(void) {
-    player.position = (Vector3) { 0, 80, 0 };
+    Player_Teleport((Vector3) { 0, 80, 0 });
     Screen_Switch(SCREEN_GAME);
     world.loadChunks = true;
 }

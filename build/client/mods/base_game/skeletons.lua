@@ -5,7 +5,7 @@ midless.define_entity_model("midless:skeleton", {
     texture = "midless:skeleton",
 })
 
-local speed, detection_range = 4, 36
+local speed, detection_range = 6, 36
 local horizontal, upward = 8, 4
 local function initialize(self)
     self.object:set_nametag({text = "&bSkeleton"})
@@ -76,16 +76,6 @@ midless.register_mob("midless:skeleton", {
     population_group = "hostile",
     despawn = {distance = 96, delay = 15},
 })
-
-midless.register_on_player_attack(function(player, hit)
-    if player:get_hp() <= 0 or hit.type ~= "entity" or hit.entity:get_name() ~= "midless:skeleton" then return false end
-    hit.entity:damage(2, {
-        attacker = player,
-        cause = "melee",
-        knockback = {horizontal = horizontal, upward = upward},
-    })
-    return true
-end)
 
 midless.register_spawn("midless:humanoid_monster_spawn", {
     can_spawn = function(pos)

@@ -153,6 +153,12 @@ int LuaMobs_Register(lua_State *state) {
         lua_pop(L, 1);
     }
     lua_replace(L, 2);
+    lua_getfield(L, 2, "hp");
+    if (lua_isnil(L, -1)) {
+        lua_pushinteger(L, 10);
+        lua_setfield(L, 2, "hp");
+    }
+    lua_pop(L, 1);
     lua_getfield(L, 2, "model");
     if (lua_isnil(L, -1)) {
         lua_pushinteger(L, 0);

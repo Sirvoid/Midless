@@ -12,17 +12,22 @@
 #include "luaentities.h"
 #include "luametadata.h"
 #include "../items.h"
+#include "../serverinventory.h"
 #include <string.h>
 extern lua_State *L;
 
 static int uses[ITEM_LIMIT], levels[ITEM_LIMIT], drops[256], placements[256];
+static int attacks[ITEM_LIMIT], damages[ITEM_LIMIT];
 static struct {
     int level;
     char group[65];
 } requirements[256];
 void LuaItemActions_Init(void) {
-    for (int i = 0; i < ITEM_LIMIT; i++)
+    for (int i = 0; i < ITEM_LIMIT; i++) {
         uses[i] = levels[i] = LUA_NOREF;
+        attacks[i] = LUA_NOREF;
+        damages[i] = 1;
+    }
     for (int i = 0; i < 256; i++)
         drops[i] = placements[i] = LUA_NOREF;
     memset(requirements, 0, sizeof(requirements));
@@ -30,6 +35,7 @@ void LuaItemActions_Init(void) {
 void LuaItemActions_Shutdown(void) {
     for (int i = 0; i < ITEM_LIMIT; i++) {
         luaL_unref(L, LUA_REGISTRYINDEX, uses[i]);
+        luaL_unref(L, LUA_REGISTRYINDEX, attacks[i]);
         luaL_unref(L, LUA_REGISTRYINDEX, levels[i]);
     }
     for (int i = 0; i < 256; i++) {
@@ -38,6 +44,15 @@ void LuaItemActions_Shutdown(void) {
     }
 }
 void LuaItemActions_Define(int id, int table, bool block) {
+    lua_getfield(L, table, "damage");
+    lua_Integer damage = lua_isnil(L, -1) ? 1 : luaL_checkinteger(L, -1);
+    if (damage < 0 || damage > 65535)
+        luaL_error(L, "damage must be 0..65535");
+    lua_pop(L, 1);
+    lua_getfield(L, table, "on_attack");
+    if (!lua_isnil(L, -1))
+        luaL_checktype(L, -1, LUA_TFUNCTION);
+    lua_pop(L, 1);
     lua_getfield(L, table, "on_use");
     if (!lua_isnil(L, -1))
         luaL_checktype(L, -1, LUA_TFUNCTION);
@@ -89,6 +104,80 @@ void LuaItemActions_Define(int id, int table, bool block) {
     lua_getfield(L, table, "on_use");
     luaL_unref(L, LUA_REGISTRYINDEX, uses[id]);
     uses[id] = luaL_ref(L, LUA_REGISTRYINDEX);
+    damages[id] = damage;
+    lua_getfield(L, table, "on_attack");
+    luaL_unref(L, LUA_REGISTRYINDEX, attacks[id]);
+    attacks[id] = luaL_ref(L, LUA_REGISTRYINDEX);
+}
+
+// Run damage, the tool callback and stack decoding inside one protected Lua call.
+static int Attack(lua_State *state) {
+    Player *player = lua_touserdata(state, lua_upvalueindex(1));
+    int slot = INVENTORY_STORAGE_SLOTS + player->inventory.selectedHotbar;
+    ItemStack tool = player->inventory.slots[slot];
+    uint32_t revision = player->inventoryRevision;
+    int damage = tool.count && tool.itemId < ITEM_LIMIT ? damages[tool.itemId] : 1;
+    if (!damage)
+        return 0;
+    lua_getfield(state, 1, "entity");
+    Entity *entity = LuaEntities_Check(state, -1);
+    if (entity->ownerPlayerId >= 0 || entity->definitionId < 0 || !entity->maxHp || entity->dead)
+        return 0;
+    lua_getfield(state, -1, "damage");
+    lua_pushvalue(state, -2);
+    lua_pushinteger(state, damage);
+    lua_createtable(state, 0, 3);
+    LuaPlayers_Push(player);
+    lua_setfield(state, -2, "attacker");
+    lua_pushliteral(state, "melee");
+    lua_setfield(state, -2, "cause");
+    lua_createtable(state, 0, 2);
+    lua_pushnumber(state, 8);
+    lua_setfield(state, -2, "horizontal");
+    lua_pushnumber(state, 4);
+    lua_setfield(state, -2, "upward");
+    lua_setfield(state, -2, "knockback");
+    lua_call(state, 3, 1);
+    int lost = lua_tointeger(state, -1);
+    lua_pop(state, 1);
+    if (lost <= 0 || !tool.count || tool.itemId >= ITEM_LIMIT || attacks[tool.itemId] < 0)
+        return 0;
+    lua_rawgeti(state, LUA_REGISTRYINDEX, attacks[tool.itemId]);
+    LuaPlayers_Push(player);
+    lua_pushvalue(state, 1); // Keep the original hit, even after a killing blow.
+    LuaItems_PushStack(state, tool);
+    lua_pushinteger(state, lost);
+    lua_call(state, 4, 1);
+    if (lua_isnil(state, -1))
+        return 0;
+    ItemStack replacement = {0};
+    if (!(lua_isboolean(state, -1) && !lua_toboolean(state, -1))) {
+        LuaItems_ReadStack(state, -1, &replacement);
+        if (replacement.count && !ServerItems_IsDefined(replacement.itemId))
+            return luaL_error(state, "attack returned an undefined item");
+    }
+    // Inventory edits during damage/death/attack callbacks take precedence.
+    ItemStack current = player->inventory.slots[slot];
+    if (player->disconnected || LuaPlayers_IsLeaving(player) ||
+        player->inventoryRevision != revision || current.count != tool.count ||
+        !ItemStack_Matches(current, tool))
+        return 0;
+    player->inventory.slots[slot] = replacement;
+    player->inventoryRevision++;
+    ServerInventory_UpdateHeldBlock(player);
+    ServerInventory_Send(player);
+    return 0;
+}
+
+void LuaItemActions_Attack(Player *player, int hitIndex) {
+    int top = lua_gettop(L);
+    hitIndex = lua_absindex(L, hitIndex);
+    lua_pushlightuserdata(L, player);
+    lua_pushcclosure(L, Attack, 1);
+    lua_pushvalue(L, hitIndex);
+    if (lua_pcall(L, 1, 0, 0) != LUA_OK)
+        TraceLog(LOG_WARNING, "Item attack: %s", lua_tostring(L, -1));
+    lua_settop(L, top);
 }
 static void PushPosition(Vector3 position) {
     lua_createtable(L, 0, 3);

@@ -21,7 +21,7 @@ typedef enum PlayerCameraMode {
 
 typedef struct Player{
     Camera camera;
-    float speed;
+    float speed; // Target horizontal speed on land, in blocks per second.
     Vector3 position;
     Vector3 direction;
     Vector3 velocity;

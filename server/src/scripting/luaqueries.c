@@ -9,8 +9,10 @@
 #include "../lighting.h"
 #include <math.h>
 #include "luaqueries.h"
+#include "luaengine.h"
 #include "luaentities.h"
 #include "luametadata.h"
+#include "luaitemactions.h"
 #include "../entityphysics.h"
 #include "../worldquery.h"
 #include "../world/world.h"
@@ -228,11 +230,14 @@ int LuaQueries_RegisterAttack(lua_State *state) {
 }
 void ScriptHooks_QueriesAttack(Player *player) {
     double now = GetTime();
-    if (!attackCount || !player->movementReady || now < player->nextMeleeAttack ||
-        player->entityId < 0)
+    if (!luaRunning || player->disconnected || player->inventory.open ||
+        !player->movementReady || now < player->nextMeleeAttack ||
+        player->entityId < 0 || player->entityId >= WORLD_MAX_ENTITIES)
         return;
     player->nextMeleeAttack = now + 0.4;
     Entity *e = &serverWorld.entities[player->entityId];
+    if (!e->active || e->pendingRemoval || ScriptHooks_EntityHealth(e) <= 0)
+        return;
     Vector3 from = e->position;
     from.y += 1.5f;
     float yaw = e->rotation.y, pitch = e->rotation.x, horizontal = cosf(pitch);
@@ -246,7 +251,7 @@ void ScriptHooks_QueriesAttack(Player *player) {
         if (hit.type == HIT_ENTITY) {
             Entity *target = &serverWorld.entities[hit.entityId];
             if (!target->active || target->pendingRemoval || target->generation != generation)
-                break;
+                return;
         }
         lua_rawgeti(L, LUA_REGISTRYINDEX, attackCallbacks[i]);
         LuaPlayers_Push(player);
@@ -258,7 +263,16 @@ void ScriptHooks_QueriesAttack(Player *player) {
             handled = lua_toboolean(L, -1);
         lua_settop(L, top);
         if (handled)
-            break;
+            return;
+    }
+    if (hit.type == HIT_ENTITY && !player->disconnected) {
+        Entity *target = &serverWorld.entities[hit.entityId];
+        if (target->active && !target->pendingRemoval && target->generation == generation &&
+            target->ownerPlayerId < 0 && target->definitionId >= 0 && target->maxHp) {
+            PushHit(hit);
+            LuaItemActions_Attack(player, -1);
+            lua_settop(L, top);
+        }
     }
 }
 void LuaQueries_Reset(void) {

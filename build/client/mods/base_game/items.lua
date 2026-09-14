@@ -23,18 +23,23 @@ for _, tier in ipairs({
     {id = "iron", name = "Iron", speed = 6, uses = 251, level = 3},
 }) do
     for _, kind in ipairs({
-        {id = "pickaxe", name = "Pickaxe", group = "stone"},
-        {id = "axe", name = "Axe", group = "wood"},
-        {id = "shovel", name = "Shovel", group = "soil"},
+        {id = "pickaxe", name = "Pickaxe", group = "stone", damage = 3},
+        {id = "axe", name = "Axe", group = "wood", damage = 3},
+        {id = "shovel", name = "Shovel", group = "soil", damage = 2},
     }) do
         local id = tier.id .. "_" .. kind.id
         item(id, {
             name = tier.name .. " " .. kind.name,
             max_stack = 1,
+            damage = kind.damage + tier.level - 1,
             dig_speed = {[kind.group] = tier.speed},
             harvest_levels = {[kind.group] = tier.level},
             metadata = {{name = "durability", type = "uint", bits = 16, default = tier.uses}},
             inventory_bar = {field = "durability", max = tier.uses, hide_when_full = true},
+            on_attack = function(player, target, stack, damage_done)
+                stack.metadata.durability = stack.metadata.durability - 1
+                return stack.metadata.durability > 0 and stack or false
+            end,
             on_dig = function(player, block, stack)
                 stack.metadata.durability = stack.metadata.durability - 1
                 if stack.metadata.durability <= 0 then

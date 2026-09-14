@@ -335,6 +335,7 @@ midless.define_item("my_mod:pickaxe", {
     name = "Pickaxe", texture = "my_mod:pickaxe", max_stack = 1,
     dig_speed = {stone = 6},
     harvest_levels = {stone = 2},
+    damage = 3,
     metadata = {{name = "durability", type = "uint", bits = 8, default = 100}},
     inventory_bar = {
         field = "durability",
@@ -344,6 +345,10 @@ midless.define_item("my_mod:pickaxe", {
     on_dig = function(player, block, stack)
         stack.metadata.durability = stack.metadata.durability - 1
         player:set_selected_stack(stack.metadata.durability > 0 and stack or nil)
+    end,
+    on_attack = function(player, target, stack, damage_done)
+        stack.metadata.durability = stack.metadata.durability - 1
+        return stack.metadata.durability > 0 and stack or false
     end,
 })
 ```
@@ -699,7 +704,7 @@ midless.register_on_player_attack(function(player, target)
 end)
 ```
 
-Attacks cast from the player's eye with 4.5-block reach and a 0.4-second cooldown, including misses. Targets use the raycast format. Return `true` to stop later handlers. The base-game mob library already handles mob attacks; avoid registering duplicate damage for the same targets.
+Attacks cast from the player's eye with 4.5-block reach and a 0.4-second cooldown, including misses. Targets use the raycast format. Dead players and players with an open inventory cannot attack. Return `true` to stop later handlers and suppress the default attack.
 
 ## Mobs and spawning
 
@@ -732,6 +737,8 @@ midless.register_mob("my_mod:wanderer", {
 ```
 
 Mobs accept entity fields and lifecycle callbacks, but reject `on_step`. Set `save = true` to save a mob. `midless.register_mob` replaces the former `mobs.register` API.
+
+Mobs default to `hp = 10` when omitted and can be hit automatically. Explicit `hp = 0` makes a mob invulnerable.
 
 | Callback / setting | Behavior |
 | --- | --- |

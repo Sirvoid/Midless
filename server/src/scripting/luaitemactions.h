@@ -13,4 +13,5 @@
 void LuaItemActions_Init(void);
 void LuaItemActions_Shutdown(void);
 void LuaItemActions_Define(int id, int table, bool block);
+void LuaItemActions_Attack(Player *player, int hitIndex);
 #endif
