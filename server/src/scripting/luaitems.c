@@ -9,11 +9,21 @@
 #include "luaitemactions.h"
 #include "luadigging.h"
 #include "luametadata.h"
+#include "luavalues.h"
+#include "../droppeditems.h"
 #include "../world/textures.h"
 #include <string.h>
 #include <ctype.h>
 
 extern lua_State *L;
+
+int LuaItems_Spawn(lua_State *state) {
+    Vector3 position = LuaValues_ReadPosition(1, false);
+    ItemStack stack = {0};
+    LuaItems_ReadStack(state, 2, &stack);
+    lua_pushboolean(state, ServerDrops_Spawn(stack, position, (Vector3){0,2,0}, 0.5f) >= 0);
+    return 1;
+}
 
 void LuaItems_PushId(lua_State *state, int id) {
     if (id >= 0 && id < ITEM_LIMIT && serverItems[id].identifier[0])

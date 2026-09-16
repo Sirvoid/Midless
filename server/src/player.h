@@ -44,6 +44,13 @@ typedef struct Player {
     InventoryWindow inventoryWindow;
     uint32_t nextInventorySession;
     bool inventoryLoaded, leaveInvoked;
+    uint32_t attachmentEpoch, controlSession;
+    int controlledEntity; // Entity index plus one.
+    uint64_t controlledGeneration;
+    int controlForward, controlSideways;
+    unsigned controlFlags;
+    Vector3 controlLook;
+    double controlReceived;
     bool movementReady, falling;
     Vector3 impulseAllowance; // Extra horizontal/up/down distance, consumed by accepted moves.
     double impulseExpires;

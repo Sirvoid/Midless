@@ -6,6 +6,7 @@
  */
 
 #include "entitypersistence.h"
+#include "../attachments.h"
 #include "world.h"
 #include "scripthooks.h"
 #include "entityregistry.h"
@@ -38,6 +39,7 @@ typedef struct SavedEntity {
     char model[65];
     char texture[65];
     bool hasTexture;
+    bool hasLiquidPhysics;
     uint16_t heldBlock;
     Nametag nametag;
     bool hasHP;
@@ -158,6 +160,13 @@ static bool ReadRecords(const Chunk *chunk, SavedEntity **records, int *count) {
             e->hasTexture = true;
             if (!ReadName(&record,e->texture)) return false;
         }
+        if (record.offset < record.size) {
+            e->hasLiquidPhysics = true;
+            e->body.buoyancy = Binary_ReadFloat(&record);
+            e->body.liquidDrag = Binary_ReadFloat(&record);
+            e->body.liquidVerticalDrag = Binary_ReadFloat(&record);
+            e->body.liquidLateralDrag = Binary_ReadFloat(&record);
+        }
         if (!Binary_End(&record) || !SamePosition(ChunkPosition(e->position), chunk->position) ||
             !EntityBody_Validate(&e->body)) return false;
     }
@@ -183,6 +192,12 @@ static void WriteRecord(BinaryWriter *out, int type, const SavedEntity *e) {
     Binary_U8(&record, e->nametag.visible); Binary_Float(&record, e->nametag.offset);
     Binary_U8(&record,e->hasHP); Binary_U16(&record,e->hp);
     if (e->hasTexture) WriteName(&record,e->texture);
+    if (e->hasLiquidPhysics) {
+        Binary_Float(&record, e->body.buoyancy);
+        Binary_Float(&record, e->body.liquidDrag);
+        Binary_Float(&record, e->body.liquidVerticalDrag);
+        Binary_Float(&record, e->body.liquidLateralDrag);
+    }
     if (record.failed) out->failed = true;
     Binary_VarUInt(out, type); Binary_VarUInt(out, record.size); Binary_Write(out, record.data, record.size);
     free(record.data);
@@ -264,6 +279,12 @@ bool EntityPersistence_Activate(Chunk *chunk) {
         // Capacity was checked above; restoration invokes no callbacks until all records exist.
         Entity *e = &serverWorld.entities[id];
         e->position = saved->position; e->rotation = saved->rotation;
+        if (!saved->hasLiquidPhysics) {
+            saved->body.buoyancy = e->body.buoyancy;
+            saved->body.liquidDrag = e->body.liquidDrag;
+            saved->body.liquidVerticalDrag = e->body.liquidVerticalDrag;
+            saved->body.liquidLateralDrag = e->body.liquidLateralDrag;
+        }
         e->body = saved->body; e->model = ModelId(saved->model); e->heldBlock = saved->heldBlock;
         e->nametag = saved->nametag;
         if (saved->hasTexture) strcpy(e->texture,saved->texture);
@@ -303,6 +324,7 @@ static bool Snapshot(const Chunk *chunk, BinaryWriter *out) {
             .stack = entity->drop.stack, .age = entity->drop.age, .pickupDelay = entity->drop.pickupDelay};
         record.hasHP = entity->maxHp > 0; record.hp = entity->hp;
         record.hasTexture = true;
+        record.hasLiquidPhysics = true;
         strcpy(record.texture,entity->texture);
         strcpy(record.name, names[types[pendingCount + i]]);
         if (entity->model) {
@@ -320,6 +342,7 @@ void EntityPersistence_Unload(Chunk *chunk) {
         Entity *e = &serverWorld.entities[i];
         if (!Belongs(e, chunk) || e->pendingRemoval) continue;
         // Unloading is not a gameplay removal: no on_remove, drops, or respawns.
+        ServerAttachments_Cleanup(e);
         ScriptHooks_EntitiesUnload(e);
         if (e->type == ENTITY_TYPE_DROPPED_ITEM) ServerDrops_Remove(e);
         else if (e->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(e), -1);

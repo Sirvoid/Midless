@@ -1,3 +1,4 @@
+#include "../attachments.h"
 /**
  * Copyright (c) 2026 Sirvoid
  *
@@ -51,6 +52,11 @@ static int playerChangeCount;
 static bool notifyingPlayers;
 
 static void NotifyPlayer(Player *player, const char *key, int oldValue, int newValue) {
+    if (!strcmp(key, "midless:hp") && player->entityId >= 0) {
+        Entity *e = &serverWorld.entities[player->entityId];
+        e->dead = lua_tointeger(L, newValue) == 0;
+        if (e->dead) ServerAttachments_Cleanup(e);
+    }
     if (lua_rawequal(L, oldValue, newValue))
         return;
     bool listening = false;

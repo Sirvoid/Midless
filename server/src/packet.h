@@ -46,6 +46,9 @@ void ServerPacket_WriteUShort(unsigned char* packet, unsigned short value);
 void ServerPacket_WriteInt(unsigned char* packet, int value);
 void ServerPacket_WriteArray(unsigned char* packet, unsigned char* array, int size);
 
+void ServerPacket_HandleControlInput(void);
+unsigned char *ServerPacket_CreateAttachment(Entity *entity, Player *recipient);
+unsigned char *ServerPacket_CreateControlState(Player *player);
 void ServerPacket_HandleIdentification(void);
 void ServerPacket_HandlePlayerPosition(void);
 void ServerPacket_HandleMessage(void);

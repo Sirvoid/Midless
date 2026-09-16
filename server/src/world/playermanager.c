@@ -9,6 +9,7 @@
 #include <stddef.h>
 #include <string.h>
 #include "world.h"
+#include "../attachments.h"
 #include "../player.h"
 #include "../droppeditems.h"
 #include "../serverinventory.h"
@@ -58,6 +59,7 @@ void ServerWorld_AddPlayer(void *player) {
 
     if (newPlayer->entityId < 0) return;
     ServerEntities_Send(newPlayer);
+    ServerAttachments_Send(newPlayer);
 
     char name[PACKET_STRING_SIZE * 2 + 1];
     TextColor_Escape(name, newPlayer->name);
@@ -66,12 +68,13 @@ void ServerWorld_AddPlayer(void *player) {
 
 void ServerWorld_RemovePlayer(void *player) {
     Player *removedPlayer = player;
+    if (removedPlayer->entityId >= 0) ServerAttachments_Cleanup(&serverWorld.entities[removedPlayer->entityId]);
     ServerWorld_RemovePlayerFromChunks(removedPlayer);
     for (int i = 0; i < WORLD_MAX_PLAYERS; i++) {
         if (serverWorld.players[i] != removedPlayer) continue;
         if (!removedPlayer->leaveInvoked) {
-            ScriptHooks_PlayerLeave(i);
             removedPlayer->leaveInvoked = true;
+            ScriptHooks_PlayerLeave(i);
         }
         // Keep the live inventory for retry if the save fails.
         if (!ServerInventory_Save(removedPlayer)) return;

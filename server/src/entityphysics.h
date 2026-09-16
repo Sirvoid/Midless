@@ -10,6 +10,7 @@
 #include "entity.h"
 void ServerPhysics_Update(float dt);
 void ServerPhysics_Reset(void);
+float ServerPhysics_SubmergedFraction(const Entity *entity);
 bool ServerPhysics_SetBody(Entity *entity, EntityBody body);
 bool ServerPhysics_SetVelocity(Entity *entity, Vector3 velocity);
 bool ServerPhysics_ApplyImpulse(Entity *entity, Vector3 impulse);

@@ -9,6 +9,7 @@
 #define MIDLESS_PACKET_SIZES_H
 
 #include "packetopcodes.h"
+#include "attachment.h"
 
 // Sizes include the opcode. Zero marks a variable-length packet.
 #define PACKET_VARIABLE_SIZE 0
@@ -16,7 +17,7 @@
 
 // Client -> server.
 #define IDENTIFICATION_PACKET_SIZE 67
-#define PLAYER_POSITION_PACKET_SIZE 16
+#define PLAYER_POSITION_PACKET_SIZE 20
 #define MESSAGE_PACKET_SIZE 65
 #define DRAW_DISTANCE_PACKET_SIZE 2
 #define PLAYER_CLICK_PACKET_SIZE 2

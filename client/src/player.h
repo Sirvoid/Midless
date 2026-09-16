@@ -1,3 +1,4 @@
+#include "attachment.h"
 /**
  * Copyright (c) 2021 Sirvoid
  * 
@@ -22,6 +23,10 @@ typedef enum PlayerCameraMode {
 typedef struct Player{
     Camera camera;
     float speed; // Target horizontal speed on land, in blocks per second.
+    Attachment attachment;
+    Vector3 attachedRotation;
+    uint32_t attachmentEpoch, controlSession;
+    int controlledEntity;
     Vector3 position;
     Vector3 direction;
     Vector3 velocity;
@@ -30,6 +35,7 @@ typedef struct Player{
     int blockSelected;
     bool canJump;
     bool impulseFlight; // Preserve launch momentum until ground/water contact.
+    bool waterborne; // Keep swim movement through surface hops until a dry landing.
     float liquidSubmersion;
     unsigned char entityType;
     unsigned char modelId;
@@ -51,6 +57,9 @@ void Player_CheckInputs(void);
 
 //Update a player.
 void Player_Update(void);
+Vector3 Player_GetRotation(void);
+void Player_SetAttachedPosition(Vector3 position, Vector3 rotation);
+void Player_RefreshAttachedCamera(void);
 void Player_Draw(void);
 void Player_SetEntityModel(int type, int modelId);
 void Player_ClearEntityModel(void);

@@ -61,6 +61,7 @@ static const LuaMethod midlessLib[] = {
     {"set_terrain_texture", LuaTextures_SetTerrain},
     {"define_entity", LuaEntities_Register},
     {"spawn_entity", LuaEntities_Spawn},
+    {"spawn_item", LuaItems_Spawn},
     {"register_spawn", LuaSpawning_Register},
     {"get_player_by_id", LuaPlayers_GetById},
     {"get_player_by_name", LuaPlayers_GetByName},

@@ -1,3 +1,4 @@
+#include "attachments.h"
 #include "blockstates.h"
 #include "version.h"
 #include "playerimpulse.h"
@@ -74,6 +75,8 @@ int serverPacketLengths[256] = {
     RESET_CHUNKS_PACKET_SIZE, // 35
     CAMERA_KICK_PACKET_SIZE, // 36
     ENTITY_FLASH_PACKET_SIZE, // 37
+    ATTACHMENT_PACKET_SIZE,
+    CONTROL_STATE_PACKET_SIZE,
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -236,12 +239,15 @@ void ServerPacket_HandleIdentification(void) {
 
 
 void ServerPacket_HandlePlayerPosition(void) {
+    if (serverPacketDataLength != PLAYER_POSITION_PACKET_SIZE || !serverPacketPlayer) return;
     Vector3 position = (Vector3) { ServerPacket_ReadInt() / 64.0f, ServerPacket_ReadInt() / 64.0f, ServerPacket_ReadInt() / 64.0f };
     Vector3 rotation = {0};
     rotation.x = Rotation_Decode(ServerPacket_ReadByte());
     rotation.y = Rotation_Decode(ServerPacket_ReadByte());
     rotation.z = Rotation_Decode(ServerPacket_ReadByte());
-    ServerPlayer_UpdatePositionRotation(serverPacketPlayer, position, rotation);
+    uint32_t epoch = ServerPacket_ReadUInt();
+    if (epoch == serverPacketPlayer->attachmentEpoch)
+        ServerPlayer_UpdatePositionRotation(serverPacketPlayer, position, rotation);
 }
 
 void ServerPacket_HandleMessage(void) {
@@ -582,4 +588,44 @@ unsigned char *ServerPacket_CreateDroppedItem(Entity *entity) {
     packet[19] = entity->drop.stack.metadataVersion >> 8; packet[20] = entity->drop.stack.metadataVersion;
     memcpy(packet + 21, entity->drop.stack.metadata, ITEM_METADATA_BYTES);
     return packet;
+}
+
+unsigned char *ServerPacket_CreateAttachment(Entity *e, Player *p) {
+    unsigned char *packet = MemAlloc(ATTACHMENT_PACKET_SIZE);
+    if (!packet) return NULL;
+    serverPacketWriterIndex = 0;
+    ServerPacket_WriteByte(packet, PACKET_ATTACHMENT);
+    ServerPacket_WriteUShort(packet, e->id == p->entityId ? ATTACHMENT_LOCAL : e->id);
+    int parent = e->attachment.parent - 1;
+    ServerPacket_WriteUShort(packet, parent < 0              ? ATTACHMENT_NONE
+                                     : parent == p->entityId ? ATTACHMENT_LOCAL
+                                                             : parent);
+    ServerPacket_WriteByte(packet, e->attachment.inheritRotation);
+    float values[] = {e->attachment.offset.x,   e->attachment.offset.y,   e->attachment.offset.z,
+                      e->attachment.rotation.x, e->attachment.rotation.y, e->attachment.rotation.z};
+    for (int i = 0; i < 6; i++)
+        ServerPacket_WriteInt(packet, (int)roundf(values[i] * 4096));
+    ServerPacket_WriteInt(packet, e->id == p->entityId ? p->attachmentEpoch : 0);
+    return packet;
+}
+unsigned char *ServerPacket_CreateControlState(Player *p) {
+    unsigned char *packet = MemAlloc(CONTROL_STATE_PACKET_SIZE);
+    if (!packet) return NULL;
+    serverPacketWriterIndex = 0;
+    ServerPacket_WriteByte(packet, PACKET_CONTROL_STATE);
+    ServerPacket_WriteUShort(packet,
+                             p->controlledEntity ? p->controlledEntity - 1 : ATTACHMENT_NONE);
+    ServerPacket_WriteInt(packet, p->controlSession);
+    return packet;
+}
+void ServerPacket_HandleControlInput(void) {
+    if (serverPacketDataLength != CONTROL_INPUT_PACKET_SIZE) return;
+    uint32_t session = ServerPacket_ReadUInt();
+    int forward = (int)ServerPacket_ReadByte() - 1;
+    int sideways = (int)ServerPacket_ReadByte() - 1;
+    unsigned flags = ServerPacket_ReadByte();
+    Vector3 look = {0};
+    look.x = Rotation_Decode(ServerPacket_ReadByte());
+    look.y = Rotation_Decode(ServerPacket_ReadByte());
+    ServerControl_Input(serverPacketPlayer, session, forward, sideways, flags, look);
 }

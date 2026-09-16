@@ -1,3 +1,5 @@
+#include "luaattachments.h"
+#include "../attachments.h"
 /**
  * Copyright (c) 2026 Sirvoid
  *
@@ -449,7 +451,12 @@ static int ApplyPlayerImpulse(lua_State *state) {
         return luaL_error(L, "player is not ready to receive an impulse");
     return 0;
 }
-static const LuaMethod playerLib[] = {{"set_texture", SetPlayerTexture},
+static const LuaMethod playerLib[] = {{"attach", LuaAttachment_Attach},
+                                       {"detach", LuaAttachment_Detach},
+                                       {"get_attachment", LuaAttachment_Get},
+                                       {"get_children", LuaAttachment_Children},
+                                       {"get_controlled_entity", LuaAttachment_Controlled},
+                                       {"set_texture", SetPlayerTexture},
                                              {"flash_color", FlashColor},
                                              {"get_texture", GetPlayerTexture},
                                              {"is_valid", IsPlayerValid},

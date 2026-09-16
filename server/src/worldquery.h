@@ -18,8 +18,10 @@ typedef struct WorldHit {
 
 bool ServerQuery_Block(Vector3 cell, BlockShape *shape);
 bool ServerQuery_Clear(EntityBody body, Vector3 position);
+bool ServerQuery_ClearWithLiquids(EntityBody body, Vector3 position, bool allowLiquids);
 bool ServerQuery_CanWalk(EntityBody body, Vector3 from, Vector3 to);
 WorldHit ServerQuery_Raycast(Vector3 from, Vector3 to, bool entities, int ignoreId);
+WorldHit ServerQuery_RaycastWithLiquids(Vector3 from, Vector3 to, bool entities, int ignoreId, bool liquids);
 // Loaded ground only; returns zero when no complete route fits the search budget.
 int ServerQuery_FindPath(EntityBody body, Vector3 from, Vector3 to, Vector3 *path, int capacity);
 #endif

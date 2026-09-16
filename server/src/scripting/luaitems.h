@@ -16,4 +16,5 @@ void LuaItems_PushId(lua_State *state, int id);
 void LuaItems_ReadStack(lua_State *state, int index, ItemStack *stack);
 void LuaItems_PushStack(lua_State *state, ItemStack stack);
 int LuaItems_Define(lua_State *state);
+int LuaItems_Spawn(lua_State *state);
 #endif

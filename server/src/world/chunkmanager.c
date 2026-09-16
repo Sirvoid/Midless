@@ -24,6 +24,7 @@
 #include "scripthooks.h"
 #include "streamprofile.h"
 #include "chunksave.h"
+#include "../attachments.h"
 #include "platform.h"
 
 typedef struct PendingWorldBlock {
@@ -318,7 +319,7 @@ void ServerChunkManager_CancelUnusedRequests(void) {
 }
 
 static bool ChunkWanted(Chunk *chunk) {
-    if (arrlen(chunk->players)) return true;
+    if (arrlen(chunk->players) || ServerAttachments_ChunkOccupied(chunk->position)) return true;
     for (int i = 0; serverWorld.players && i < WORLD_MAX_PLAYERS; i++) {
         Player *player = serverWorld.players[i];
         if (player && !player->disconnected && PositionInLoadRadius(player, chunk->position)) return true;
@@ -403,7 +404,7 @@ void ServerChunkManager_Update(void) {
             }
         }
         if (arrlen(chunk->players) == 0) {
-            bool wanted = false;
+            bool wanted = ServerAttachments_ChunkOccupied(chunk->position);
             for (int p = 0; p < WORLD_MAX_PLAYERS; p++) {
                 Player *player = serverWorld.players[p];
                 if (player && !player->disconnected && PositionInLoadRadius(player, chunk->position)) {
@@ -456,6 +457,7 @@ Chunk *ServerWorld_AddChunk(Vector3 position) {
 }
 
 void ServerWorld_RemoveChunk(Chunk *chunk) {
+    if (ServerAttachments_ChunkOccupied(chunk->position)) return;
     if (chunk->savePending) return;
     long int packedPosition = ServerChunk_GetPackedPos(chunk->position);
     if (ServerWorld_GetChunkAt(chunk->position) != chunk) return;

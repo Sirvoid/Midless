@@ -1,3 +1,4 @@
+#include "attachments.h"
 /**
  * Copyright (c) 2026 Sirvoid
  *
@@ -218,13 +219,16 @@ void ServerDrops_Update(float dt) {
 }
 
 void ServerDrops_Replicate(Entity *entity) {
-    if (!replicateThisUpdate) return;
+    bool linked = ServerAttachments_HasLinks(entity);
+    if (!replicateThisUpdate && !linked) return;
     Chunk *chunk = GetChunk(entity->position);
     for (int id = 0; id < WORLD_MAX_PLAYERS; id++) {
         Player *player = serverWorld.players[id];
-        bool visible = player && !player->disconnected && chunk && ServerChunk_PlayerInChunk(chunk, player);
+        bool visible = player && !player->disconnected && (linked || (chunk && ServerChunk_PlayerInChunk(chunk, player)));
         if (visible && (!entity->drop.viewers[id] || entity->dirty)) {
             ServerNetwork_Send(player, ServerPacket_CreateDroppedItem(entity));
+            if (!entity->drop.viewers[id] && entity->attachment.parent)
+                ServerNetwork_Send(player, ServerPacket_CreateAttachment(entity, player));
         } else if (!visible && entity->drop.viewers[id] && player && !player->disconnected) {
             ServerNetwork_Send(player, ServerPacket_CreateDespawnEntity(entity));
         }

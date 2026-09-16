@@ -13,9 +13,11 @@
 #include "resource.h"
 #include "rlgl.h"
 #include "../textures.h"
+#include "entitymodelshader.h"
 
 EntityModelDefinition entityModels[256];
 static ModelDefinition *receivedModels[256];
+static Shader entityShader;
 
 typedef enum ModelFaceDirection {
     MODEL_FACE_EAST,
@@ -49,11 +51,14 @@ void EntityModel_DefineHumanoid(void) {
 }
 
 void EntityModelDefinitions_Init(void) {
+    entityShader = LoadShaderFromMemory(entityVertexShader, entityFragmentShader);
     EntityModel_DefineHumanoid();
 
 }
 
 void EntityModelDefinitions_Shutdown(void) {
+    UnloadShader(entityShader);
+    entityShader = (Shader){0};
     for(int i=1;i<256;i++) { MemFree(receivedModels[i]); receivedModels[i]=NULL; }
     for (int i = 0; i < 256; i++) {
         EntityModelDefinition *model = &entityModels[i];
@@ -74,6 +79,7 @@ void EntityModel_Create(EntityModel *model, EntityModelDefinition modelDef) {
     model->parts = MemAlloc(modelDef.boxCount * sizeof(EntityModelPart));
 
     model->material = LoadMaterialDefault();
+    model->material.shader = entityShader;
     SetMaterialTexture(&model->material, MATERIAL_MAP_DIFFUSE, modelDef.defaultTexture);
     
     for (int i = 0; i < modelDef.boxCount; i++) {
@@ -94,6 +100,8 @@ void EntityModel_Unload(EntityModel *model) {
         model->material.maps[MATERIAL_MAP_DIFFUSE].texture.id = rlGetTextureIdDefault();
     }
     
+    // The entity shader is shared by every model.
+    model->material.shader.id = rlGetShaderIdDefault();
     UnloadMaterial(model->material);
 }
 

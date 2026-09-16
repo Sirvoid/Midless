@@ -25,7 +25,11 @@ bool EntityBody_Validate(const EntityBody *body) {
     }
     return isfinite(body->gravityScale) && body->gravityScale >= 0 && body->gravityScale <= 10 &&
         isfinite(body->groundFriction) && body->groundFriction >= 0 && body->groundFriction <= 100 &&
-        isfinite(body->restitution) && body->restitution >= 0 && body->restitution <= 1;
+        isfinite(body->restitution) && body->restitution >= 0 && body->restitution <= 1 &&
+        isfinite(body->buoyancy) && body->buoyancy >= 0 && body->buoyancy <= 10 &&
+        isfinite(body->liquidDrag) && body->liquidDrag >= 0 && body->liquidDrag <= 100 &&
+        isfinite(body->liquidVerticalDrag) && body->liquidVerticalDrag >= 0 && body->liquidVerticalDrag <= 100 &&
+        isfinite(body->liquidLateralDrag) && body->liquidLateralDrag >= 0 && body->liquidLateralDrag <= 100;
 }
 
 BoundingBox EntityBody_Bounds(const EntityBody *body, Vector3 position) {
@@ -39,6 +43,44 @@ BoundingBox EntityBody_Bounds(const EntityBody *body, Vector3 position) {
 static bool Overlaps(BoundingBox a, BoundingBox b) {
     return a.min.x < b.max.x && a.max.x > b.min.x && a.min.y < b.max.y &&
         a.max.y > b.min.y && a.min.z < b.max.z && a.max.z > b.min.z;
+}
+
+float EntityBody_SubmergedFraction(const EntityBody *body, Vector3 position, EntityBody_QueryBlock query, void *context) {
+    if (!EntityBody_Validate(body) || !query ||
+        !isfinite(position.x) || !isfinite(position.y) || !isfinite(position.z) ||
+        fabsf(position.x) > 1000000 || fabsf(position.y) > 1000000 || fabsf(position.z) > 1000000) return -1;
+    BoundingBox bounds = EntityBody_Bounds(body, position);
+    float volume = (bounds.max.x-bounds.min.x) * (bounds.max.y-bounds.min.y) * (bounds.max.z-bounds.min.z);
+    if (volume <= 0) return -1;
+    float submerged = 0;
+    for (int x = (int)floorf(bounds.min.x); x < (int)ceilf(bounds.max.x); x++)
+    for (int y = (int)floorf(bounds.min.y); y < (int)ceilf(bounds.max.y); y++)
+    for (int z = (int)floorf(bounds.min.z); z < (int)ceilf(bounds.max.z); z++) {
+        BlockShape shape = {0};
+        if (!query(context, (Vector3){x,y,z}, &shape)) return -1;
+        if (!shape.liquid) continue;
+        submerged += fmaxf(0, fminf(bounds.max.x, shape.bounds.max.x)-fmaxf(bounds.min.x, shape.bounds.min.x)) *
+                     fmaxf(0, fminf(bounds.max.y, shape.bounds.max.y)-fmaxf(bounds.min.y, shape.bounds.min.y)) *
+                     fmaxf(0, fminf(bounds.max.z, shape.bounds.max.z)-fmaxf(bounds.min.z, shape.bounds.min.z));
+    }
+    return fminf(1, submerged / volume);
+}
+
+void EntityBody_ApplyLiquid(EntityBody *body, float submerged, float yaw, float dt) {
+    if (!body->enabled || !EntityBody_Validate(body) || !isfinite(submerged) || submerged <= 0 ||
+        submerged > 1 || !isfinite(yaw) || !isfinite(dt) || dt <= 0 || dt > 0.05f) return;
+    float forwardX = sinf(yaw), forwardZ = cosf(yaw);
+    float speed = body->velocity.x * forwardX + body->velocity.z * forwardZ;
+    float lateralX = body->velocity.x - speed * forwardX;
+    float lateralZ = body->velocity.z - speed * forwardZ;
+    float drag = expf(-body->liquidDrag * submerged * dt);
+    float lateralDrag = expf(-(body->liquidDrag + body->liquidLateralDrag) * submerged * dt);
+    body->velocity.x = fmaxf(-100, fminf(100, speed * drag * forwardX + lateralX * lateralDrag));
+    body->velocity.z = fmaxf(-100, fminf(100, speed * drag * forwardZ + lateralZ * lateralDrag));
+    body->velocity.y = fminf(100, body->velocity.y * expf(-body->liquidVerticalDrag * submerged * dt) +
+                           20 * body->buoyancy * submerged * dt);
+    // A sleeping body must be able to lift off when liquid rises around it.
+    if (body->buoyancy > 0) body->sleeping = false;
 }
 
 // Sweep the body by expanding a block by its extents and tracing the body origin.

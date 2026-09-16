@@ -9,6 +9,7 @@
 #define MIDLESS_CLIENT_ENTITY_H
 
 #include "raylib.h"
+#include "attachment.h"
 #include "entitymodel.h"
 #include "entityanimation.h"
 #include "droppeditem.h"
@@ -27,6 +28,7 @@ typedef struct EntityAnimation {
 } EntityAnimation;
 
 typedef struct Entity{
+    Attachment attachment;
     Nametag nametag;
     ItemStack droppedStack;
     unsigned short heldBlock;

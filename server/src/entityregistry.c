@@ -6,6 +6,7 @@
  */
 
 #include "entityregistry.h"
+#include "attachments.h"
 #include "entityphysics.h"
 #include "entityeffects.h"
 #include "world/world.h"
@@ -117,6 +118,7 @@ int ServerEntities_Damage(Entity *entity, int amount, Vector3 impulse,
     }
     if (entity->hp == 0 && !entity->pendingRemoval) {
         entity->dead = true;
+        ServerAttachments_Cleanup(entity);
         if (hooks && hooks->death)
             hooks->death(entity, hooks->context);
         ServerWorld_RemoveEntity(entity->id);

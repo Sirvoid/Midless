@@ -28,13 +28,16 @@ static bool Overlaps(BoundingBox a, BoundingBox b) {
         a.max.y > b.min.y && a.min.z < b.max.z && a.max.z > b.min.z;
 }
 bool ServerQuery_Clear(EntityBody body, Vector3 position) {
+    return ServerQuery_ClearWithLiquids(body, position, false);
+}
+bool ServerQuery_ClearWithLiquids(EntityBody body, Vector3 position, bool allowLiquids) {
     if (!PositionValid(position) || !EntityBody_Validate(&body)) return false;
     BoundingBox bounds = EntityBody_Bounds(&body, position);
     for (int x = floorf(bounds.min.x); x < ceilf(bounds.max.x); x++)
     for (int y = floorf(bounds.min.y); y < ceilf(bounds.max.y); y++)
     for (int z = floorf(bounds.min.z); z < ceilf(bounds.max.z); z++) {
         BlockShape shape;
-        if (!ServerQuery_Block((Vector3){x,y,z}, &shape) || shape.liquid) return false;
+        if (!ServerQuery_Block((Vector3){x,y,z}, &shape) || (shape.liquid && !allowLiquids)) return false;
         if (shape.solid) for (int i = 0; i < shape.collisionCount; i++)
             if (Overlaps(bounds, shape.collision[i])) return false;
     }
@@ -66,6 +69,9 @@ static bool RayBox(Vector3 from, Vector3 direction, BoundingBox box, float *dist
     return true;
 }
 WorldHit ServerQuery_Raycast(Vector3 from, Vector3 to, bool entities, int ignoreId) {
+    return ServerQuery_RaycastWithLiquids(from, to, entities, ignoreId, false);
+}
+WorldHit ServerQuery_RaycastWithLiquids(Vector3 from, Vector3 to, bool entities, int ignoreId, bool liquids) {
     WorldHit hit = {.type = HIT_NOTHING, .position = to, .entityId = -1};
     Vector3 direction = {to.x-from.x,to.y-from.y,to.z-from.z};
     float length = sqrtf(direction.x*direction.x+direction.y*direction.y+direction.z*direction.z);
@@ -90,9 +96,11 @@ WorldHit ServerQuery_Raycast(Vector3 from, Vector3 to, bool entities, int ignore
         if (!ServerQuery_Block(block, &shape)) {
             hit.type = HIT_UNLOADED; hit.distance = entered; hit.block = block; break;
         }
-        if (shape.solid) for (int i = 0; i < shape.collisionCount; i++) {
+        int count = shape.solid ? shape.collisionCount : liquids && shape.liquid ? 1 : 0;
+        for (int i = 0; i < count; i++) {
             float distance = hit.distance; Vector3 normal;
-            if (RayBox(from, direction, shape.collision[i], &distance, &normal)) {
+            BoundingBox bounds = shape.solid ? shape.collision[i] : shape.bounds;
+            if (RayBox(from, direction, bounds, &distance, &normal)) {
                 hit.type = HIT_BLOCK; hit.distance = distance; hit.block = block; hit.normal = normal;
             }
         }

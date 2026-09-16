@@ -80,7 +80,7 @@ int LuaQueries_Raycast(lua_State *state) {
     Vector3 from = ReadPosition(1), to = ReadPosition(2);
     if (hypotf(hypotf(to.x - from.x, to.z - from.z), to.y - from.y) > 128)
         return luaL_error(L, "raycast is limited to 128 blocks");
-    bool entities = true;
+    bool entities = true, liquids = false;
     int ignore = -1;
     if (!lua_isnoneornil(L, 3)) {
         luaL_checktype(L, 3, LUA_TTABLE);
@@ -88,6 +88,12 @@ int LuaQueries_Raycast(lua_State *state) {
         if (!lua_isnil(L, -1)) {
             luaL_checktype(L, -1, LUA_TBOOLEAN);
             entities = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, 3, "liquids");
+        if (!lua_isnil(L, -1)) {
+            luaL_checktype(L, -1, LUA_TBOOLEAN);
+            liquids = lua_toboolean(L, -1);
         }
         lua_pop(L, 1);
         lua_getfield(L, 3, "ignore");
@@ -104,7 +110,7 @@ int LuaQueries_Raycast(lua_State *state) {
         }
         lua_pop(L, 1);
     }
-    PushHit(ServerQuery_Raycast(from, to, entities, ignore));
+    PushHit(ServerQuery_RaycastWithLiquids(from, to, entities, ignore, liquids));
     return 1;
 }
 static int Nearby(bool players) {

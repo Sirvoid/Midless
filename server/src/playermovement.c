@@ -9,6 +9,7 @@
 #include <limits.h>
 #include "playerimpulse.h"
 #include "player.h"
+#include "attachments.h"
 #include "packet.h"
 #include "networkhandler.h"
 #include "blockstates.h"
@@ -43,7 +44,7 @@ void ServerPlayer_ResetMovement(Player *player) {
 bool ServerPlayer_ApplyImpulse(Player *player, Vector3 impulse) {
     if (!player || player->disconnected || !player->movementReady || !PlayerImpulse_Valid(impulse) ||
         !serverWorld.entities || player->entityId < 0 || player->entityId >= WORLD_MAX_ENTITIES ||
-        !serverWorld.entities[player->entityId].active) return false;
+        !serverWorld.entities[player->entityId].active || serverWorld.entities[player->entityId].attachment.parent) return false;
     if (impulse.x == 0 && impulse.y == 0 && impulse.z == 0) return true;
     unsigned char *packet = ServerPacket_CreatePlayerImpulse(impulse);
     if (!packet) return false;
@@ -180,6 +181,13 @@ static void CorrectPosition(Player *player, const char *reason) {
 
 void ServerPlayer_UpdatePositionRotation(Player *player, Vector3 position, Vector3 rotation) {
     if (!serverWorld.entities || player->entityId < 0 || player->entityId >= WORLD_MAX_ENTITIES) return;
+    Entity *attached = &serverWorld.entities[player->entityId];
+    if (attached->attachment.parent) {
+        if (isfinite(rotation.x) && isfinite(rotation.y) && isfinite(rotation.z) && !attached->attachment.inheritRotation) {
+            attached->rotation = rotation; attached->dirty = true;
+        }
+        return;
+    }
     if (!player->movementReady) ServerPlayer_ResetMovement(player);
     Vector3 previous = serverWorld.entities[player->entityId].position;
     double now = GetTime();

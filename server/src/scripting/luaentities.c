@@ -5,6 +5,9 @@
  * https://opensource.org/licenses/MIT
  */
 
+#include "luaplayers.h"
+#include "luaattachments.h"
+#include "../attachments.h"
 #include "../entityregistry.h"
 #include "../scripthooks.h"
 #include "luaentitytexture.h"
@@ -34,7 +37,7 @@ typedef struct Handle {
     uint64_t generation;
 } Handle;
 typedef struct EntityCallbacks {
-    int spawn, step, remove, load, unload, damage, death;
+    int spawn, step, remove, load, unload, damage, death, control, controlAcquired, controlLost;
 } EntityCallbacks;
 static EntityCallbacks callbacks[MAX_DEFINITIONS];
 static int instances[WORLD_MAX_ENTITIES];
@@ -110,6 +113,7 @@ static int GetRotation(lua_State *state) {
 }
 static int SetPosition(lua_State *state) {
     Entity *e = Check(state);
+    if (e->attachment.parent) return luaL_error(state, "detach before moving an attached object");
     if (e->body.enabled)
         return luaL_error(state, "use teleport or velocity for a physics entity");
     Vector3 p = ReadVector(state, 2, 33554430.0f);
@@ -142,9 +146,11 @@ static EntityBody ReadBody(lua_State *state, int index) {
     if (!lua_isnil(state, -1))
         body.localBounds.max = ReadVector(state, -1, 4);
     lua_pop(state, 1);
-    const char *names[] = {"gravity_scale", "ground_friction", "restitution"};
-    float *values[] = {&body.gravityScale, &body.groundFriction, &body.restitution};
-    for (int i = 0; i < 3; i++) {
+    const char *names[] = {"gravity_scale", "ground_friction", "restitution",
+        "buoyancy", "liquid_drag", "liquid_vertical_drag", "liquid_lateral_drag"};
+    float *values[] = {&body.gravityScale, &body.groundFriction, &body.restitution,
+        &body.buoyancy, &body.liquidDrag, &body.liquidVerticalDrag, &body.liquidLateralDrag};
+    for (int i = 0; i < 7; i++) {
         lua_getfield(state, index, names[i]);
         if (!lua_isnil(state, -1))
             *values[i] = luaL_checknumber(state, -1);
@@ -176,6 +182,12 @@ static int ApplyImpulse(lua_State *state) {
 }
 static int IsGrounded(lua_State *state) {
     lua_pushboolean(state, Check(state)->body.grounded);
+    return 1;
+}
+static int GetSubmergedFraction(lua_State *state) {
+    float submerged = ServerPhysics_SubmergedFraction(Check(state));
+    if (submerged < 0) lua_pushnil(state);
+    else lua_pushnumber(state, submerged);
     return 1;
 }
 static int GetName(lua_State *state) {
@@ -269,6 +281,7 @@ static int Damage(lua_State *state) {
 }
 static int Teleport(lua_State *state) {
     Entity *entity = Check(state);
+    if (entity->attachment.parent) return luaL_error(state, "detach before teleporting an attached object");
     ServerWorld_TeleportEntity(entity->id, ReadVector(state, 2, 1000000), entity->rotation);
     return 0;
 }
@@ -346,9 +359,9 @@ int LuaEntities_Register(lua_State *state) {
         return luaL_error(L, "model is not defined");
     lua_pop(L, 1);
     const char *callbackNames[] = {"on_spawn",  "on_step",   "on_remove", "on_load",
-                                   "on_unload", "on_damage", "on_death"};
+                                   "on_unload", "on_damage", "on_death", "on_control", "on_control_acquired", "on_control_lost"};
     // Validate all callbacks before taking registry references.
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 10; i++) {
         lua_getfield(L, 2, callbackNames[i]);
         if (!lua_isnil(L, -1))
             luaL_checktype(L, -1, LUA_TFUNCTION);
@@ -406,8 +419,8 @@ int LuaEntities_Register(lua_State *state) {
     lua_pop(L, 1);
     memcpy(d.name, name, length + 1);
     d.metadata = LuaMetadata_Register(L, 2);
-    int refs[7];
-    for (int i = 0; i < 7; i++) {
+    int refs[10];
+    for (int i = 0; i < 10; i++) {
         lua_getfield(L, 2, callbackNames[i]);
         if (lua_isnil(L, -1)) {
             lua_pop(L, 1);
@@ -422,6 +435,9 @@ int LuaEntities_Register(lua_State *state) {
     callbacks[ServerEntities_Count()].unload = refs[4];
     callbacks[ServerEntities_Count()].damage = refs[5];
     callbacks[ServerEntities_Count()].death = refs[6];
+    callbacks[ServerEntities_Count()].control = refs[7];
+    callbacks[ServerEntities_Count()].controlAcquired = refs[8];
+    callbacks[ServerEntities_Count()].controlLost = refs[9];
     ServerEntities_Register(&d);
     return 0;
 }
@@ -508,7 +524,13 @@ void ScriptHooks_EntitiesLoaded(Entity *e) {
 void LuaEntities_Init(void) {
     for (int i = 0; i < WORLD_MAX_ENTITIES; i++)
         instances[i] = LUA_NOREF;
-    static const luaL_Reg methods[] = {{"set_texture", SetTexture},
+    static const luaL_Reg methods[] = {{"attach", LuaAttachment_Attach},
+                                       {"detach", LuaAttachment_Detach},
+                                       {"get_attachment", LuaAttachment_Get},
+                                       {"get_children", LuaAttachment_Children},
+                                       {"get_controller", LuaAttachment_Controller},
+                                       {"set_controller", LuaAttachment_SetController},
+                                       {"set_texture", SetTexture},
                                        {"flash_color", FlashColor},
                                        {"get_texture", GetTexture},
                                        {"follow_ground_path", LuaMobs_Follow},
@@ -540,6 +562,7 @@ void LuaEntities_Init(void) {
                                        {"set_velocity", SetVelocity},
                                        {"apply_impulse", ApplyImpulse},
                                        {"is_grounded", IsGrounded},
+                                       {"get_submerged_fraction", GetSubmergedFraction},
                                        {"teleport", Teleport},
                                        {NULL, NULL}};
     luaL_newmetatable(L, ENTITY_HANDLE);
@@ -559,10 +582,43 @@ void LuaEntities_Shutdown(void) {
         luaL_unref(L, LUA_REGISTRYINDEX, callbacks[i].unload);
         luaL_unref(L, LUA_REGISTRYINDEX, callbacks[i].damage);
         luaL_unref(L, LUA_REGISTRYINDEX, callbacks[i].death);
+        luaL_unref(L, LUA_REGISTRYINDEX, callbacks[i].control);
+        luaL_unref(L, LUA_REGISTRYINDEX, callbacks[i].controlAcquired);
+        luaL_unref(L, LUA_REGISTRYINDEX, callbacks[i].controlLost);
     }
     ServerEntities_Reset();
 }
 
 int LuaEntities_Instance(const Entity *entity) {
     return instances[entity->id];
+}
+
+void ScriptHooks_Control(Entity *e, Player *p, float dt, int event) {
+    if (!L || e->definitionId < 0 || instances[e->id] == LUA_NOREF) return;
+    EntityCallbacks *c = &callbacks[e->definitionId];
+    int ref = event > 0 ? c->controlAcquired : event < 0 ? c->controlLost : c->control;
+    if (ref == LUA_NOREF) return;
+    int top = lua_gettop(L);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+    lua_rawgeti(L, LUA_REGISTRYINDEX, instances[e->id]);
+    LuaPlayers_Push(p);
+    if (!event) {
+        lua_newtable(L);
+        lua_pushinteger(L, p->controlForward);
+        lua_setfield(L, -2, "forward");
+        lua_pushinteger(L, p->controlSideways);
+        lua_setfield(L, -2, "sideways");
+        lua_pushboolean(L, p->controlFlags & 1);
+        lua_setfield(L, -2, "jump");
+        lua_pushboolean(L, p->controlFlags & 2);
+        lua_setfield(L, -2, "sneak");
+        PushVector(L, p->controlLook);
+        lua_setfield(L, -2, "look_rotation");
+        lua_pushnumber(L, dt);
+    }
+    if (lua_pcall(L, event ? 2 : 4, 0, 0) != LUA_OK) {
+        TraceLog(LOG_WARNING, "Entity control callback: %s", lua_tostring(L, -1));
+        e->moveEnabled = false;
+    }
+    lua_settop(L, top);
 }

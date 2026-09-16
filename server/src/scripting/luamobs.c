@@ -262,8 +262,13 @@ int LuaMobs_Teleport(lua_State *state) {
         luaL_checktype(L, 3, LUA_TBOOLEAN);
         ground = lua_toboolean(L, 3);
     }
-    bool clear =
-        ground ? ServerQuery_CanWalk(e->body, goal, goal) : ServerQuery_Clear(e->body, goal);
+    bool allowLiquids = false;
+    if (!lua_isnoneornil(L, 4)) {
+        luaL_checktype(L, 4, LUA_TBOOLEAN);
+        allowLiquids = lua_toboolean(L, 4);
+    }
+    bool clear = ground ? ServerQuery_CanWalk(e->body, goal, goal) :
+        ServerQuery_ClearWithLiquids(e->body, goal, allowLiquids);
     if (clear)
         ServerWorld_TeleportEntity(e->id, goal, e->rotation);
     lua_pushboolean(L, clear);

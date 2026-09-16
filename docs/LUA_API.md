@@ -364,6 +364,8 @@ player:set_selected_stack(stack)
 
 Stack getters return copies or `nil` when empty. Write a changed stack back with `set_stack` or `set_selected_stack`; use `nil` to clear it. Omitted metadata uses defaults. Items stack only when ID and metadata match, and metadata survives moving, dropping, and saving.
 
+`midless.spawn_item(position, stack)` creates a dropped item. Returns `true` on success or `false` if it cannot spawn.
+
 ### Breaking and harvest levels
 
 | Block field | Meaning |
@@ -623,6 +625,21 @@ local entity = midless.spawn_entity("my_mod:creature", {x = 0, y = 80, z = 0})
 ```
 
 Callbacks share a `self` table; `self.object` is the entity handle. Body bounds use blocks. Optional registration fields include `texture`, `population_group`, and `despawn`.
+### Liquid physics
+
+Bodies can use built-in liquid physics:
+
+| Field                  | Effect                                     |
+| ---------------------- | ------------------------------------------ |
+| `buoyancy`             | Makes the body float.                      |
+| `liquid_drag`          | Slows horizontal movement.                 |
+| `liquid_vertical_drag` | Slows vertical movement and bobbing.       |
+| `liquid_lateral_drag`  | Slows sideways movement.                   |
+
+All values default to `0`.
+
+Liquid physics automatically accounts for how submerged the body is. Lua can still handle movement and steering.
+
 
 | Callback | When |
 | --- | --- |
@@ -649,6 +666,7 @@ Loaded entities get new runtime IDs, invalidating old handles. `save = false` di
 | `entity:teleport(pos)` | Instant repositioning. |
 | `entity:get_rotation()` / `entity:set_rotation(rotation)` | XYZ Euler radians: pitch, yaw, roll. |
 | `entity:get_velocity()` / `entity:set_velocity(v)` | Velocity in blocks/second; do not multiply by `dt`. Setting it replaces steering. |
+| `entity:get_submerged_fraction()` | Fraction of body volume in liquid, 0–1; `nil` if terrain or bounds are unavailable. |
 | `entity:apply_impulse(v)` | Add velocity. |
 | `entity:set_move_direction(direction, speed, acceleration)` | Horizontal steering; ignores Y and normalizes direction. |
 | `entity:jump(speed)` | Jump if grounded and ready; otherwise `false`. |
@@ -681,6 +699,54 @@ Players and entities accept this context. `attacker` is an optional player/entit
 
 Entity `on_damage` and `register_on_player_damage` run before subtraction. Return `nil` to keep damage, `false`/0 to cancel, or an integer 0–65535 to replace it. At zero entity HP, `on_death` runs once while methods remain readable, then removal is queued.
 
+### Attachments and controllers
+
+Players and entities can be attached to another player or entity. This is useful for passengers, vehicles, carried objects, etc.
+
+```lua
+player:attach(boat, {
+    offset = {x = 0, y = 0.8, z = 0},
+    inherit_rotation = false,
+})
+
+local parent = player:get_attachment()
+local children = boat:get_children()
+
+player:detach()
+```
+
+While attached, the child follows its parent and its normal movement and physics are disabled. `inherit_rotation = true` also makes it follow the parent's rotation.
+
+Control is separate from attachment. A player can control an entity without being attached to it.
+
+```lua
+boat:set_controller(player)
+
+local driver = boat:get_controller()
+local vehicle = player:get_controlled_entity()
+
+boat:set_controller(nil)
+```
+
+Entities can handle player input with `on_control`:
+
+```lua
+midless.define_entity("my_mod:vehicle", {
+    model = 0,
+    body = {enabled = true},
+
+    on_control = function(self, player, input, dt)
+        -- input.forward
+        -- input.sideways
+        -- input.jump
+        -- input.sneak
+        -- input.look_rotation
+    end,
+})
+```
+
+While controlled, normal mob movement and attacks are disabled. `on_step` continues to run.
+
 ### Raycasts, nearby objects, and attacks
 
 ```lua
@@ -693,6 +759,7 @@ local nearest = midless.get_player_in_radius(pos, 32)
 Raycasts return the nearest `entity`, `player`, `block`, `unloaded`, or `nothing` in `hit.type`, plus `position`, `normal`, and `distance`. Hits expose the matching `hit.entity`, `hit.player`, or `hit.block`.
 
 Rays are limited to 128 blocks. `entities` defaults to `true`; set `false` for terrain only. `ignore` accepts a non-player entity; use `ignore_player = player:get_id()` for a player.
+Set `liquids = true` to hit liquid surfaces as block hits, including flowing-water heights. Liquids are ignored by default.
 
 The singular `get_player_in_radius` returns the nearest living, connected, movement-ready player or `nil`; radius is 0–128.
 ```lua
@@ -770,7 +837,7 @@ These work on ordinary entities too:
 | `entity:follow_ground_path(goal, options)` | Follow loaded ground with diagonal paths and automatic jumps. `nil` clears the route and stops horizontal movement. Returns `true` while pursuing a waypoint, otherwise `false`. |
 | `entity:wander_goal(radius)` | Random nearby goal or `nil` during a pause. Default radius 6; range 1–16. Does not move by itself. |
 | `entity:steer_toward(goal, speed, acceleration)` | Acceleration-limited 3D steering, slowing near the goal. Default acceleration 32. Set `body.gravity_scale = 0` to hover. |
-| `entity:try_teleport(destination, require_ground)` | Returns `false` for blocked, liquid, or unloaded destinations. Success teleports and resets velocity. Ground requirement defaults false. |
+| `entity:try_teleport(destination, require_ground, allow_liquids)` | Returns `false` for blocked destinations. Liquids are rejected unless `allow_liquids = true` and `require_ground = false`. Success teleports and resets velocity. Both flags default false. |
 
 Ground-path options: `{speed = 2, acceleration = 32, jump = 7}`. Speed is 0–20, acceleration >0–100, jump 0–20; zero jump disables jumping. Paths ignore moving obstacles, share two searches per server update, normally replan once per second, and use local legs for distant goals. Stable-goal shortcuts are checked at most five times per second.
 

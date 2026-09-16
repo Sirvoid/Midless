@@ -15,6 +15,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "player.h"
+#include "attachments.h"
 #include "world/world.h"
 #include "world/chunk/chunk.h"
 #include "networkhandler.h"
@@ -112,6 +113,7 @@ void ServerPlayer_RemoveBlockDefinition(Player *player, int id) {
 void ServerPlayer_Teleport(Player *player, Vector3 position) {
     if (player->entityId < 0) return;
     Entity *entity = &serverWorld.entities[player->entityId];
+    ServerAttachments_Cleanup(entity);
     ServerWorld_TeleportEntity(player->entityId, position, entity->rotation);
     ServerPlayer_ResetMovement(player);
     // Detach the old view immediately; saving its chunks remains budgeted.

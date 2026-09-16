@@ -11,6 +11,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include "player.h"
+#include "attachments.h"
 #include "playerimpulse.h"
 #include "world.h"
 #include "raycast.h"
@@ -45,6 +46,7 @@ static Vector3 movementInput;
 static bool jumpHeld, jumpPending;
 
 static Vector3 Player_RenderPosition(void) {
+    if (player.attachment.parent) return player.position;
     float alpha = Clamp((float)(physicsAccumulator / PLAYER_PHYSICS_STEP), 0, 1);
     return Vector3Lerp(previousPhysicsPosition, player.position, alpha);
 }
@@ -60,6 +62,9 @@ void Player_CameraKick(float pitch, float roll, float duration) {
 }
 
 void Player_Init(void) {
+    player.attachment = (Attachment){0};
+    player.attachmentEpoch = player.controlSession = 0;
+    player.controlledEntity = 0;
     kickDuration = 0;
     physicsAccumulator = 0;
     movementInput = (Vector3){0};
@@ -74,6 +79,7 @@ void Player_Init(void) {
     
     player.velocity = (Vector3) {0, 0, 0};
     player.impulseFlight = false;
+    player.waterborne = false;
     player.position = (Vector3) { 0, 80, 0 };
     previousPhysicsPosition = player.position;
     player.speed = 7.5f; // Blocks per second
@@ -122,6 +128,7 @@ void Player_Teleport(Vector3 position) {
     player.animation.lastPosition = position;
     player.velocity = (Vector3){0};
     player.impulseFlight = false;
+    player.waterborne = false;
     player.canJump = false;
 
     player.camera.position = position;
@@ -330,6 +337,7 @@ static void Player_UpdateCamera(void) {
 
 
 void Player_ApplyImpulse(Vector3 impulse) {
+    if (player.attachment.parent) return;
     if (!PlayerImpulse_Valid(impulse)) return;
     player.velocity = PlayerImpulse_Add(player.velocity, impulse);
     if (impulse.x != 0 || impulse.y != 0 || impulse.z != 0) player.impulseFlight = true;
@@ -338,6 +346,7 @@ void Player_ApplyImpulse(Vector3 impulse) {
 
 static void Player_PhysicsStep(void) {
     player.liquidSubmersion = Player_GetLiquidSubmersion();
+    if (player.liquidSubmersion > 0) player.waterborne = true;
 
     if (player.liquidSubmersion > 0.0f) {
         player.velocity.y -= WATER_GRAVITY;
@@ -395,8 +404,12 @@ static void Player_PhysicsStep(void) {
     }
 
     if (player.canJump || player.liquidSubmersion > 0.0f) player.impulseFlight = false;
-    if (player.liquidSubmersion > 0.0f) {
-        player.velocity = Vector3Scale(player.velocity, WATER_DRAG);
+    if (player.canJump && Player_GetLiquidSubmersion() == 0) player.waterborne = false;
+    if (player.liquidSubmersion > 0.0f) player.velocity.y *= WATER_DRAG;
+    // Briefly clearing the surface must not grant land acceleration or reduce drag.
+    if (player.waterborne && !player.impulseFlight) {
+        player.velocity.x *= WATER_DRAG;
+        player.velocity.z *= WATER_DRAG;
     } else if (!player.impulseFlight) {
         player.velocity.x -= player.velocity.x / 6.0f;
         player.velocity.z -= player.velocity.z / 6.0f;
@@ -412,11 +425,17 @@ static void Player_PhysicsStep(void) {
     jumpPending = false;
     // Balance the 1/6 drag per tick while exposing speed in blocks/second.
     Vector3 moveVel = Vector3Scale(movementInput, player.speed / 60.0f / 6.0f);
-    if (player.liquidSubmersion > 0.0f) moveVel = Vector3Scale(moveVel, WATER_MOVE_SCALE);
+    if (player.waterborne) moveVel = Vector3Scale(moveVel, WATER_MOVE_SCALE);
     if (!player.impulseFlight) player.velocity = Vector3Add(player.velocity, moveVel);
 }
 
 static void Player_AdvancePhysics(float dt) {
+    if (player.attachment.parent) {
+        physicsAccumulator = 0; player.velocity = movementInput = (Vector3){0};
+        player.waterborne = false;
+        jumpHeld = jumpPending = false;
+        return;
+    }
     if (!isfinite(dt) || dt <= 0) return;
     physicsAccumulator += fmin((double)dt, PLAYER_PHYSICS_STEP * PLAYER_MAX_CATCHUP_STEPS);
     int steps = 0;
@@ -431,7 +450,14 @@ static void Player_AdvancePhysics(float dt) {
 void Player_Update(void) {
     ClientInventory_Update();
     Player_CheckInputs();
-    Player_AdvancePhysics(GetFrameTime());
+    if (!player.attachment.parent) Player_AdvancePhysics(GetFrameTime());
+    else {
+        physicsAccumulator = 0; movementInput = (Vector3){0};
+        player.waterborne = false;
+        jumpHeld = jumpPending = false; player.velocity = (Vector3){0};
+        ClientAttachments_Update();
+    }
+    ClientControl_Update();
     World_LoadChunks();
     Player_CheckActions();
     Player_UpdateCamera();
@@ -439,7 +465,8 @@ void Player_Update(void) {
         Network_Send(Packet_CreatePlayerPosition((Vector3) { player.position.x + 0.5f, player.position.y, player.position.z + 0.5f }, (Vector3) {playerCameraAngle.y - PI / 2, -playerCameraAngle.x + PI / 2, 0}));
         playerLastPositionPacketTime = GetTime();
     }
-    EntityAnimation_Update(&player.animation, Player_RenderPosition(), GetFrameTime());
+    if (!player.attachment.parent) EntityAnimation_Update(&player.animation, Player_RenderPosition(), GetFrameTime());
+    else { player.animation.walkAmount = player.animation.walkSpeed = 0; player.animation.lastPosition = player.position; }
 }
 
 bool Player_TestCollision(Vector3 offset) {
@@ -549,3 +576,16 @@ Vector3 Player_GetForwardVector(void) {
 Vector3 Player_GetChunkPosition(void) {
     return (Vector3) {(int)floor(player.position.x / CHUNK_SIZE_X), (int)floor(player.position.y / CHUNK_SIZE_Y), (int)floor(player.position.z / CHUNK_SIZE_Z)};
 }
+
+Vector3 Player_GetRotation(void) {
+    return (Vector3){playerCameraAngle.y-PI/2,-playerCameraAngle.x+PI/2,0};
+}
+void Player_SetAttachedPosition(Vector3 position, Vector3 rotation) {
+    player.position=previousPhysicsPosition=position;
+    player.attachedRotation=rotation;
+    if(player.attachment.inheritRotation) {
+        playerCameraAngle.y=rotation.x+PI/2;
+        playerCameraAngle.x=-rotation.y+PI/2;
+    }
+}
+void Player_RefreshAttachedCamera(void) { Player_UpdateCamera(); }

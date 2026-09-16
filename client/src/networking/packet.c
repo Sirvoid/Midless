@@ -42,6 +42,7 @@ int Packet_Lengths[256] = {
     PLAYER_CLICK_PACKET_SIZE, // 4
     TEXTURE_ACK_SIZE, // 5
     INVENTORY_ACTION_PACKET_SIZE, // 6
+    CONTROL_INPUT_PACKET_SIZE,
 };
 int pingCalculationPreviousTime = 0;
 
@@ -641,6 +642,7 @@ unsigned char *Packet_CreatePlayerPosition(Vector3 position, Vector3 rotation) {
     Packet_WriteByte(packet, Rotation_Encode(rotation.x));
     Packet_WriteByte(packet, Rotation_Encode(rotation.y));
     Packet_WriteByte(packet, Rotation_Encode(rotation.z));
+    Packet_WriteInt(packet, player.attachmentEpoch);
     return packet;
 }
 
@@ -668,4 +670,57 @@ unsigned char *Packet_CreatePlayerClick(unsigned char button) {
     return packet;
 }
 
-
+void Packet_HandleAttachment(void) {
+    if (packetDataLength != ATTACHMENT_PACKET_SIZE) return;
+    int id = Packet_ReadUShort(), parent = Packet_ReadUShort();
+    Attachment a = {0};
+    int inherit = Packet_ReadByte();
+    a.inheritRotation = inherit != 0;
+    float v[6];
+    for (int i = 0; i < 6; i++)
+        v[i] = Packet_ReadInt() / 4096.0f;
+    uint32_t epoch = Packet_ReadUInt();
+    if ((id != ATTACHMENT_LOCAL && id >= WORLD_MAX_ENTITIES) ||
+        (parent != ATTACHMENT_LOCAL && parent != ATTACHMENT_NONE && parent >= WORLD_MAX_ENTITIES) ||
+        inherit > 1 || id == parent)
+        return;
+    for (int i = 0; i < 6; i++)
+        if (fabsf(v[i]) > (i < 3 ? 64 : 100)) return;
+    a.parent = parent == ATTACHMENT_NONE    ? 0
+               : parent == ATTACHMENT_LOCAL ? WORLD_MAX_ENTITIES + 1
+                                            : parent + 1;
+    a.offset = (Vector3){v[0], v[1], v[2]};
+    a.rotation = (Vector3){v[3], v[4], v[5]};
+    if (id == ATTACHMENT_LOCAL) {
+        bool changed = player.attachmentEpoch != epoch;
+        player.attachment = a;
+        player.attachmentEpoch = epoch;
+        if (changed) Player_Teleport(player.position);
+    } else if (world.entities[id].type) {
+        Entity *e = &world.entities[id];
+        bool detached = e->attachment.parent && !a.parent;
+        e->attachment = a;
+        if (detached) e->position = e->targetPosition;
+    }
+}
+void Packet_HandleControlState(void) {
+    if (packetDataLength != CONTROL_STATE_PACKET_SIZE) return;
+    int id = Packet_ReadUShort();
+    uint32_t session = Packet_ReadUInt();
+    if (id != ATTACHMENT_NONE && id >= WORLD_MAX_ENTITIES) return;
+    player.controlledEntity = id == ATTACHMENT_NONE ? 0 : id + 1;
+    player.controlSession = session;
+}
+unsigned char *Packet_CreateControlInput(int forward, int sideways, unsigned flags, Vector3 look) {
+    unsigned char *packet = MemAlloc(CONTROL_INPUT_PACKET_SIZE);
+    if (!packet) return NULL;
+    packetWriterIndex = 0;
+    Packet_WriteByte(packet, PACKET_CONTROL_INPUT);
+    Packet_WriteInt(packet, player.controlSession);
+    Packet_WriteByte(packet, forward + 1);
+    Packet_WriteByte(packet, sideways + 1);
+    Packet_WriteByte(packet, flags);
+    Packet_WriteByte(packet, Rotation_Encode(look.x));
+    Packet_WriteByte(packet, Rotation_Encode(look.y));
+    return packet;
+}

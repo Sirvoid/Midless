@@ -6,6 +6,7 @@
  */
 
 #include <string.h>
+#include <math.h>
 #include "raylib.h"
 #include "entitymodelpart.h"
 
@@ -50,6 +51,16 @@ void EntityModelPart_AddFace(Mesh *mesh, int face, BoundingBox box, Rectangle uv
     Vector3 facesPosition[36] = {0};
     EntityModelPart_GetFacesPosition(box, facesPosition);
 
+    // The original UV orientation maps U from vertex 2 to 1, V from 2 to 0.
+    Vector3 origin = facesPosition[face * 6 + 2];
+    Vector3 uEnd = facesPosition[face * 6 + 1];
+    Vector3 vEnd = facesPosition[face * 6];
+    float width = fabsf(uEnd.x-origin.x) + fabsf(uEnd.y-origin.y) + fabsf(uEnd.z-origin.z);
+    float height = fabsf(vEnd.x-origin.x) + fabsf(vEnd.y-origin.y) + fabsf(vEnd.z-origin.z);
+    float scale = fminf(width / fabsf(uvs.width), height / fabsf(uvs.height));
+    float repeatU = width / (fabsf(uvs.width) * scale);
+    float repeatV = height / (fabsf(uvs.height) * scale);
+
     int texI = 0;
 
     unsigned char lightning = 255;
@@ -85,18 +96,24 @@ void EntityModelPart_AddFace(Mesh *mesh, int face, BoundingBox box, Rectangle uv
         mesh->colors[cCount++] = lightning;
         mesh->colors[cCount++] = 255;
 
-        float minX = uvs.x;
-        float minY = uvs.y;
-        float maxX = uvs.x + uvs.width;
-        float maxY = uvs.y + uvs.height;
+        float minX = 0;
+        float minY = 0;
+        float maxX = repeatU;
+        float maxY = repeatV;
 
         float texCoords[12] = {
             maxX, maxY,  minX, minY,  maxX, minY,
             minX, minY,  maxX, maxY,  minX, maxY
         };
 
-        mesh->texcoords[tCount++] = texCoords[texI++] / textureSize.x;
-        mesh->texcoords[tCount++] = texCoords[texI++] / textureSize.y;
+        // Tangents carry the signed atlas rectangle for the entity shader.
+        int rectIndex = (vCount / 3 - 1) * 4;
+        mesh->tangents[rectIndex] = uvs.x / textureSize.x;
+        mesh->tangents[rectIndex + 1] = uvs.y / textureSize.y;
+        mesh->tangents[rectIndex + 2] = uvs.width / textureSize.x;
+        mesh->tangents[rectIndex + 3] = uvs.height / textureSize.y;
+        mesh->texcoords[tCount++] = texCoords[texI++];
+        mesh->texcoords[tCount++] = texCoords[texI++];
     }
 }
 
@@ -111,6 +128,7 @@ void EntityModelPart_Build(EntityModelPart *part, BoundingBox box, Rectangle *uv
 
     mesh->vertices = (float*)MemAlloc(mesh->vertexCount * sizeof(float) * 3);
     mesh->texcoords = (float*)MemAlloc(mesh->vertexCount * sizeof(float) * 2);
+    mesh->tangents = (float*)MemAlloc(mesh->vertexCount * sizeof(float) * 4);
     mesh->colors = (unsigned char*)MemAlloc(mesh->vertexCount * 4);
 
     vCount = 0;

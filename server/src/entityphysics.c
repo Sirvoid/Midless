@@ -10,6 +10,7 @@
 #include <math.h>
 #include "entityphysics.h"
 #include "mobs.h"
+#include "attachments.h"
 #include "world/world.h"
 
 #define SPATIAL_BUCKETS 2048
@@ -75,7 +76,7 @@ int ServerPhysics_QueryEntities(BoundingBox bounds, int *ids, int capacity) {
 }
 
 bool ServerPhysics_SetBody(Entity *entity, EntityBody body) {
-    if (!entity || entity->ownerPlayerId >= 0 || !EntityBody_Validate(&body)) return false;
+    if (!entity || entity->attachment.parent || entity->ownerPlayerId >= 0 || !EntityBody_Validate(&body)) return false;
     if (body.enabled && (!isfinite(entity->position.x) || !isfinite(entity->position.y) || !isfinite(entity->position.z) ||
         fabsf(entity->position.x) > 1000000 || fabsf(entity->position.y) > 1000000 || fabsf(entity->position.z) > 1000000)) return false;
     body.grounded = body.sleeping = body.blockedByUnloaded = false;
@@ -86,7 +87,7 @@ bool ServerPhysics_SetBody(Entity *entity, EntityBody body) {
 }
 
 bool ServerPhysics_SetVelocity(Entity *entity, Vector3 velocity) {
-    if (!entity || entity->ownerPlayerId >= 0 || !entity->body.enabled) return false;
+    if (!entity || entity->attachment.parent || entity->ownerPlayerId >= 0 || !entity->body.enabled) return false;
     EntityBody body = entity->body;
     body.velocity = velocity;
     if (!EntityBody_Validate(&body)) return false;
@@ -110,7 +111,7 @@ bool ServerPhysics_ApplyImpulse(Entity *entity, Vector3 impulse) {
 }
 
 bool ServerPhysics_Move(Entity *entity, Vector3 direction, float speed, float acceleration) {
-    if (!entity || entity->ownerPlayerId >= 0 || !entity->body.enabled || !isfinite(speed) || speed < 0 || speed > 20 ||
+    if (!entity || entity->attachment.parent || entity->ownerPlayerId >= 0 || !entity->body.enabled || !isfinite(speed) || speed < 0 || speed > 20 ||
         !isfinite(acceleration) || acceleration <= 0 || acceleration > 100 ||
         !isfinite(direction.x) || !isfinite(direction.z) || fabsf(direction.x)>1000000 || fabsf(direction.z)>1000000) return false;
     float length = hypotf(direction.x,direction.z);
@@ -121,7 +122,7 @@ bool ServerPhysics_Move(Entity *entity, Vector3 direction, float speed, float ac
     return true;
 }
 bool ServerPhysics_Jump(Entity *entity, float speed) {
-    if (!entity || entity->ownerPlayerId >= 0 || !entity->body.enabled || entity->recovering ||
+    if (!entity || entity->attachment.parent || entity->ownerPlayerId >= 0 || !entity->body.enabled || entity->recovering ||
         !entity->body.grounded || !isfinite(speed) || speed <= 0 || speed > 20) return false;
     entity->body.velocity.y = speed;
     entity->body.grounded = entity->body.sleeping = false;
@@ -155,6 +156,10 @@ static bool QueryBlock(void *context, Vector3 cell, BlockShape *shape) {
     return true;
 }
 
+float ServerPhysics_SubmergedFraction(const Entity *entity) {
+    return EntityBody_SubmergedFraction(&entity->body, entity->position, QueryBlock, NULL);
+}
+
 void ServerPhysics_Update(float dt) {
     if (!isfinite(dt) || dt <= 0 || !serverWorld.entities) return;
     ServerMobs_BeginTick();
@@ -164,13 +169,17 @@ void ServerPhysics_Update(float dt) {
         accumulator -= PHYSICS_STEP;
         for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
             Entity *entity = &serverWorld.entities[id];
-            if (!entity->active || entity->pendingRemoval || entity->ownerPlayerId >= 0) continue;
+            if (!entity->active || entity->pendingRemoval || entity->ownerPlayerId >= 0 || entity->attachment.parent) continue;
             if (EntityPersistence_IsSaving(entity)) continue;
             if (entity->recovering && entity->body.grounded) entity->recovering = false;
-            ServerMobs_Update(entity,PHYSICS_STEP);
-            if (!entity->active || entity->pendingRemoval || !entity->body.enabled) continue;
+            if (ServerControl_Player(entity)) ServerControl_Step(entity, PHYSICS_STEP);
+            else ServerMobs_Update(entity,PHYSICS_STEP);
+            if (!entity->active || entity->pendingRemoval || !entity->body.enabled || entity->attachment.parent) continue;
             Vector3 previous = entity->position;
             Steer(entity);
+            if (entity->body.buoyancy > 0 || entity->body.liquidDrag > 0 ||
+                entity->body.liquidVerticalDrag > 0 || entity->body.liquidLateralDrag > 0)
+                EntityBody_ApplyLiquid(&entity->body, ServerPhysics_SubmergedFraction(entity), entity->rotation.y, PHYSICS_STEP);
             EntityBody_Step(&entity->body, &entity->position, PHYSICS_STEP, QueryBlock, NULL);
             if (previous.x != entity->position.x || previous.y != entity->position.y || previous.z != entity->position.z) {
                 entity->dirty = true;

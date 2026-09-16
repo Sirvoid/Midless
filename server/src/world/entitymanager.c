@@ -6,6 +6,7 @@
  */
 
 #include "entitypersistence.h"
+#include "../attachments.h"
 #include "world.h"
 #include "../spawnmanager.h"
 #include "../entityphysics.h"
@@ -24,7 +25,7 @@ static bool shuttingDown;
 void ServerWorld_TeleportEntity(int id, Vector3 position, Vector3 rotation) {
     if (!serverWorld.entities || id < 0 || id >= WORLD_MAX_ENTITIES) return;
     Entity *e = &serverWorld.entities[id];
-    if (!e->active || e->pendingRemoval) return;
+    if (!e->active || e->pendingRemoval || e->attachment.parent) return;
     if (e->mob) {
         e->mob->pathCount = 0; e->mob->hasWaypoint = false;
         e->mob->lookAhead = e->mob->replan = 0;
@@ -57,11 +58,14 @@ int ServerWorld_AddEntity(int type, int model, Vector3 position, int ownerPlayer
 }
 
 void ServerWorld_RemoveEntity(int id) {
-    if (serverWorld.entities && id >= 0 && id < WORLD_MAX_ENTITIES && serverWorld.entities[id].active)
+    if (serverWorld.entities && id >= 0 && id < WORLD_MAX_ENTITIES && serverWorld.entities[id].active) {
         serverWorld.entities[id].pendingRemoval = true;
+        ServerAttachments_Cleanup(&serverWorld.entities[id]);
+    }
 }
 
 static void Destroy(Entity *e) {
+    ServerAttachments_Cleanup(e);
     ScriptHooks_EntitiesRemove(e);
     if (e->type == ENTITY_TYPE_DROPPED_ITEM) ServerDrops_Remove(e);
     else if (e->announced) ServerWorld_BroadcastExcluding(ServerPacket_CreateDespawnEntity(e), e->ownerPlayerId);
@@ -72,6 +76,7 @@ static void Destroy(Entity *e) {
 }
 
 void ServerEntities_Update(float dt) {
+    ServerAttachments_Update();
     ServerSpawning_Update(dt);
     uint64_t cutoff = nextGeneration;
     for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
@@ -79,6 +84,7 @@ void ServerEntities_Update(float dt) {
         if (e->active && !e->pendingRemoval && e->generation <= cutoff && !EntityPersistence_IsSaving(e)) ScriptHooks_EntitiesStep(e, dt);
     }
     ServerPhysics_Update(dt);
+    ServerAttachments_Update();
     ServerDrops_Update(dt);
     for (int id = 0; id < WORLD_MAX_ENTITIES; id++) {
         Entity *e = &serverWorld.entities[id];
@@ -111,6 +117,7 @@ void ServerEntities_Update(float dt) {
             e->textureDirty = false;
         }
     }
+    ServerAttachments_Replicate();
 }
 
 void ServerEntities_Send(Player *player) {

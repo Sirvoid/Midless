@@ -11,11 +11,17 @@
 #include "raylib.h"
 #include <stdint.h>
 #include "entitybody.h"
+#include "attachment.h"
 #include "textcolor.h"
 #include "droppeditem.h"
 #include "world/chunk/chunkmetadata.h"
 
 typedef struct Entity{
+    Attachment attachment;
+    uint64_t parentGeneration;
+    int controller; // Player index plus one; zero means uncontrolled.
+    uint64_t controllerConnection;
+    bool relationshipBusy, attachmentDirty;
     char texture[65]; // Empty means model default; names survive registry reorder.
     bool textureDirty;
     struct MobState *mob;

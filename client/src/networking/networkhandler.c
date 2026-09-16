@@ -98,6 +98,8 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleResetChunks, RESET_CHUNKS_PACKET_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleCameraKick, CAMERA_KICK_PACKET_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleEntityFlash, ENTITY_FLASH_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleAttachment, ATTACHMENT_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleControlState, CONTROL_STATE_PACKET_SIZE};
 }
 
 void Network_Connect(void) {

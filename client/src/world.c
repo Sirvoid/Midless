@@ -21,6 +21,7 @@
 #include "rlgl.h"
 #include "raymath.h"
 #include "world.h"
+#include "attachments.h"
 #include "rotation.h"
 #include "player.h"
 #include "chunkmeshgeneration.h"
@@ -166,7 +167,7 @@ void World_Update(void) {
         Entity *entity = &world.entities[i];
         if (entity->type == 0) continue;
 
-        entity->position = Vector3Lerp(entity->position, entity->targetPosition, interpolationAmount);
+        if (!entity->attachment.parent) entity->position = Vector3Lerp(entity->position, entity->targetPosition, interpolationAmount);
         entity->rotation.y = Rotation_Interpolate(entity->rotation.y, entity->targetRotation.y, interpolationAmount);
         entity->rotation.z = Rotation_Interpolate(entity->rotation.z, entity->targetRotation.z, interpolationAmount);
         if (entity->type != 1)
@@ -178,8 +179,9 @@ void World_Update(void) {
             }
         }
 
-        EntityAnimation_Update(&entity->animation, entity->position, deltaTime);
+        if (!entity->attachment.parent) EntityAnimation_Update(&entity->animation, entity->position, deltaTime);
     }
+    ClientAttachments_Update();
     
 }
 
@@ -345,6 +347,9 @@ void World_ClearChunks(void) {
 }
 
 void World_Clear(void) {
+    player.attachment = (Attachment){0};
+    player.controlledEntity = 0;
+    player.attachmentEpoch = player.controlSession = 0;
     world.loadChunks = false;
     Particle_Clear();
     Player_ClearEntityModel();
@@ -615,7 +620,10 @@ void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 ro
     if (id < 0 || id >= WORLD_MAX_ENTITIES) return;
     if (modelId < 0 || modelId >= 256) return;
 
-    if (world.entities[id].type != 0) Entity_Destroy(&world.entities[id]);
+    if (world.entities[id].type != 0) {
+        ClientAttachments_Remove(id);
+        Entity_Destroy(&world.entities[id]);
+    }
     world.entities[id] = (Entity){0};
     world.entities[id].type = type;
     world.entities[id].modelId = (unsigned char)modelId;
@@ -632,6 +640,7 @@ void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 ro
 
 void World_RemoveEntity(int id) {
     if (!world.entities || id < 0 || id >= WORLD_MAX_ENTITIES) return;
+    ClientAttachments_Remove(id);
     Entity_Destroy(&world.entities[id]);
 }
 

@@ -38,6 +38,7 @@ static const int serverIncomingPacketLengths[] = {
     PLAYER_CLICK_PACKET_SIZE, // 4
     TEXTURE_ACK_SIZE, // 5
     INVENTORY_ACTION_PACKET_SIZE, // 6
+    CONTROL_INPUT_PACKET_SIZE,
 };
 
 void ServerNetwork_Init(void) {
@@ -50,6 +51,7 @@ void ServerNetwork_Init(void) {
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandlePlayerClick};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleTextureAck};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleInventoryAction};
+    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleControlInput};
 }
 
 void ServerNetwork_Shutdown(void) {
