@@ -83,6 +83,7 @@ void World_AddEntity(int id, int type, int modelId, Vector3 position, Vector3 ro
 //Remove an Entity from the world
 void World_RemoveEntity(int id);
 void World_PlayEntityAnimation(int id, EntityAnimationType animation);
+void World_SetEntityPose(int id, EntityPose pose);
 void World_FlashEntity(int id, Color color, float duration);
 
 #endif

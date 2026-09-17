@@ -11,12 +11,15 @@
 #include "raylib.h"
 #include <stdint.h>
 #include "entitybody.h"
+#include "entityanimation.h"
 #include "attachment.h"
 #include "textcolor.h"
 #include "droppeditem.h"
 #include "world/chunk/chunkmetadata.h"
 
 typedef struct Entity{
+    EntityPose pose;
+    bool poseDirty;
     Attachment attachment;
     uint64_t parentGeneration;
     int controller; // Player index plus one; zero means uncontrolled.

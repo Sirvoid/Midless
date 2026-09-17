@@ -8,6 +8,11 @@
 #ifndef MIDLESS_SHARED_ENTITY_ANIMATION_H
 #define MIDLESS_SHARED_ENTITY_ANIMATION_H
 
+typedef enum EntityPose {
+    ENTITY_POSE_STAND,
+    ENTITY_POSE_SIT
+} EntityPose;
+
 typedef enum EntityAnimationType {
     ENTITY_ANIMATION_SWING_RIGHT_ARM,
     ENTITY_ANIMATION_SWING_LEFT_ARM

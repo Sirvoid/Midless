@@ -98,6 +98,7 @@ void ServerEntities_Update(float dt) {
             ServerWorld_BroadcastExcluding(ServerPacket_CreateSpawnEntity(e), e->ownerPlayerId);
             e->announced = true;
             e->nametagDirty = true;
+            e->poseDirty = true;
             e->dirty = true;
         }
         if (e->dirty) {
@@ -107,6 +108,15 @@ void ServerEntities_Update(float dt) {
         if (e->nametagDirty) {
             ServerWorld_BroadcastExcluding(ServerNametag_CreatePacket(e), e->ownerPlayerId);
             e->nametagDirty = false;
+        }
+        if (e->poseDirty) {
+            for (int p = 0; p < WORLD_MAX_PLAYERS; p++) {
+                Player *recipient = serverWorld.players[p];
+                if (recipient && !recipient->disconnected)
+                    ServerNetwork_Send(recipient, ServerPacket_CreateEntityPose(
+                        recipient->entityId == e->id ? 65535 : e->id, e->pose));
+            }
+            e->poseDirty = false;
         }
         if (e->textureDirty) {
             for (int p=0; p<WORLD_MAX_PLAYERS; p++) {
@@ -126,6 +136,7 @@ void ServerEntities_Send(Player *player) {
         if (!e->active || e->pendingRemoval || e->ownerPlayerId == player->id || !e->announced ||
             e->type == ENTITY_TYPE_DROPPED_ITEM) continue;
         ServerNetwork_Send(player, ServerPacket_CreateSpawnEntity(e));
+        ServerNetwork_Send(player, ServerPacket_CreateEntityPose(e->id, e->pose));
         ServerNetwork_Send(player, ServerNametag_CreatePacket(e));
         ServerNetwork_Send(player, ServerPacket_CreateTeleportEntity(e, e->position, e->rotation));
     }

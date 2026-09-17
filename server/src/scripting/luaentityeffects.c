@@ -20,3 +20,19 @@ int LuaEntityEffects_Flash(lua_State *state, Entity *entity) {
     ServerEntityEffects_Flash(entity, color, (float)duration);
     return 0;
 }
+
+int LuaEntityEffects_SetPose(lua_State *state, Entity *entity) {
+    static const char *const poses[] = {"stand", "sit", NULL};
+    EntityPose pose = (EntityPose)luaL_checkoption(state, 2, NULL, poses);
+    if (entity->type == ENTITY_TYPE_DROPPED_ITEM)
+        return luaL_error(state, "dropped items do not support poses");
+    if (entity->pose != pose) {
+        entity->pose = pose;
+        entity->poseDirty = true;
+    }
+    return 0;
+}
+int LuaEntityEffects_GetPose(lua_State *state, Entity *entity) {
+    lua_pushstring(state, entity->pose == ENTITY_POSE_SIT ? "sit" : "stand");
+    return 1;
+}

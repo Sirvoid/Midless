@@ -18,6 +18,8 @@
 #define ENTITY_ARM_SWING_DURATION 0.275f
 
 typedef struct EntityAnimation {
+    EntityPose pose;
+    float sitAmount;
     float armSwingTime[2];
     bool armSwinging[2];
     float walkTime;
@@ -55,6 +57,7 @@ EntityArmSwing Entity_EvaluateArmSwing(float progress);
 void EntityAnimation_Init(EntityAnimation *animation, Vector3 position);
 void EntityAnimation_Start(EntityAnimation *animation, EntityAnimationType type);
 void EntityAnimation_Update(EntityAnimation *animation, Vector3 position, float deltaTime);
+void EntityAnimation_UpdatePose(EntityAnimation *animation, float deltaTime);
 float EntityAnimation_GetSwingProgress(const EntityAnimation *animation, EntityAnimationType type);
 void Entity_Draw(Entity *entity);
 void Entity_DrawFirstPerson(Entity *entity, Camera camera, float swingProgress);

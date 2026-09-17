@@ -81,6 +81,12 @@ void EntityAnimation_Update(EntityAnimation *animation, Vector3 position, float 
     }
 }
 
+void EntityAnimation_UpdatePose(EntityAnimation *animation, float deltaTime) {
+    float target = animation->pose == ENTITY_POSE_SIT ? 1.0f : 0.0f;
+    float step = fmaxf(deltaTime, 0.0f) / 0.15f;
+    animation->sitAmount += Clamp(target - animation->sitAmount, -step, step);
+}
+
 static void Entity_ApplyThirdPersonAnimation(Entity *entity) {
     float rightProgress = EntityAnimation_GetSwingProgress(
         &entity->animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
@@ -88,7 +94,8 @@ static void Entity_ApplyThirdPersonAnimation(Entity *entity) {
         &entity->animation, ENTITY_ANIMATION_SWING_LEFT_ARM);
     EntityArmSwing rightSwing = Entity_EvaluateArmSwing(rightProgress);
     EntityArmSwing leftSwing = Entity_EvaluateArmSwing(leftProgress);
-    float legRotation = cosf(entity->animation.walkTime) * 1.2f * entity->animation.walkAmount;
+    float sit = entity->animation.sitAmount;
+    float legRotation = cosf(entity->animation.walkTime) * 1.2f * entity->animation.walkAmount * (1.0f - sit);
     float idleAmount = 1.0f - entity->animation.walkAmount;
     float idleForward = sinf((float)GetTime() * 0.9f) * 0.08f * idleAmount;
     float idleSide = cosf((float)GetTime() * 0.95f) * 0.05f * idleAmount;
@@ -111,8 +118,8 @@ static void Entity_ApplyThirdPersonAnimation(Entity *entity) {
         EntityModelPart *part = &entity->model.parts[i];
         if (part->type == PART_TYPE_RIGHT_ARM) part->rotation = rightArmRotation;
         if (part->type == PART_TYPE_LEFT_ARM) part->rotation = leftArmRotation;
-        if (part->type == PART_TYPE_RIGHT_LEG) part->rotation.x = legRotation;
-        if (part->type == PART_TYPE_LEFT_LEG) part->rotation.x = -legRotation;
+        if (part->type == PART_TYPE_RIGHT_LEG) part->rotation.x = legRotation - sit * PI / 2.0f;
+        if (part->type == PART_TYPE_LEFT_LEG) part->rotation.x = -legRotation - sit * PI / 2.0f;
     }
 }
 

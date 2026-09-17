@@ -100,6 +100,7 @@ end)
 | `player:damage(amount, context)` | Apply damage; returns HP lost. |
 | `player:send_message(text)` | Private chat message. |
 | `player:set_model(name)` | Change model. |
+| `player:get_pose()` / `player:set_pose(pose)` | Get or set `"stand"` or `"sit"`; see [Poses](#poses). |
 | `player:get_texture()` / `player:set_texture(name)` | Texture override; `nil` restores the model default. |
 | `player:flash_color(r, g, b, duration)` | Temporarily tint the player model; RGB integers 0–255, duration 0–60 seconds. |
 | `player:set_nametag(options)` | Set text, color, visibility, or offset. |
@@ -674,6 +675,7 @@ Loaded entities get new runtime IDs, invalidating old handles. `save = false` di
 | `entity:get_hp()` / `entity:set_hp(hp)` | Health. |
 | `entity:damage(amount, context)` | Apply damage; returns HP lost. |
 | `entity:set_model(name)` | Change model. |
+| `entity:get_pose()` / `entity:set_pose(pose)` | Get or set `"stand"` or `"sit"`; see [Poses](#poses). |
 | `entity:get_texture()` / `entity:set_texture(name)` | Texture override; `nil` clears it. |
 | `entity:flash_color(r, g, b, duration)` | Temporarily tint the entity model; same arguments as the player method. |
 | `entity:set_nametag(options)` | Change nametag. |
@@ -940,6 +942,13 @@ Part roles use `model.part.NONE`, `HEAD`, `RIGHT_ARM`, `LEFT_ARM`, `RIGHT_LEG`, 
 The first right-arm part holds the selected block at its bottom center. Override with `grip = {-1.25, -9, -0.5}`, in model units relative to the part pivot.
 
 `midless.remove_entity_model(name)` removes a model; `entity:set_model(name)` or `player:set_model(name)` assigns one.
+
+### Poses
+
+Players and entities support `object:set_pose("sit")`, `object:set_pose("stand")`, and
+`object:get_pose()`. New objects stand by default. 
+Sitting rotates parts tagged `model.part.LEFT_LEG`
+and `model.part.RIGHT_LEG` forward 90 degrees around their pivots.
 
 ### Variants and individual skins
 

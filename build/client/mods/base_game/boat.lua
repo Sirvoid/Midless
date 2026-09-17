@@ -28,6 +28,12 @@ midless.define_entity("midless:boat", {
         buoyancy = 2, liquid_drag = 0.7, liquid_vertical_drag = 6, liquid_lateral_drag = 4.3,
         min = {x = -0.5625, y = 0, z = -0.8125},
         max = {x = 0.5625, y = HULL_HEIGHT, z = 0.8125}},
+    on_control_acquired = function(self, player)
+        player:set_pose("sit")
+    end,
+    on_control_lost = function(self, player)
+        if player and player:is_valid() then player:set_pose("stand") end
+    end,
     on_control = function(self, player, input, dt)
         if input.sneak then player:detach(); return end
         local wet = self.object:get_submerged_fraction() or 0
@@ -50,7 +56,7 @@ midless.define_entity("midless:boat", {
 
 local function board(player, boat)
     if player:get_attachment() or boat:get_controller() then return end
-    player:attach(boat, {offset = {x = 0, y = 0.375, z = 0}, inherit_rotation = false})
+    player:attach(boat, {offset = {x = 0, y = 0.375 - 0.45, z = 0}, inherit_rotation = false})
     boat:set_controller(player)
 end
 

@@ -77,11 +77,13 @@ int serverPacketLengths[256] = {
     ENTITY_FLASH_PACKET_SIZE, // 37
     ATTACHMENT_PACKET_SIZE,
     CONTROL_STATE_PACKET_SIZE,
+    SET_ENTITY_POSE_PACKET_SIZE,
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
     return serverPacketLengths[opcode];
 }
+
 
 //Packet Readers
 
@@ -628,4 +630,13 @@ void ServerPacket_HandleControlInput(void) {
     look.x = Rotation_Decode(ServerPacket_ReadByte());
     look.y = Rotation_Decode(ServerPacket_ReadByte());
     ServerControl_Input(serverPacketPlayer, session, forward, sideways, flags, look);
+}
+
+unsigned char *ServerPacket_CreateEntityPose(unsigned short entityId, EntityPose pose) {
+    serverPacketWriterIndex = 0;
+    unsigned char *packet = MemAlloc(SET_ENTITY_POSE_PACKET_SIZE);
+    ServerPacket_WriteByte(packet, PACKET_SET_ENTITY_POSE);
+    ServerPacket_WriteUShort(packet, entityId);
+    ServerPacket_WriteByte(packet, (unsigned char)pose);
+    return packet;
 }

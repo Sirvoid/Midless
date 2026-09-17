@@ -49,6 +49,7 @@ void ServerPacket_WriteArray(unsigned char* packet, unsigned char* array, int si
 void ServerPacket_HandleControlInput(void);
 unsigned char *ServerPacket_CreateAttachment(Entity *entity, Player *recipient);
 unsigned char *ServerPacket_CreateControlState(Player *player);
+unsigned char *ServerPacket_CreateEntityPose(unsigned short entityId, EntityPose pose);
 void ServerPacket_HandleIdentification(void);
 void ServerPacket_HandlePlayerPosition(void);
 void ServerPacket_HandleMessage(void);

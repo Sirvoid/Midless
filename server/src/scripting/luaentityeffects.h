@@ -7,5 +7,7 @@
 #include "minilua.h"
 #include "../entity.h"
 
+int LuaEntityEffects_SetPose(lua_State *state, Entity *entity);
+int LuaEntityEffects_GetPose(lua_State *state, Entity *entity);
 int LuaEntityEffects_Flash(lua_State *state, Entity *entity);
 #endif

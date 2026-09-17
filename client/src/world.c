@@ -179,7 +179,9 @@ void World_Update(void) {
             }
         }
 
-        if (!entity->attachment.parent) EntityAnimation_Update(&entity->animation, entity->position, deltaTime);
+        EntityAnimation_Update(&entity->animation, entity->position, deltaTime);
+        if (entity->attachment.parent) entity->animation.walkAmount = entity->animation.walkSpeed = 0;
+        EntityAnimation_UpdatePose(&entity->animation, deltaTime);
     }
     ClientAttachments_Update();
     
@@ -654,6 +656,17 @@ void World_FlashEntity(int id, Color color, float duration) {
     if (!world.entities || id < 0 || id >= WORLD_MAX_ENTITIES || !world.entities[id].type) return;
     world.entities[id].flashColor = color;
     world.entities[id].flashEnd = end;
+}
+
+void World_SetEntityPose(int id, EntityPose pose) {
+    if (pose < ENTITY_POSE_STAND || pose > ENTITY_POSE_SIT) return;
+    if (id == 65535) {
+        player.animation.pose = pose;
+        return;
+    }
+    if (!world.entities || id < 0 || id >= WORLD_MAX_ENTITIES ||
+        !world.entities[id].type || world.entities[id].type == ENTITY_TYPE_DROPPED_ITEM) return;
+    world.entities[id].animation.pose = pose;
 }
 
 void World_PlayEntityAnimation(int id, EntityAnimationType animation) {

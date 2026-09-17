@@ -40,6 +40,7 @@ void Packet_WriteInt(unsigned char* packet, int value);
 // Packet handlers, in opcode order.
 void Packet_HandleAttachment(void);
 void Packet_HandleControlState(void);
+void Packet_HandleEntityPose(void);
 unsigned char *Packet_CreateControlInput(int forward, int sideways, unsigned flags, Vector3 look);
 void Packet_HandleMapInit(void);
 void Packet_HandleLoadChunk(void);

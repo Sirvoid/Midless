@@ -724,3 +724,11 @@ unsigned char *Packet_CreateControlInput(int forward, int sideways, unsigned fla
     Packet_WriteByte(packet, Rotation_Encode(look.y));
     return packet;
 }
+
+void Packet_HandleEntityPose(void) {
+    if (packetDataLength != SET_ENTITY_POSE_PACKET_SIZE) return;
+    unsigned short id = Packet_ReadUShort();
+    unsigned char pose = Packet_ReadByte();
+    if ((id != 65535 && id >= WORLD_MAX_ENTITIES) || pose > ENTITY_POSE_SIT) return;
+    World_SetEntityPose(id, (EntityPose)pose);
+}

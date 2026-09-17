@@ -65,6 +65,12 @@ static Entity *Check(lua_State *state) {
 static int SetTexture(lua_State *state) {
     return LuaEntityTexture_Set(state, Check(state));
 }
+static int SetPose(lua_State *state) {
+    return LuaEntityEffects_SetPose(state, Check(state));
+}
+static int GetPose(lua_State *state) {
+    return LuaEntityEffects_GetPose(state, Check(state));
+}
 static int FlashColor(lua_State *state) {
     return LuaEntityEffects_Flash(state, Check(state));
 }
@@ -532,6 +538,8 @@ void LuaEntities_Init(void) {
                                        {"set_controller", LuaAttachment_SetController},
                                        {"set_texture", SetTexture},
                                        {"flash_color", FlashColor},
+                                       {"set_pose", SetPose},
+                                       {"get_pose", GetPose},
                                        {"get_texture", GetTexture},
                                        {"follow_ground_path", LuaMobs_Follow},
                                        {"wander_goal", LuaMobs_Wander},

@@ -416,6 +416,12 @@ static int SetPlayerNametag(lua_State *state) {
     (void)state;
     return LuaNametag_Set(L, CheckPlayerEntity());
 }
+static int SetPose(lua_State *state) {
+    return LuaEntityEffects_SetPose(state, CheckPlayerEntity());
+}
+static int GetPose(lua_State *state) {
+    return LuaEntityEffects_GetPose(state, CheckPlayerEntity());
+}
 static int FlashColor(lua_State *state) {
     return LuaEntityEffects_Flash(state, CheckPlayerEntity());
 }
@@ -458,6 +464,8 @@ static const LuaMethod playerLib[] = {{"attach", LuaAttachment_Attach},
                                        {"get_controlled_entity", LuaAttachment_Controlled},
                                        {"set_texture", SetPlayerTexture},
                                              {"flash_color", FlashColor},
+                                       {"set_pose", SetPose},
+                                       {"get_pose", GetPose},
                                              {"get_texture", GetPlayerTexture},
                                              {"is_valid", IsPlayerValid},
                                              {"damage", DamagePlayer},
