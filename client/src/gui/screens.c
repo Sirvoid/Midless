@@ -52,8 +52,37 @@ static char fullAddress[144];
 static char connectionError[160];
 static char preferencesError[96];
 static const int fpsValues[] = {60, 120, 144, 240, 0};
+float screenUIScale = 1.0f, screenSensitivity = 1.0f, screenFOV = 65.0f;
+bool screenInvertMouse = false;
+int screenKeys[CONTROL_COUNT] = {KEY_W, KEY_S, KEY_A, KEY_D, KEY_SPACE,
+    KEY_LEFT_SHIFT, KEY_E, KEY_T, KEY_F5, KEY_F3};
+static const int defaultKeys[CONTROL_COUNT] = {KEY_W, KEY_S, KEY_A, KEY_D, KEY_SPACE,
+    KEY_LEFT_SHIFT, KEY_E, KEY_T, KEY_F5, KEY_F3};
+static const char *controlNames[CONTROL_COUNT] = {"Forward", "Backward", "Left", "Right",
+    "Jump", "Sneak", "Inventory", "Chat", "Camera view", "Debug info"};
+typedef enum OptionsPage { OPTIONS_HOME, OPTIONS_VIDEO, OPTIONS_CONTROLS, OPTIONS_KEYS } OptionsPage;
+static OptionsPage optionsPage;
+static int bindingScroll, captureKey = -1;
+static bool bindingDragging;
+static float bindingDragOffset;
+static bool videoVSync, videoFullscreen;
 static float menuScale;
-static float hoverAmount[8];
+
+static bool ValidBinding(int key) {
+    return (key >= KEY_A && key <= KEY_Z) || (key >= KEY_F1 && key <= KEY_F12) ||
+        key == KEY_SPACE || (key >= KEY_RIGHT && key <= KEY_UP) ||
+        (key >= KEY_LEFT_SHIFT && key <= KEY_RIGHT_SUPER);
+}
+
+static void ApplyVideo(void) {
+#if !defined(PLATFORM_WEB)
+    if (IsWindowFullscreen() != videoFullscreen) ToggleFullscreen();
+#endif
+    if (videoVSync) SetWindowState(FLAG_VSYNC_HINT);
+    else ClearWindowState(FLAG_VSYNC_HINT);
+    SetTargetFPS(fpsValues[fpsChoice]);
+}
+static float hoverAmount[CONTROL_COUNT + 1];
 static bool keyboardFocus = true;
 static int invalidField = -1;
 
@@ -70,6 +99,9 @@ static void SavePreferences(void) {
     }
     int result = fprintf(file, "%s\n%s\n%s\n%d %d %d\n", nameInput, ipInput, portInput,
                          world.drawDistance, fpsChoice, screenShowDebug);
+    if (result >= 0) result = fprintf(file, "v2 %g %g %g %d %d %d\n",
+        screenUIScale, screenSensitivity, screenFOV, screenInvertMouse, videoVSync, videoFullscreen);
+    for (int i = 0; i < CONTROL_COUNT && result >= 0; i++) result = fprintf(file, "%d ", screenKeys[i]);
     int closed = fclose(file);
     if (result < 0 || closed != 0)
         snprintf(preferencesError, sizeof(preferencesError), "Could not save preferences in the game folder.");
@@ -146,8 +178,24 @@ void Screen_Init(Texture2D terrain, bool *exit) {
             if (fps >= 0 && fps < 5) fpsChoice = fps;
             screenShowDebug = debug != 0;
         }
+        float scale, sensitivity, fov;
+        int invert, vsync, fullscreen;
+        if (fscanf(file, " v2 %f %f %f %d %d %d", &scale, &sensitivity, &fov, &invert, &vsync, &fullscreen) == 6) {
+            if (isfinite(scale) && scale >= 0.75f && scale <= 1.5f) screenUIScale = scale;
+            if (isfinite(sensitivity) && sensitivity >= 0.1f && sensitivity <= 3) screenSensitivity = sensitivity;
+            if (isfinite(fov) && fov >= 45 && fov <= 110) screenFOV = fov;
+            screenInvertMouse = invert == 1; videoVSync = vsync == 1; videoFullscreen = fullscreen == 1;
+            int keys[CONTROL_COUNT];
+            bool valid = true;
+            for (int i = 0; i < CONTROL_COUNT; i++) {
+                if (fscanf(file, "%d", &keys[i]) != 1 || !ValidBinding(keys[i])) { valid = false; break; }
+                for (int j = 0; j < i; j++) if (keys[i] == keys[j]) valid = false;
+            }
+            if (valid) memcpy(screenKeys, keys, sizeof(keys));
+        }
         fclose(file);
     }
+    ApplyVideo();
     networkName = nameInput;
     SetTargetFPS(fpsValues[fpsChoice]);
     Screen_Switch(SCREEN_MAIN);
@@ -198,7 +246,7 @@ void Screen_DrawGame(void) {
 
 // The default pixel font has a 10-pixel cell. Whole multiples keep its edges crisp.
 static int Menu_Font(int size) {
-    return 10 * (int)fmaxf(1, floorf(size * menuScale / 10));
+    return 10 * (int)fmaxf(1, roundf(size * menuScale / 10));
 }
 
 static Rectangle Menu_Rect(float y, float height) {
@@ -241,21 +289,22 @@ static void Menu_Background(const char *title, Screen screen) {
     int titleWidth = MeasureText(title, Menu_Font(screen == SCREEN_MAIN ? 80 : 30));
     width = fmaxf(width, titleWidth + 64 * menuScale);
     width = fminf(width, screenWidth - 32);
-    float top = screen == SCREEN_LOGIN ? -246 : -208;
+    float top = screen == SCREEN_OPTIONS ? -240 : screen == SCREEN_LOGIN ? -246 : -208;
     Rectangle panel = {roundf((screenWidth - width) / 2),
-        roundf(screenHeight / 2 + top * menuScale), roundf(width), roundf(((screen == SCREEN_OPTIONS ? 176 : 228) - top) * menuScale)};
+        roundf(screenHeight / 2 + top * menuScale), roundf(width), roundf(((screen == SCREEN_OPTIONS ? 280 : 228) - top) * menuScale)};
     DrawRectangleRec(panel, (Color){0, 0, 0, 145});
     DrawRectangleLinesEx(panel, 1, (Color){115, 115, 115, 45});
 }
 
 static void Menu_Begin(const char *title, int controls) {
-    menuScale = fminf(screenWidth / 640.0f, screenHeight / 560.0f);
-    menuScale = fminf(menuScale, 2.0f);
+    float fit = fminf(screenWidth / 640.0f, screenHeight / (currentScreen == SCREEN_OPTIONS ? 640.0f : 560.0f));
+    float base = fminf(2.0f, fminf(screenWidth / 800.0f, screenHeight / 700.0f));
+    menuScale = fminf(fit, base * screenUIScale);
     GuiSetStyle(DEFAULT, TEXT_SIZE, Menu_Font(20));
     GuiSetStyle(DEFAULT, BORDER_WIDTH, 1);
     GuiSetStyle(TEXTBOX, TEXT_PADDING, (int)(12 * menuScale));
     Menu_Background(title, currentScreen);
-    Menu_Text(title, currentScreen == SCREEN_LOGIN ? -220 : -180,
+    Menu_Text(title, currentScreen == SCREEN_OPTIONS ? -212 : currentScreen == SCREEN_LOGIN ? -220 : -180,
               currentScreen == SCREEN_MAIN ? 80 : 30, WHITE);
     controlIndex = 0;
     if (Menu_Key(KEY_TAB)) {
@@ -413,48 +462,152 @@ static Rectangle Menu_SettingsRow(float y, const char *label) {
     return control;
 }
 
-void Screen_DrawOptions(void) {
-    Menu_Begin("Settings", 4);
-    Rectangle bounds = Menu_SettingsRow(-108, "Draw distance");
+static void Options_Open(OptionsPage page) {
+    optionsPage = page; focus = 0; captureKey = -1;
+    bindingScroll = 0; bindingDragging = false;
+    skipMenuKeys = true;
+    memset(hoverAmount, 0, sizeof(hoverAmount));
+}
+
+static int Option_Choice(float y, const char *label, const char *value) {
+    Rectangle bounds = Menu_SettingsRow(y, label);
     bool selected = Menu_Focus(bounds);
-    Rectangle slider = {bounds.x + 8 * menuScale, bounds.y + 8 * menuScale,
-                        156 * menuScale, bounds.height - 16 * menuScale};
-    pendingDistance = (int)GuiSlider(slider, "", "", pendingDistance, 2, 32);
-    if (selected && Menu_Key(KEY_LEFT) && pendingDistance > 2) pendingDistance--;
-    if (selected && Menu_Key(KEY_RIGHT) && pendingDistance < 32) pendingDistance++;
-    int font = Menu_Font(20);
-    const char *distance = TextFormat("%d", pendingDistance);
-    DrawText(distance, roundf(bounds.x + 192 * menuScale - MeasureText(distance, font) / 2),
-             roundf(bounds.y + (bounds.height - font) / 2), font, WHITE);
-    if (selected && keyboardFocus) DrawRectangleLinesEx(bounds, 1, WHITE);
-    if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) ApplyDistance();
-    Rectangle row = Menu_Rect(-108, 40);
-    DrawText("Higher values use more memory.", row.x, roundf(row.y + 44 * menuScale), Menu_Font(12), GRAY);
-
-    bounds = Menu_SettingsRow(-40, "FPS limit");
-    selected = Menu_Focus(bounds);
-    Rectangle left = {bounds.x, bounds.y, 32 * menuScale, bounds.height};
+    Rectangle left = {bounds.x, bounds.y, 30 * menuScale, bounds.height};
     Rectangle right = {bounds.x + bounds.width - left.width, bounds.y, left.width, bounds.height};
-    int newFPS = fpsChoice;
-    if (GuiButton(left, "<") || (selected && Menu_Key(KEY_LEFT))) newFPS = (fpsChoice + 4) % 5;
-    if (GuiButton(right, ">") || (selected && (Menu_Key(KEY_RIGHT) || Menu_Key(KEY_ENTER) || Menu_Key(KEY_SPACE)))) newFPS = (fpsChoice + 1) % 5;
-    if (newFPS != fpsChoice) { fpsChoice = newFPS; SetTargetFPS(fpsValues[fpsChoice]); SavePreferences(); }
-    const char *value = fpsChoice == 4 ? "Unlimited" : TextFormat("%d", fpsValues[fpsChoice]);
+    int delta = 0;
+    if (GuiButton(left, "<") || (selected && Menu_Key(KEY_LEFT))) delta = -1;
+    if (GuiButton(right, ">") || (selected && (Menu_Key(KEY_RIGHT) || Menu_Key(KEY_ENTER) || Menu_Key(KEY_SPACE)))) delta = 1;
+    int font = Menu_Font(20);
     DrawText(value, roundf(bounds.x + (bounds.width - MeasureText(value, font)) / 2),
-             roundf(bounds.y + (bounds.height - font) / 2), font, WHITE);
+        roundf(bounds.y + (bounds.height - font) / 2), font, WHITE);
     if (selected && keyboardFocus) DrawRectangleLinesEx(bounds, 1, WHITE);
+    return delta;
+}
 
-    bounds = Menu_SettingsRow(28, "Debug info");
-    selected = Menu_Focus(bounds);
-    if (GuiButton(bounds, screenShowDebug ? "On" : "Off") ||
-        (selected && (Menu_Key(KEY_ENTER) || Menu_Key(KEY_SPACE)))) {
-        screenShowDebug = !screenShowDebug;
-        SavePreferences();
+static const char *Binding_Name(int key) {
+    if (key >= KEY_A && key <= KEY_Z) return TextFormat("%c", key);
+    if (key >= KEY_F1 && key <= KEY_F12) return TextFormat("F%d", key - KEY_F1 + 1);
+    switch (key) {
+        case KEY_SPACE: return "Space";
+        case KEY_LEFT_SHIFT: return "Left Shift"; case KEY_RIGHT_SHIFT: return "Right Shift";
+        case KEY_LEFT_CONTROL: return "Left Ctrl"; case KEY_RIGHT_CONTROL: return "Right Ctrl";
+        case KEY_LEFT_ALT: return "Left Alt"; case KEY_RIGHT_ALT: return "Right Alt";
+        case KEY_LEFT_SUPER: return "Left Super"; case KEY_RIGHT_SUPER: return "Right Super";
+        case KEY_UP: return "Up"; case KEY_DOWN: return "Down";
+        case KEY_LEFT: return "Left"; case KEY_RIGHT: return "Right";
+        default: return "Unknown";
     }
-    if (selected && keyboardFocus) DrawRectangleLinesEx(bounds, 1, WHITE);
-    Rectangle divider = Menu_Rect(88, 1);
-    DrawRectangleRec(divider, (Color){69, 69, 69, 255});
-    if (Menu_Button(108, "Back", true) || Menu_Key(KEY_ESCAPE)) { ApplyDistance(); SavePreferences(); Screen_Switch(optionsReturn); }
+}
+
+static void BindKey(int action, int key) {
+    for (int i = 0; i < CONTROL_COUNT; i++)
+        if (i != action && screenKeys[i] == key) screenKeys[i] = screenKeys[action];
+    screenKeys[action] = key;
+}
+
+static void Bindings_Scroll(bool capturing) {
+    const int visible = 6, maximum = CONTROL_COUNT - visible;
+    Rectangle list = Menu_Rect(-150, 290);
+    Rectangle track = {list.x + list.width + 8 * menuScale, list.y, 16 * menuScale, list.height};
+    float thumbHeight = track.height * visible / CONTROL_COUNT;
+    float travel = track.height - thumbHeight;
+    Vector2 mouse = GetMousePosition();
+    if (!capturing) {
+        if (Menu_Key(KEY_TAB) || Menu_Key(KEY_UP) || Menu_Key(KEY_DOWN)) {
+            if (focus < CONTROL_COUNT) {
+                if (focus < bindingScroll) bindingScroll = focus;
+                if (focus >= bindingScroll + visible) bindingScroll = focus - visible + 1;
+            }
+        }
+        if (CheckCollisionPointRec(mouse, list) || CheckCollisionPointRec(mouse, track)) {
+            float wheel = GetMouseWheelMove();
+            if (wheel != 0) {
+                bindingScroll -= (int)(wheel > 0 ? ceilf(wheel) : floorf(wheel));
+                keyboardFocus = false;
+            }
+        }
+        bindingScroll = (int)fminf(maximum, fmaxf(0, bindingScroll));
+        float thumbY = track.y + travel * bindingScroll / maximum;
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, track)) {
+            bindingDragging = true;
+            keyboardFocus = false;
+            bindingDragOffset = mouse.y >= thumbY && mouse.y <= thumbY + thumbHeight ? mouse.y - thumbY : thumbHeight / 2;
+        }
+        if (bindingDragging) {
+            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT))
+                bindingScroll = (int)fminf(maximum, fmaxf(0, roundf((mouse.y - track.y - bindingDragOffset) * maximum / travel)));
+            else bindingDragging = false;
+        }
+    } else bindingDragging = false;
+    DrawRectangleRec(track, (Color){25, 25, 25, 255});
+    DrawRectangleLinesEx(track, 1, (Color){69, 69, 69, 255});
+    Rectangle thumb = {track.x + 2, track.y + travel * bindingScroll / maximum, track.width - 4, thumbHeight};
+    DrawRectangleRec(thumb, capturing ? DARKGRAY : bindingDragging ? WHITE : GRAY);
+}
+
+void Screen_DrawOptions(void) {
+    bool capturing = captureKey >= 0;
+    if (capturing) {
+        if (IsKeyPressed(KEY_ESCAPE)) captureKey = -1;
+        else {
+            int key = GetKeyPressed();
+            if (ValidBinding(key)) { BindKey(captureKey, key); captureKey = -1; SavePreferences(); }
+        }
+        skipMenuKeys = true;
+        GuiDisable();
+    }
+    Menu_Begin(optionsPage == OPTIONS_VIDEO ? "Video" : optionsPage == OPTIONS_CONTROLS ? "Controls" :
+        optionsPage == OPTIONS_KEYS ? "Key bindings" : "Settings",
+        optionsPage == OPTIONS_VIDEO ? 8 : optionsPage == OPTIONS_KEYS ? CONTROL_COUNT + 1 : optionsPage == OPTIONS_CONTROLS ? 5 : 3);
+    if (optionsPage == OPTIONS_HOME) {
+        if (Menu_Button(-74, "Controls", true)) { Options_Open(OPTIONS_CONTROLS); return; }
+        if (Menu_Button(-20, "Video", true)) { Options_Open(OPTIONS_VIDEO); return; }
+        if (Menu_Button(100, "Back", true) || Menu_Key(KEY_ESCAPE)) { SavePreferences(); Screen_Switch(optionsReturn); }
+    } else if (optionsPage == OPTIONS_VIDEO) {
+        int delta = Option_Choice(-150, "Draw distance", TextFormat("%d", pendingDistance));
+        pendingDistance = (int)fminf(32, fmaxf(2, pendingDistance + delta));
+        if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) ApplyDistance();
+        delta = Option_Choice(-100, "FPS limit", fpsChoice == 4 ? "Unlimited" : TextFormat("%d", fpsValues[fpsChoice]));
+        if (delta) { fpsChoice = (fpsChoice + delta + 5) % 5; SetTargetFPS(fpsValues[fpsChoice]); }
+#if !defined(PLATFORM_WEB)
+        videoFullscreen = IsWindowFullscreen();
+        if (Option_Choice(-50, "Fullscreen", videoFullscreen ? "On" : "Off")) {
+            videoFullscreen = !videoFullscreen; ApplyVideo();
+        }
+#else
+        Option_Choice(-50, "Fullscreen", "Browser (F11)");
+#endif
+        if (Option_Choice(0, "VSync", videoVSync ? "On" : "Off")) { videoVSync = !videoVSync; ApplyVideo(); }
+        screenFOV = fminf(110, fmaxf(45, screenFOV + 5 * Option_Choice(50, "Field of view", TextFormat("%.0f", screenFOV))));
+        screenUIScale = fminf(1.5f, fmaxf(0.75f, screenUIScale + 0.25f * Option_Choice(100, "UI scale", TextFormat("%.0f%%", screenUIScale * 100))));
+        if (Option_Choice(150, "Debug info", screenShowDebug ? "On" : "Off")) screenShowDebug = !screenShowDebug;
+        if (Menu_Button(220, "Back", true) || Menu_Key(KEY_ESCAPE)) { ApplyDistance(); SavePreferences(); Options_Open(OPTIONS_HOME); }
+    } else if (optionsPage == OPTIONS_CONTROLS) {
+        screenSensitivity = fminf(3, fmaxf(0.1f, screenSensitivity + 0.1f * Option_Choice(-130, "Sensitivity", TextFormat("%.0f%%", screenSensitivity * 100))));
+        if (Option_Choice(-80, "Invert mouse Y", screenInvertMouse ? "On" : "Off")) screenInvertMouse = !screenInvertMouse;
+        if (Menu_Button(-10, "Key bindings", true)) { Options_Open(OPTIONS_KEYS); return; }
+        if (Menu_Button(44, "Reset controls", true)) {
+            memcpy(screenKeys, defaultKeys, sizeof(screenKeys)); screenSensitivity = 1; screenInvertMouse = false; SavePreferences();
+        }
+        if (Menu_Button(220, "Back", true) || Menu_Key(KEY_ESCAPE)) { SavePreferences(); Options_Open(OPTIONS_HOME); }
+    } else {
+        Bindings_Scroll(capturing);
+        for (int row = 0; row < 6; row++) {
+            int action = bindingScroll + row;
+            controlIndex = action;
+            Rectangle bounds = Menu_SettingsRow(-150 + row * 50, controlNames[action]);
+            bool selected = Menu_Focus(bounds);
+            bool pressed = GuiButton(bounds, captureKey == action ? "Press a key..." : Binding_Name(screenKeys[action]));
+            if (!capturing && (pressed || (selected && (Menu_Key(KEY_ENTER) || Menu_Key(KEY_SPACE))))) {
+                while (GetKeyPressed()) { }
+                captureKey = action;
+            }
+            if (selected && keyboardFocus) DrawRectangleLinesEx(bounds, 1, WHITE);
+        }
+        controlIndex = CONTROL_COUNT;
+        if (Menu_Button(220, "Back", !capturing) || Menu_Key(KEY_ESCAPE)) { SavePreferences(); Options_Open(OPTIONS_CONTROLS); }
+    }
+    GuiEnable();
 }
 
 void Screen_DrawLogin(void) {
@@ -575,7 +728,7 @@ void Screen_Draw(void) {
 }
 
 void Screen_Switch(Screen screen) {
-    if (screen == SCREEN_OPTIONS) { optionsReturn = currentScreen; pendingDistance = world.drawDistance; }
+    if (screen == SCREEN_OPTIONS) { Options_Open(OPTIONS_HOME); optionsReturn = currentScreen; pendingDistance = world.drawDistance; }
     if (screen == SCREEN_LOADING) loadingNextFrame = loadingStarted = false;
     currentScreen = screen;
     memset(hoverAmount, 0, sizeof(hoverAmount));

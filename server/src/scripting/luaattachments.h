@@ -5,8 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
-#ifndef ISLEFORGE_LUA_ATTACHMENTS_H
-#define ISLEFORGE_LUA_ATTACHMENTS_H
+#ifndef MIDLESS_LUA_ATTACHMENTS_H
+#define MIDLESS_LUA_ATTACHMENTS_H
 #include "minilua.h"
 int LuaAttachment_Attach(lua_State *state);
 int LuaAttachment_Detach(lua_State *state);

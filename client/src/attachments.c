@@ -73,9 +73,9 @@ void ClientControl_Update(void) {
     if (!player.controlledEntity) return;
     int forward = 0, sideways = 0, flags = 0;
     if (IsWindowFocused() && !screenCursorEnabled) {
-        forward = IsKeyDown(KEY_W) - IsKeyDown(KEY_S);
-        sideways = IsKeyDown(KEY_D) - IsKeyDown(KEY_A);
-        flags = (IsKeyDown(KEY_SPACE) ? 1 : 0) | (IsKeyDown(KEY_LEFT_SHIFT) ? 2 : 0);
+        forward = IsKeyDown(screenKeys[CONTROL_FORWARD]) - IsKeyDown(screenKeys[CONTROL_BACKWARD]);
+        sideways = IsKeyDown(screenKeys[CONTROL_RIGHT]) - IsKeyDown(screenKeys[CONTROL_LEFT]);
+        flags = (IsKeyDown(screenKeys[CONTROL_JUMP]) ? 1 : 0) | (IsKeyDown(screenKeys[CONTROL_SNEAK]) ? 2 : 0);
     }
     double now = GetTime();
     if (lastSession != player.controlSession || forward != lastForward ||

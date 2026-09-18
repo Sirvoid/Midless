@@ -174,15 +174,15 @@ void Player_CheckInputs() {
         jumpPending = false;
         return;
     }
-    if (IsKeyPressed(KEY_F3)) {
+    if (!chatOpen && IsKeyPressed(screenKeys[CONTROL_DEBUG])) {
         screenShowDebug = !screenShowDebug;
     }
 
-    if (IsKeyPressed(KEY_F5)) {
+    if (!chatOpen && IsKeyPressed(screenKeys[CONTROL_CAMERA])) {
         player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
     }
     
-    if ((IsKeyPressed(KEY_E) && !chatOpen &&
+    if ((IsKeyPressed(screenKeys[CONTROL_INVENTORY]) && !chatOpen &&
          (currentScreen == SCREEN_GAME || currentScreen == SCREEN_INVENTORY)) ||
         (IsKeyPressed(KEY_ESCAPE) && currentScreen == SCREEN_INVENTORY)) {
         ClientInventory_Toggle();
@@ -195,7 +195,7 @@ void Player_CheckInputs() {
             EnableCursor();
             Screen_Switch(SCREEN_PAUSE);
         }
-    } else if (IsKeyPressed(KEY_T) && currentScreen != SCREEN_INVENTORY) {
+    } else if (IsKeyPressed(screenKeys[CONTROL_CHAT]) && currentScreen != SCREEN_INVENTORY) {
         if (screenCursorEnabled && !chatOpen) {
             DisableCursor();
             screenCursorEnabled = false;
@@ -217,8 +217,8 @@ void Player_CheckInputs() {
     playerOldMousePosition = GetMousePosition();
     
     if (!screenCursorEnabled) {
-        playerCameraAngle.x -= (mousePositionDelta.x * -MOUSE_SENSITIVITY);
-        playerCameraAngle.y -= (mousePositionDelta.y * -MOUSE_SENSITIVITY);
+        playerCameraAngle.x -= (mousePositionDelta.x * -MOUSE_SENSITIVITY * screenSensitivity);
+        playerCameraAngle.y -= (mousePositionDelta.y * -MOUSE_SENSITIVITY * screenSensitivity * (screenInvertMouse ? -1 : 1));
         
         //Limit head rotation
         float maxCamAngleY = PI - 0.01f;
@@ -240,31 +240,33 @@ void Player_CheckInputs() {
     
     if (!screenCursorEnabled) {
         //Handle keys & mouse
-        jumpHeld = IsKeyDown(KEY_SPACE);
-        jumpPending = jumpPending || IsKeyPressed(KEY_SPACE);
+        jumpHeld = IsKeyDown(screenKeys[CONTROL_JUMP]);
+        jumpPending = jumpPending || IsKeyPressed(screenKeys[CONTROL_JUMP]);
         Vector3 moveDir = { 0 };
         
-        if (IsKeyDown(KEY_W)) {
+        if (IsKeyDown(screenKeys[CONTROL_FORWARD])) {
             moveDir.z += sx;
             moveDir.x += cx;
         }
         
-        if (IsKeyDown(KEY_S)) {
+        if (IsKeyDown(screenKeys[CONTROL_BACKWARD])) {
             moveDir.z -= sx;
             moveDir.x -= cx;
         }
         
-        if (IsKeyDown(KEY_A)) {
+        if (IsKeyDown(screenKeys[CONTROL_LEFT])) {
             moveDir.z -= sx90;
             moveDir.x -= cx90;
         }
         
-        if (IsKeyDown(KEY_D)) {
+        if (IsKeyDown(screenKeys[CONTROL_RIGHT])) {
             moveDir.z += sx90;
             moveDir.x += cx90;
         }
 
         movementInput = Vector3ClampValue(moveDir, 0.0f, 1.0f);
+        if (IsKeyDown(screenKeys[CONTROL_SNEAK]))
+            movementInput = Vector3Scale(movementInput, 0.25f);
     }
     if (screenCursorEnabled) jumpPending = false;
 }
@@ -448,6 +450,7 @@ static void Player_AdvancePhysics(float dt) {
 }
 
 void Player_Update(void) {
+    player.camera.fovy = screenFOV;
     ClientInventory_Update();
     Player_CheckInputs();
     if (!player.attachment.parent) Player_AdvancePhysics(GetFrameTime());

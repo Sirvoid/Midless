@@ -25,6 +25,14 @@ extern Screen currentScreen;
 
 extern bool screenCursorEnabled;
 extern bool screenShowDebug;
+extern float screenUIScale, screenSensitivity, screenFOV;
+extern bool screenInvertMouse;
+typedef enum ControlAction {
+    CONTROL_FORWARD, CONTROL_BACKWARD, CONTROL_LEFT, CONTROL_RIGHT,
+    CONTROL_JUMP, CONTROL_SNEAK, CONTROL_INVENTORY, CONTROL_CHAT,
+    CONTROL_CAMERA, CONTROL_DEBUG, CONTROL_COUNT
+} ControlAction;
+extern int screenKeys[CONTROL_COUNT];
 
 void Screen_Init(Texture2D terrain, bool *exit);
 void Screen_Shutdown(void);

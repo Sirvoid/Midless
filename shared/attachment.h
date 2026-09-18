@@ -1,6 +1,11 @@
-/* Copyright (c) 2026 Sirvoid. Released under the MIT License. */
-#ifndef ISLEFORGE_ATTACHMENT_H
-#define ISLEFORGE_ATTACHMENT_H
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+#ifndef MIDLESS_ATTACHMENT_H
+#define MIDLESS_ATTACHMENT_H
 #include "raylib.h"
 #include <stdint.h>
 

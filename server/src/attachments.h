@@ -1,6 +1,11 @@
-/* Copyright (c) 2026 Sirvoid. Released under the MIT License. */
-#ifndef ISLEFORGE_SERVER_ATTACHMENTS_H
-#define ISLEFORGE_SERVER_ATTACHMENTS_H
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+#ifndef MIDLESS_SERVER_ATTACHMENTS_H
+#define MIDLESS_SERVER_ATTACHMENTS_H
 #include "entity.h"
 #include "player.h"
 Entity *ServerAttachment_Parent(Entity *entity);

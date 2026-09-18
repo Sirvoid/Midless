@@ -8,6 +8,7 @@
 #include <math.h>
 #include "inventoryscreen.h"
 #include "hudbars.h"
+#include "screens.h"
 #include "../items.h"
 #include "inventoryclient.h"
 #include "blockitemrenderer.h"
@@ -40,7 +41,7 @@ static void DrawStack(ItemStack stack, Rectangle bounds) {
 }
 
 static void DrawView(const InventoryView *view, const Inventory *inventory) {
-    float size = fminf(56, fminf((GetScreenWidth() - 32) / view->width, (GetScreenHeight() - 110) / view->height));
+    float size = fminf(56 * screenUIScale, fminf((GetScreenWidth() - 32) / view->width, (GetScreenHeight() - 110) / view->height));
     if (size < 8) return;
     float left = (GetScreenWidth() - view->width * size) / 2;
     float top = (GetScreenHeight() - view->height * size) / 2;
@@ -117,7 +118,7 @@ void ClientInventory_Draw(bool showStorage) {
     const Inventory *inventory = ClientInventory_Get();
     const InventoryView *view = ClientInventory_GetView();
     if (showStorage && view) { DrawView(view, inventory); return; }
-    float size = fminf(56, fminf((GetScreenWidth() - 32) / 9.0f, (GetScreenHeight() - 100) / 4.5f));
+    float size = fminf(56 * screenUIScale, fminf((GetScreenWidth() - 32) / 9.0f, (GetScreenHeight() - 100) / 4.5f));
     if (size < 12) return;
     float left = (GetScreenWidth() - 9 * size) / 2;
     float top = showStorage ? (GetScreenHeight() - size * 4.35f) / 2 : GetScreenHeight() - size - 12;

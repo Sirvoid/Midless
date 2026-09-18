@@ -11,6 +11,7 @@ for _, fuel in ipairs({"midless:coal", "midless:charcoal"}) do
     shaped({{fuel}, {stick}}, "midless:torch", 4)
 end
 shaped({{wood, wood}, {wood, wood}}, "midless:crafting_table")
+shaped({{wood, wood}, {wood, wood}, {wood, wood}}, "midless:wood_door")
 shaped({{wood, wood, wood}, {wood, 0, wood}, {wood, wood, wood}}, "midless:chest")
 shaped({{stone, stone, stone}, {stone, 0, stone}, {stone, stone, stone}}, "midless:furnace")
 shaped({{stone, 0, 0}, {stone, stone, 0}, {stone, stone, stone}}, stone_stairs, 4)
