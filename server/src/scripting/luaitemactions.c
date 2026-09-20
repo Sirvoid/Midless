@@ -5,6 +5,7 @@
  * https://opensource.org/licenses/MIT
  */
 
+#include "worldaction.h"
 #include "luaplayers.h"
 #include "luaitems.h"
 #include "luaitemactions.h"
@@ -188,7 +189,7 @@ static void PushPosition(Vector3 position) {
     lua_pushnumber(L, position.z);
     lua_setfield(L, -2, "z");
 }
-bool ScriptHooks_ItemActionsUse(Player *player, const InventoryAction *block, Entity *entity) {
+bool ScriptHooks_ItemActionsUse(Player *player, const WorldAction *block, Entity *entity) {
     ItemStack stack = *Inventory_GetSelected(&player->inventory);
     if (!luaRunning || !stack.count || stack.itemId >= ITEM_LIMIT || uses[stack.itemId] < 0)
         return false;

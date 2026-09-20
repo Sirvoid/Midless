@@ -1,4 +1,10 @@
-/* Copyright (c) 2026 Sirvoid. Released under the MIT License. */
+/**
+ * Copyright (c) 2026 Sirvoid
+ *
+ * This software is released under the MIT License.
+ * https://opensource.org/licenses/MIT
+ */
+#include "settings.h"
 #include "raylib.h"
 #include "raymath.h"
 #include "attachments.h"
@@ -73,9 +79,9 @@ void ClientControl_Update(void) {
     if (!player.controlledEntity) return;
     int forward = 0, sideways = 0, flags = 0;
     if (IsWindowFocused() && !screenCursorEnabled) {
-        forward = IsKeyDown(screenKeys[CONTROL_FORWARD]) - IsKeyDown(screenKeys[CONTROL_BACKWARD]);
-        sideways = IsKeyDown(screenKeys[CONTROL_RIGHT]) - IsKeyDown(screenKeys[CONTROL_LEFT]);
-        flags = (IsKeyDown(screenKeys[CONTROL_JUMP]) ? 1 : 0) | (IsKeyDown(screenKeys[CONTROL_SNEAK]) ? 2 : 0);
+        forward = IsKeyDown(settingsKeys[CONTROL_FORWARD]) - IsKeyDown(settingsKeys[CONTROL_BACKWARD]);
+        sideways = IsKeyDown(settingsKeys[CONTROL_RIGHT]) - IsKeyDown(settingsKeys[CONTROL_LEFT]);
+        flags = (IsKeyDown(settingsKeys[CONTROL_JUMP]) ? 1 : 0) | (IsKeyDown(settingsKeys[CONTROL_SNEAK]) ? 2 : 0);
     }
     double now = GetTime();
     if (lastSession != player.controlSession || forward != lastForward ||

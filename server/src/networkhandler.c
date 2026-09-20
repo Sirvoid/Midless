@@ -20,7 +20,7 @@
 #include "logger.h"
 #include "world/textures.h"
 #include "serverinventory.h"
-#include "inventoryprotocol.h"
+#include "inventory.h"
 
 PacketHandlerEntry serverPacketHandlers[256];
 int serverPacketHandlerCount = 0;
@@ -35,10 +35,11 @@ static const int serverIncomingPacketLengths[] = {
     PLAYER_POSITION_PACKET_SIZE, // 1
     MESSAGE_PACKET_SIZE, // 2
     DRAW_DISTANCE_PACKET_SIZE, // 3
-    PLAYER_CLICK_PACKET_SIZE, // 4
+    RESERVED_CLICK_PACKET_SIZE, // 4
     TEXTURE_ACK_SIZE, // 5
     INVENTORY_ACTION_PACKET_SIZE, // 6
     CONTROL_INPUT_PACKET_SIZE,
+    WORLD_ACTION_PACKET_SIZE,
 };
 
 void ServerNetwork_Init(void) {
@@ -48,10 +49,11 @@ void ServerNetwork_Init(void) {
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandlePlayerPosition};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleMessage};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleSetDrawDistance};
-    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandlePlayerClick};
+    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleReservedClick};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleTextureAck};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleInventoryAction};
     serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleControlInput};
+    serverPacketHandlers[serverPacketHandlerCount++] = (PacketHandlerEntry) {&ServerPacket_HandleWorldAction};
 }
 
 void ServerNetwork_Shutdown(void) {

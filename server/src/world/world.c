@@ -1,12 +1,14 @@
-#include "../lighting.h"
-#include "../blockstates.h"
-#include "../serverinventory.h"
 /**
  * Copyright (c) 2026 Sirvoid
  *
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT
  */
+
+#include "interaction.h"
+#include "../lighting.h"
+#include "../blockstates.h"
+#include "../serverinventory.h"
 
 #define __clang__ true
 #if !defined(MIDLESS_STB_DS_EXTERNAL)
@@ -155,7 +157,7 @@ void ServerWorld_Update(void) {
     stageStart = GetTime();
     ServerTextures_Update();
     InventoryWindow_Update();
-    ServerInventory_UpdateDigging();
+    ServerInteraction_UpdateDigging();
     float dt = (float)ServerTiming_SimulationStep(GetTime(), &lastSimulationTime);
     if (dt > 0) {
         ServerBlockPhysics_Update(dt);

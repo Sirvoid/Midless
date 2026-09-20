@@ -1,5 +1,3 @@
-#include "version.h"
-#include "../digging.h"
 /**
  * Copyright (c) 2021 Sirvoid
  * 
@@ -7,6 +5,9 @@
  * https://opensource.org/licenses/MIT
  */
 
+#include "interactionclient.h"
+#include "version.h"
+#include "../digging.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
@@ -25,7 +26,7 @@
 #include "entitymodel.h"
 #include "../textures.h"
 #include "textureprotocol.h"
-#include "inventoryprotocol.h"
+#include "inventory.h"
 #include "hudbarprotocol.h"
 #include "../gui/hudbars.h"
 #include "inventoryclient.h"
@@ -101,6 +102,7 @@ void Network_Init(void) {
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleAttachment, ATTACHMENT_PACKET_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleControlState, CONTROL_STATE_PACKET_SIZE};
     packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleEntityPose, SET_ENTITY_POSE_PACKET_SIZE};
+    packets[packetCount++] = (PacketHandlerEntry) {&Packet_HandleWorldActionAck, WORLD_ACTION_ACK_SIZE};
 }
 
 void Network_Connect(void) {
@@ -125,7 +127,7 @@ void Network_Disconnect(void) {
 static void Network_PerformDisconnect(void) {
     memset(textColors, 0, sizeof(textColors));
     ClientHudBars_Reset();
-    ClientInventory_Reset();
+    ClientInventory_Reset(); ClientInteraction_Reset();
     for (int i = 0; i < hmlen(world.chunks); i++) world.chunks[i].value->modified = false;
     bool wasLocal = LocalServer_IsRunning();
     if (wasLocal) {
@@ -183,7 +185,7 @@ void Network_ProcessIncomingPackets(void) {
         Network_PerformDisconnect();
         return;
     }
-    if (reset) { memset(textColors, 0, sizeof(textColors)); ClientHudBars_Reset(); ClientInventory_Reset(); EntityModel_ResetDefinitions(); ClientTextures_Reset(); Block_ResetDefinitions(); }
+    if (reset) { memset(textColors, 0, sizeof(textColors)); ClientHudBars_Reset(); ClientInventory_Reset(); ClientInteraction_Reset(); EntityModel_ResetDefinitions(); ClientTextures_Reset(); Block_ResetDefinitions(); }
     const int maxPacketsPerFrame = 1024;
     const int maxTerrainPacketsPerFrame = 64;
     const int maxTerrainBytesPerFrame = 256 * 1024;

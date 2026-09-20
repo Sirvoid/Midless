@@ -1,11 +1,13 @@
-#include "version.h"
-#include "chunklightning.h"
 /**
  * Copyright (c) 2021 Sirvoid
  * 
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT
  */
+
+#include "interactionclient.h"
+#include "version.h"
+#include "chunklightning.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +24,7 @@
 #include "entitymodel.h"
 #include "textureprotocol.h"
 #include "rotation.h"
-#include "inventoryprotocol.h"
+#include "inventory.h"
 #include "itemdefinition.h"
 #include "../textures.h"
 #include "../items.h"
@@ -39,10 +41,11 @@ int Packet_Lengths[256] = {
     PLAYER_POSITION_PACKET_SIZE, // 1
     MESSAGE_PACKET_SIZE, // 2
     DRAW_DISTANCE_PACKET_SIZE, // 3
-    PLAYER_CLICK_PACKET_SIZE, // 4
+    RESERVED_CLICK_PACKET_SIZE, // 4
     TEXTURE_ACK_SIZE, // 5
     INVENTORY_ACTION_PACKET_SIZE, // 6
     CONTROL_INPUT_PACKET_SIZE,
+    WORLD_ACTION_PACKET_SIZE,
 };
 int pingCalculationPreviousTime = 0;
 
@@ -531,7 +534,8 @@ void Packet_HandleDefineItem(void) {
     ClientItems_Define(id, &item);
 }
 
-static bool Packet_ReadInventory(Inventory *inventory, uint32_t *revision, uint32_t *acknowledged) {
+bool Packet_ReadInventory(Inventory *inventory, uint32_t *revision, uint32_t *acknowledged) {
+    if (packetReaderIndex < 1 || packetDataLength - packetReaderIndex < INVENTORY_STATE_PACKET_SIZE - 1) return false;
     *inventory = (Inventory){0};
     *revision = Packet_ReadUInt();
     *acknowledged = Packet_ReadUInt();
@@ -583,7 +587,7 @@ void Packet_HandleDigProgress(void) {
     Packet_ReadInt();
     uint32_t sequence = Packet_ReadUInt();
     int milliseconds = Packet_ReadInt();
-    ClientInventory_SetDigProgress(sequence, milliseconds);
+    ClientInteraction_SetDigProgress(sequence, milliseconds);
 }
 
 void Packet_HandleBreakingTexture(void) {
@@ -662,14 +666,6 @@ unsigned char *Packet_CreateSetDrawDistance(unsigned char distance) {
     return packet;
 }
 
-unsigned char *Packet_CreatePlayerClick(unsigned char button) {
-    packetWriterIndex = 0;
-    unsigned char *packet = (unsigned char*)MemAlloc(Packet_Lengths[4]);
-    Packet_WriteByte(packet, PACKET_PLAYER_CLICK);
-    Packet_WriteByte(packet, button);
-    return packet;
-}
-
 void Packet_HandleAttachment(void) {
     if (packetDataLength != ATTACHMENT_PACKET_SIZE) return;
     int id = Packet_ReadUShort(), parent = Packet_ReadUShort();
@@ -731,4 +727,43 @@ void Packet_HandleEntityPose(void) {
     unsigned char pose = Packet_ReadByte();
     if ((id != 65535 && id >= WORLD_MAX_ENTITIES) || pose > ENTITY_POSE_SIT) return;
     World_SetEntityPose(id, (EntityPose)pose);
+}
+
+void Packet_HandleWorldActionAck(void) {
+    if (packetDataLength == WORLD_ACTION_ACK_SIZE) ClientInteraction_Acknowledge(Packet_ReadUInt());
+}
+
+unsigned char *Packet_CreateInventoryAction(const InventoryAction *action) {
+    unsigned char *packet = MemAlloc(INVENTORY_ACTION_PACKET_SIZE);
+    if (!packet) return NULL;
+
+    packetWriterIndex = 0;
+    Packet_WriteByte(packet, PACKET_INVENTORY_ACTION);
+    Packet_WriteInt(packet, (int)action->sequence);
+    Packet_WriteByte(packet, action->type);
+    Packet_WriteByte(packet, action->slot);
+    Packet_WriteInt(packet, (int)action->session);
+    Packet_WriteByte(packet, action->binding);
+    return packet;
+}
+
+unsigned char *Packet_CreateWorldAction(const WorldAction *action) {
+    unsigned char *packet = MemAlloc(WORLD_ACTION_PACKET_SIZE);
+    if (!packet) return NULL;
+
+    packetWriterIndex = 0;
+    Packet_WriteByte(packet, PACKET_WORLD_ACTION);
+    Packet_WriteInt(packet, (int)action->sequence);
+    Packet_WriteInt(packet, (int)action->inventorySequence);
+    Packet_WriteByte(packet, action->type);
+    Packet_WriteByte(packet, action->clicked);
+    Packet_WriteInt(packet, action->x);
+    Packet_WriteInt(packet, action->y);
+    Packet_WriteInt(packet, action->z);
+    Packet_WriteUShort(packet, action->targetBlock);
+    Packet_WriteByte(packet, action->face);
+    for (int axis = 0; axis < 3; axis++) {
+        Packet_WriteByte(packet, action->hit[axis]);
+    }
+    return packet;
 }

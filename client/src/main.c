@@ -32,6 +32,38 @@
 
 void Game_RunLoop(void);
 
+static void DrawInsideBlock(void) {
+    Vector3 eye = player.camera.position;
+    Vector3 cell = {floorf(eye.x), floorf(eye.y), floorf(eye.z)};
+    int id = World_GetBlock(cell);
+    if (id <= 0) return;
+    const Block *block = Block_GetDefinition(id);
+    if (block->colliderType != BLOCK_COLLIDER_SOLID) return;
+    bool inside = false;
+    for (int i = 0; i < Block_BoxCount(block, false); i++) {
+        BoundingBox bounds = Block_GetBox(block, i, cell, false);
+        if (eye.x > bounds.min.x && eye.x < bounds.max.x &&
+            eye.y > bounds.min.y && eye.y < bounds.max.y &&
+            eye.z > bounds.min.z && eye.z < bounds.max.z) { inside = true; break; }
+    }
+    if (!inside) return;
+    Vector3 view = Vector3Subtract(player.camera.target, eye);
+    BlockFace face;
+    if (fabsf(view.y) > fmaxf(fabsf(view.x), fabsf(view.z)))
+        face = view.y > 0 ? BLOCK_FACE_TOP : BLOCK_FACE_BOTTOM;
+    else if (fabsf(view.x) > fabsf(view.z))
+        face = view.x > 0 ? BLOCK_FACE_RIGHT : BLOCK_FACE_LEFT;
+    else face = view.z > 0 ? BLOCK_FACE_FRONT : BLOCK_FACE_BACK;
+    int tile = block->textures[face];
+    Texture2D terrain = ClientTextures_Get(1);
+    float width = terrain.width / 16.0f, height = terrain.height / 16.0f;
+    Rectangle source = {(tile % 16) * width, (tile / 16) * height, width, height};
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), BLACK);
+    if (terrain.id) DrawTexturePro(terrain, source,
+        (Rectangle){0, 0, GetScreenWidth(), GetScreenHeight()}, (Vector2){0}, 0,
+        (Color){150, 150, 150, 255});
+}
+
 int main(void) {
     if (!RuntimePaths_Init()) return 1;
     Platform_BeginTiming();
@@ -153,6 +185,7 @@ void Game_RunLoop(void) {
             DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), liquidTint);
         }
 
+        DrawInsideBlock();
         Screen_Draw();
 
     EndDrawing();

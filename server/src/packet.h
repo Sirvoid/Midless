@@ -36,6 +36,8 @@ const unsigned char *ServerPacket_ReadBytes(int size);
 unsigned short ServerPacket_ReadUShort(void);
 short ServerPacket_ReadShort(void);
 int ServerPacket_ReadInt(void);
+bool ServerPacket_ReadInventoryAction(InventoryAction *action);
+bool ServerPacket_ReadWorldAction(WorldAction *action);
 char* ServerPacket_ReadString(void);
 unsigned char* ServerPacket_ReadArray(int size);
 
@@ -54,12 +56,17 @@ void ServerPacket_HandleIdentification(void);
 void ServerPacket_HandlePlayerPosition(void);
 void ServerPacket_HandleMessage(void);
 void ServerPacket_HandleSetDrawDistance(void);
-void ServerPacket_HandlePlayerClick(void);
+void ServerPacket_HandleReservedClick(void);
 void ServerPacket_HandleTextureAck(void);
 void ServerPacket_HandleInventoryAction(void);
+void ServerPacket_HandleWorldAction(void);
 
 unsigned char *ServerPacket_CreateHeldBlock(Entity *entity);
 unsigned char *ServerPacket_CreateDroppedItem(Entity *entity);
+unsigned char *ServerPacket_CreateInventoryState(const Inventory *inventory, uint32_t revision, uint32_t acknowledged);
+unsigned char *ServerPacket_CreateInventoryView(Player *player);
+unsigned char *ServerPacket_CreateDigProgress(const WorldAction *action, int milliseconds);
+unsigned char *ServerPacket_CreateWorldActionAck(uint32_t sequence);
 
 unsigned char* ServerPacket_CreateMapInit(void);
 unsigned char *ServerPacket_CreateDefineEntityModel(int id, const ModelDefinition *definition);

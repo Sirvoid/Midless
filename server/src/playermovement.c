@@ -8,6 +8,7 @@
 #include <math.h>
 #include <limits.h>
 #include "playerimpulse.h"
+#include "collision.h"
 #include "player.h"
 #include "attachments.h"
 #include "packet.h"
@@ -92,6 +93,11 @@ static bool CrossesBox(Vector3 from, Vector3 to, BoundingBox box, float toleranc
 }
 
 static bool ClearPath(Vector3 from, Vector3 to, bool *liquid) {
+    bool stationary = from.x == to.x && from.y == to.y && from.z == to.z;
+    BoundingBox before = {{from.x - PLAYER_HALF_WIDTH, from.y, from.z - PLAYER_HALF_WIDTH},
+        {from.x + PLAYER_HALF_WIDTH, from.y + PLAYER_HEIGHT, from.z + PLAYER_HALF_WIDTH}};
+    BoundingBox after = {{to.x - PLAYER_HALF_WIDTH, to.y, to.z - PLAYER_HALF_WIDTH},
+        {to.x + PLAYER_HALF_WIDTH, to.y + PLAYER_HEIGHT, to.z + PLAYER_HALF_WIDTH}};
     int minX = (int)floorf(fminf(from.x, to.x) - PLAYER_HALF_WIDTH);
     int maxX = (int)floorf(fmaxf(from.x, to.x) + PLAYER_HALF_WIDTH);
     int minY = (int)floorf(fminf(from.y, to.y));
@@ -106,7 +112,8 @@ static bool ClearPath(Vector3 from, Vector3 to, bool *liquid) {
         if (shape.liquid && CrossesBox(from, to, shape.bounds, POSITION_TOLERANCE)) *liquid = true;
         if (!shape.solid) continue;
         for (int i = 0; i < shape.collisionCount; i++)
-            if (CrossesBox(from, to, shape.collision[i], COLLISION_TOLERANCE)) return false;
+            if (!stationary && CrossesBox(from, to, shape.collision[i], COLLISION_TOLERANCE) &&
+                !Collision_LeavingBox(before, after, shape.collision[i])) return false;
     }
     return true;
 }

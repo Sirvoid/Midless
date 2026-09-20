@@ -25,11 +25,7 @@ void ClientInventory_Click(int slot, bool rightClick);
 void ClientInventory_Throw(bool oneItem);
 void ClientInventory_Select(int hotbarSlot);
 void ClientInventory_Scroll(int direction);
-void ClientInventory_Interact(bool place, Vector3 hit, Vector3 normal, int targetBlock);
-
 bool ClientInventory_CloseBlocked(void);
-
-void ClientInventory_Dig(bool held, Vector3 hit, Vector3 normal, int block);
-void ClientInventory_SetDigProgress(uint32_t sequence, int milliseconds);
-float ClientInventory_DigProgress(Vector3 *position);
+bool ClientInventory_Ready(void);
+uint32_t ClientInventory_Sequence(void);
 #endif

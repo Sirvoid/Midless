@@ -7,9 +7,10 @@
 
 #ifndef MIDLESS_SCRIPT_HOOKS_H
 #define MIDLESS_SCRIPT_HOOKS_H
+#include "worldaction.h"
 #include "player.h"
 #include "entity.h"
-#include "inventoryprotocol.h"
+#include "inventory.h"
 #include "spawnmanager.h"
 
 // The server calls this interface with C values. Lua objects and references stay in scripting.
@@ -44,7 +45,7 @@ int ScriptHooks_EntityHealth(Entity *entity);
 double ScriptHooks_DiggingTime(Player *player, Vector3 position, ItemStack stack, double seconds);
 double ScriptHooks_DiggingSpeed(ItemStack stack, const char *group);
 void ScriptHooks_DiggingFinished(Player *player, Vector3 position, ItemStack stack);
-bool ScriptHooks_ItemActionsUse(Player *player, const InventoryAction *block, Entity *entity);
+bool ScriptHooks_ItemActionsUse(Player *player, const WorldAction *block, Entity *entity);
 void ScriptHooks_ItemActionsPlaced(Player *player, Vector3 position, int blockId);
 int ScriptHooks_ItemActionsDrops(Player *player, Vector3 position, int block, ItemStack tool,
                                  ItemStack *stacks, int capacity);

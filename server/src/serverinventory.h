@@ -17,6 +17,4 @@ bool ServerInventory_Autosave(Player *player);
 void ServerInventory_ApplyAction(Player *player, InventoryAction action);
 void ServerInventory_UpdateHeldBlock(Player *player);
 
-void ServerInventory_UpdateDigging(void);
-void ServerInventory_InvalidateDig(Vector3 position);
 #endif

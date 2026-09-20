@@ -8,6 +8,7 @@
 #ifndef MIDLESS_SERVER_PLAYER_H
 #define MIDLESS_SERVER_PLAYER_H
 
+#include "worldaction.h"
 #include "raylib.h"
 #include "blockdefinition.h"
 #include "textureprotocol.h"
@@ -34,7 +35,8 @@ typedef struct Player {
     PlayerMetadata metadata[PLAYER_METADATA_GROUPS];
     uint8_t metadataCount;
     bool digging;
-    InventoryAction digAction;
+    WorldAction digAction;
+    uint32_t worldActionSequence;
     ItemStack digStack;
     int digSlot;
     double digEnd;

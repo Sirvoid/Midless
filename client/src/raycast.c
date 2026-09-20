@@ -16,16 +16,15 @@
 #define RAYCAST_REACH 8
 
 RaycastResult Raycast_Cast(Vector3 position, Vector3 direction, bool ignoreLiquid) {
-    float i = 0;
     Vector3 oldPos = position;
     
-    while (i < RAYCAST_REACH / RAYCAST_PRECISION) {
-        i += 1;
-        
+    for (int i = 0; i <= RAYCAST_REACH / RAYCAST_PRECISION; i++) {
         oldPos = position;
-        position.x += direction.x * RAYCAST_PRECISION;
-        position.y += direction.y * RAYCAST_PRECISION;
-        position.z += direction.z * RAYCAST_PRECISION;
+        if (i > 0) {
+            position.x += direction.x * RAYCAST_PRECISION;
+            position.y += direction.y * RAYCAST_PRECISION;
+            position.z += direction.z * RAYCAST_PRECISION;
+        }
         
         int blockId = World_GetBlock(position);
         

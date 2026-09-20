@@ -40,8 +40,6 @@ typedef enum InventoryActionType {
     INVENTORY_LEFT_CLICK,
     INVENTORY_RIGHT_CLICK,
     INVENTORY_SELECT,
-    INVENTORY_BREAK,
-    INVENTORY_PLACE,
     INVENTORY_THROW_STACK,
     INVENTORY_THROW_ONE,
     INVENTORY_VIEW_LEFT,
@@ -49,17 +47,13 @@ typedef enum InventoryActionType {
     INVENTORY_VIEW_SHIFT,
     INVENTORY_CRAFT,
     INVENTORY_CRAFT_ALL,
-    INVENTORY_CANCEL_DIG,
-    INVENTORY_USE
 } InventoryActionType;
 
 typedef struct InventoryAction {
     uint32_t sequence;
     uint8_t type, slot;
-    int32_t x, y, z;
-    uint8_t face; // -X, +X, -Y, +Y, -Z, +Z
-    uint16_t targetBlock;
-    uint8_t hit[3]; // Point within the target cell, in units of 1/255 block.
+    uint32_t session;
+    uint8_t binding;
 } InventoryAction;
 
 int Item_GetMaxStack(uint16_t itemId);

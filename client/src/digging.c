@@ -5,6 +5,7 @@
  * https://opensource.org/licenses/MIT
  */
 
+#include "interactionclient.h"
 #include "digging.h"
 #include "inventoryclient.h"
 #include "textures.h"
@@ -43,7 +44,7 @@ static Texture2D BreakingTexture(void) {
 }
 void Digging_Draw(void) {
     Vector3 position;
-    float progress=ClientInventory_DigProgress(&position);
+    float progress=ClientInteraction_DigProgress(&position);
     if (progress<0) return;
     Texture2D texture=BreakingTexture();
     if (!texture.id) return;

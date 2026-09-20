@@ -1,13 +1,15 @@
-#include "attachments.h"
-#include "blockstates.h"
-#include "version.h"
-#include "playerimpulse.h"
 /**
  * Copyright (c) 2022 Sirvoid
  * 
  * This software is released under the MIT License.
  * https://opensource.org/licenses/MIT
  */
+
+#include "interaction.h"
+#include "attachments.h"
+#include "blockstates.h"
+#include "version.h"
+#include "playerimpulse.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +27,7 @@
 #include "rotation.h"
 #include "world/textures.h"
 #include "serverinventory.h"
-#include "inventoryprotocol.h"
+#include "inventory.h"
 #include "items.h"
 #include "hudbars.h"
 #include "textcolors.h"
@@ -78,6 +80,7 @@ int serverPacketLengths[256] = {
     ATTACHMENT_PACKET_SIZE,
     CONTROL_STATE_PACKET_SIZE,
     SET_ENTITY_POSE_PACKET_SIZE,
+    WORLD_ACTION_ACK_SIZE,
 };
 
 int ServerPacket_GetLength(unsigned char opcode) {
@@ -148,6 +151,42 @@ unsigned char* ServerPacket_ReadArray(int size) {
     serverPacketReaderIndex += size;
     return arr;
 }
+
+bool ServerPacket_ReadInventoryAction(InventoryAction *action) {
+    if (serverPacketDataLength != INVENTORY_ACTION_PACKET_SIZE ||
+        serverPacketReaderIndex != 1 || serverPacketData[0] != PACKET_INVENTORY_ACTION) return false;
+
+    *action = (InventoryAction){0};
+    action->sequence = ServerPacket_ReadUInt();
+    action->type = ServerPacket_ReadByte();
+    action->slot = ServerPacket_ReadByte();
+    action->session = ServerPacket_ReadUInt();
+    action->binding = ServerPacket_ReadByte();
+    return action->type <= INVENTORY_CRAFT_ALL;
+}
+
+
+bool ServerPacket_ReadWorldAction(WorldAction *action) {
+    if (serverPacketDataLength != WORLD_ACTION_PACKET_SIZE ||
+        serverPacketReaderIndex != 1 || serverPacketData[0] != PACKET_WORLD_ACTION) return false;
+
+    *action = (WorldAction){0};
+    action->sequence = ServerPacket_ReadUInt();
+    action->inventorySequence = ServerPacket_ReadUInt();
+    action->type = ServerPacket_ReadByte();
+    unsigned char clicked = ServerPacket_ReadByte();
+    action->clicked = clicked != 0;
+    action->x = ServerPacket_ReadInt();
+    action->y = ServerPacket_ReadInt();
+    action->z = ServerPacket_ReadInt();
+    action->targetBlock = ServerPacket_ReadUShort();
+    action->face = ServerPacket_ReadByte();
+    for (int axis = 0; axis < 3; axis++) {
+        action->hit[axis] = ServerPacket_ReadByte();
+    }
+    return action->type <= WORLD_USE && clicked <= 1 && action->face < 6 && action->targetBlock <= 255;
+}
+
 
 //Packet Writers
 
@@ -287,15 +326,8 @@ void ServerPacket_HandleSetDrawDistance(void) {
     serverPacketPlayer->drawDistance = distance;
 }
 
-void ServerPacket_HandlePlayerClick(void) {
-    unsigned char button = ServerPacket_ReadByte();
-    if (button > 1) return;
-    EntityAnimationType animation = ENTITY_ANIMATION_SWING_RIGHT_ARM;
-    ServerWorld_BroadcastExcluding(
-        ServerPacket_CreateEntityAnimation(serverPacketPlayer->entityId, animation),
-        serverPacketPlayer->id
-    );
-    ScriptHooks_PlayerClick(serverPacketPlayer->id, button);
+void ServerPacket_HandleReservedClick(void) {
+
 }
 
 void ServerPacket_HandleTextureAck(void) {
@@ -306,19 +338,19 @@ void ServerPacket_HandleTextureAck(void) {
     ServerTextures_Acknowledge(serverPacketPlayer, id, revision, offset);
 }
 
+void ServerPacket_HandleWorldAction(void) {
+    WorldAction action;
+    if (ServerPacket_ReadWorldAction(&action)) {
+        ServerInteraction_Apply(serverPacketPlayer, action);
+    }
+}
+
+
 void ServerPacket_HandleInventoryAction(void) {
-    if (serverPacketDataLength != INVENTORY_ACTION_PACKET_SIZE) return;
-    InventoryAction action = {0};
-    action.sequence = ServerPacket_ReadUInt();
-    action.type = ServerPacket_ReadByte();
-    action.slot = ServerPacket_ReadByte();
-    action.x = ServerPacket_ReadInt();
-    action.y = ServerPacket_ReadInt();
-    action.z = ServerPacket_ReadInt();
-    action.face = ServerPacket_ReadByte();
-    action.targetBlock = ServerPacket_ReadUShort();
-    for (int i = 0; i < 3; i++) action.hit[i] = ServerPacket_ReadByte();
-    ServerInventory_ApplyAction(serverPacketPlayer, action);
+    InventoryAction action;
+    if (ServerPacket_ReadInventoryAction(&action)) {
+        ServerInventory_ApplyAction(serverPacketPlayer, action);
+    }
 }
 
 
@@ -638,5 +670,74 @@ unsigned char *ServerPacket_CreateEntityPose(unsigned short entityId, EntityPose
     ServerPacket_WriteByte(packet, PACKET_SET_ENTITY_POSE);
     ServerPacket_WriteUShort(packet, entityId);
     ServerPacket_WriteByte(packet, (unsigned char)pose);
+    return packet;
+}
+
+
+
+
+unsigned char *ServerPacket_CreateInventoryState(const Inventory *inventory, uint32_t revision, uint32_t acknowledged) {
+    unsigned char *packet = MemAlloc(INVENTORY_STATE_PACKET_SIZE);
+    if (!packet) return NULL;
+
+    serverPacketWriterIndex = 0;
+    ServerPacket_WriteByte(packet, PACKET_INVENTORY_STATE);
+    ServerPacket_WriteInt(packet, (int)revision);
+    ServerPacket_WriteInt(packet, (int)acknowledged);
+    ServerPacket_WriteByte(packet, inventory->selectedHotbar);
+    ServerPacket_WriteByte(packet, inventory->open);
+    ServerPacket_WriteByte(packet, inventory->cursorOrigin);
+    for (int i = 0; i <= INVENTORY_SLOT_COUNT; i++) {
+        const ItemStack *stack = i == INVENTORY_SLOT_COUNT ? &inventory->cursor : &inventory->slots[i];
+        ServerPacket_WriteUShort(packet, stack->itemId);
+        ServerPacket_WriteByte(packet, stack->count);
+        ServerPacket_WriteByte(packet, stack->metadataSize);
+        ServerPacket_WriteUShort(packet, stack->metadataVersion);
+        for (int byte = 0; byte < ITEM_METADATA_BYTES; byte++) {
+            ServerPacket_WriteByte(packet, stack->metadata[byte]);
+        }
+    }
+    return packet;
+}
+
+unsigned char *ServerPacket_CreateInventoryView(Player *player) {
+    unsigned char *state = ServerPacket_CreateInventoryState(&player->inventory,
+        player->inventoryRevision, player->inventorySequence);
+    if (!state) return NULL;
+
+    BinaryWriter out = {0};
+    Binary_U8(&out, PACKET_INVENTORY_VIEW);
+    Binary_Write(&out, state, INVENTORY_STATE_PACKET_SIZE);
+    free(state);
+    InventoryView_Write(&out, &player->inventoryWindow.view);
+    if (out.failed) {
+        free(out.data);
+        return NULL;
+    }
+    serverPacketLastDynamicLength = out.size;
+    return out.data;
+}
+
+unsigned char *ServerPacket_CreateDigProgress(const WorldAction *action, int milliseconds) {
+    unsigned char *packet = MemAlloc(DIG_PROGRESS_PACKET_SIZE);
+    if (!packet) return NULL;
+
+    serverPacketWriterIndex = 0;
+    ServerPacket_WriteByte(packet, PACKET_DIG_PROGRESS);
+    ServerPacket_WriteInt(packet, action->x);
+    ServerPacket_WriteInt(packet, action->y);
+    ServerPacket_WriteInt(packet, action->z);
+    ServerPacket_WriteInt(packet, (int)action->sequence);
+    ServerPacket_WriteInt(packet, milliseconds);
+    return packet;
+}
+
+unsigned char *ServerPacket_CreateWorldActionAck(uint32_t sequence) {
+    unsigned char *packet = MemAlloc(WORLD_ACTION_ACK_SIZE);
+    if (!packet) return NULL;
+
+    serverPacketWriterIndex = 0;
+    ServerPacket_WriteByte(packet, PACKET_WORLD_ACTION_ACK);
+    ServerPacket_WriteInt(packet, (int)sequence);
     return packet;
 }

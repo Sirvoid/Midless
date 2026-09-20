@@ -11,7 +11,7 @@
 #include "scripthooks.h"
 #include "metadata.h"
 #include "serverinventory.h"
-#include "inventoryprotocol.h"
+#include "inventory.h"
 #include "networkhandler.h"
 #include "packet.h"
 #include "droppeditems.h"
@@ -104,16 +104,8 @@ bool InventoryWindow_Send(Player *p) {
     InventoryWindow *w = &p->inventoryWindow;
     if (!w->view.session) return false;
     // Include player slots, cursor, and container in one authoritative snapshot.
-    uint8_t state[INVENTORY_STATE_PACKET_SIZE];
-    InventoryProtocol_WriteState(state, &p->inventory, p->inventoryRevision, p->inventorySequence);
-    BinaryWriter out = {0};
-    Binary_U8(&out, PACKET_INVENTORY_VIEW);
-    Binary_Write(&out, state, sizeof(state));
-    InventoryView_Write(&out, &w->view);
-    if (!out.failed) {
-        serverPacketLastDynamicLength = out.size;
-        ServerNetwork_Send(p, out.data);
-    } else free(out.data);
+    unsigned char *packet = ServerPacket_CreateInventoryView(p);
+    if (packet) ServerNetwork_Send(p, packet);
     return true;
 }
 
@@ -157,12 +149,12 @@ static void TransferTo(InventoryWindow *w, int binding, ItemStack *source, ItemS
 
 void InventoryWindow_Action(Player *p, const InventoryAction *a) {
     InventoryWindow *w = &p->inventoryWindow;
-    if (!w->view.session || (uint32_t)a->x != w->view.session) return;
+    if (!w->view.session || (uint32_t)a->session != w->view.session) return;
     if (!Reach(p, w)) { Revoke(p); return; }
     ItemStack slots[INVENTORY_VIEW_SLOTS];
     if (!Read(p, w, slots)) { Revoke(p); return; }
     if (a->type == INVENTORY_CRAFT || a->type == INVENTORY_CRAFT_ALL) {
-        if (a->slot >= w->view.count || a->y != 0) return;
+        if (a->slot >= w->view.count || a->binding != 0) return;
         InventoryElement *e = &w->view.elements[a->slot];
         if (!e->crafting) return;
         ItemStack *inputs = slots + InventoryView_Offset(&w->view, e->binding);
@@ -199,17 +191,17 @@ void InventoryWindow_Action(Player *p, const InventoryAction *a) {
         RefreshPreviews(w);
         return;
     }
-    if (a->y < 0 || a->y >= w->view.bindingCount) return;
-    if (a->slot >= w->view.bindingSlots[a->y]) return;
+    if (a->binding < 0 || a->binding >= w->view.bindingCount) return;
+    if (a->slot >= w->view.bindingSlots[a->binding]) return;
     Inventory next = p->inventory;
-    ItemStack *source = a->y ? &slots[InventoryView_Offset(&w->view, a->y) + a->slot] : &next.slots[a->slot];
+    ItemStack *source = a->binding ? &slots[InventoryView_Offset(&w->view, a->binding) + a->slot] : &next.slots[a->slot];
     if (a->type == INVENTORY_VIEW_SHIFT) {
         if (next.cursor.count) return;
-        if (a->y) Inventory_Transfer(source, next.slots, INVENTORY_SLOT_COUNT);
+        if (a->binding) Inventory_Transfer(source, next.slots, INVENTORY_SLOT_COUNT);
         else for (int i = 1; i < w->view.bindingCount && source->count; i++)
             TransferTo(w, i, source, slots + InventoryView_Offset(&w->view, i));
     } else if (a->type == INVENTORY_VIEW_LEFT || a->type == INVENTORY_VIEW_RIGHT) {
-        if (next.cursor.count && !CanInsert(w, a->y, a->slot, next.cursor.itemId)) return;
+        if (next.cursor.count && !CanInsert(w, a->binding, a->slot, next.cursor.itemId)) return;
         Inventory_ClickStack(source, &next.cursor, a->type == INVENTORY_VIEW_RIGHT);
     } else return;
     next.cursorOrigin = INVENTORY_NO_SLOT;

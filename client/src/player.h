@@ -1,4 +1,3 @@
-#include "attachment.h"
 /**
  * Copyright (c) 2021 Sirvoid
  * 
@@ -9,6 +8,7 @@
 #ifndef MIDLESS_CLIENT_PLAYER_H
 #define MIDLESS_CLIENT_PLAYER_H
 
+#include "attachment.h"
 #include "raylib.h"
 #include "raycast.h"
 #include "entitymodel.h"

@@ -5,6 +5,9 @@
  * https://opensource.org/licenses/MIT
  */
 
+#include "settings.h"
+#include "interactionclient.h"
+#include "collision.h"
 #include <limits.h>
 #include <stdio.h>
 #include <math.h>
@@ -174,15 +177,15 @@ void Player_CheckInputs() {
         jumpPending = false;
         return;
     }
-    if (!chatOpen && IsKeyPressed(screenKeys[CONTROL_DEBUG])) {
-        screenShowDebug = !screenShowDebug;
+    if (!chatOpen && IsKeyPressed(settingsKeys[CONTROL_DEBUG])) {
+        settingsShowDebug = !settingsShowDebug;
     }
 
-    if (!chatOpen && IsKeyPressed(screenKeys[CONTROL_CAMERA])) {
+    if (!chatOpen && IsKeyPressed(settingsKeys[CONTROL_CAMERA])) {
         player.cameraMode = (PlayerCameraMode)((player.cameraMode + 1) % 3);
     }
     
-    if ((IsKeyPressed(screenKeys[CONTROL_INVENTORY]) && !chatOpen &&
+    if ((IsKeyPressed(settingsKeys[CONTROL_INVENTORY]) && !chatOpen &&
          (currentScreen == SCREEN_GAME || currentScreen == SCREEN_INVENTORY)) ||
         (IsKeyPressed(KEY_ESCAPE) && currentScreen == SCREEN_INVENTORY)) {
         ClientInventory_Toggle();
@@ -195,7 +198,7 @@ void Player_CheckInputs() {
             EnableCursor();
             Screen_Switch(SCREEN_PAUSE);
         }
-    } else if (IsKeyPressed(screenKeys[CONTROL_CHAT]) && currentScreen != SCREEN_INVENTORY) {
+    } else if (IsKeyPressed(settingsKeys[CONTROL_CHAT]) && currentScreen != SCREEN_INVENTORY) {
         if (screenCursorEnabled && !chatOpen) {
             DisableCursor();
             screenCursorEnabled = false;
@@ -217,8 +220,8 @@ void Player_CheckInputs() {
     playerOldMousePosition = GetMousePosition();
     
     if (!screenCursorEnabled) {
-        playerCameraAngle.x -= (mousePositionDelta.x * -MOUSE_SENSITIVITY * screenSensitivity);
-        playerCameraAngle.y -= (mousePositionDelta.y * -MOUSE_SENSITIVITY * screenSensitivity * (screenInvertMouse ? -1 : 1));
+        playerCameraAngle.x -= (mousePositionDelta.x * -MOUSE_SENSITIVITY * settingsSensitivity);
+        playerCameraAngle.y -= (mousePositionDelta.y * -MOUSE_SENSITIVITY * settingsSensitivity * (settingsInvertMouse ? -1 : 1));
         
         //Limit head rotation
         float maxCamAngleY = PI - 0.01f;
@@ -240,32 +243,32 @@ void Player_CheckInputs() {
     
     if (!screenCursorEnabled) {
         //Handle keys & mouse
-        jumpHeld = IsKeyDown(screenKeys[CONTROL_JUMP]);
-        jumpPending = jumpPending || IsKeyPressed(screenKeys[CONTROL_JUMP]);
+        jumpHeld = IsKeyDown(settingsKeys[CONTROL_JUMP]);
+        jumpPending = jumpPending || IsKeyPressed(settingsKeys[CONTROL_JUMP]);
         Vector3 moveDir = { 0 };
         
-        if (IsKeyDown(screenKeys[CONTROL_FORWARD])) {
+        if (IsKeyDown(settingsKeys[CONTROL_FORWARD])) {
             moveDir.z += sx;
             moveDir.x += cx;
         }
         
-        if (IsKeyDown(screenKeys[CONTROL_BACKWARD])) {
+        if (IsKeyDown(settingsKeys[CONTROL_BACKWARD])) {
             moveDir.z -= sx;
             moveDir.x -= cx;
         }
         
-        if (IsKeyDown(screenKeys[CONTROL_LEFT])) {
+        if (IsKeyDown(settingsKeys[CONTROL_LEFT])) {
             moveDir.z -= sx90;
             moveDir.x -= cx90;
         }
         
-        if (IsKeyDown(screenKeys[CONTROL_RIGHT])) {
+        if (IsKeyDown(settingsKeys[CONTROL_RIGHT])) {
             moveDir.z += sx90;
             moveDir.x += cx90;
         }
 
         movementInput = Vector3ClampValue(moveDir, 0.0f, 1.0f);
-        if (IsKeyDown(screenKeys[CONTROL_SNEAK]))
+        if (IsKeyDown(settingsKeys[CONTROL_SNEAK]))
             movementInput = Vector3Scale(movementInput, 0.25f);
     }
     if (screenCursorEnabled) jumpPending = false;
@@ -287,11 +290,9 @@ static void Player_CheckActions(void) {
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) { //Break Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
-            Network_Send(Packet_CreatePlayerClick(0));
         } else if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) { //Place Block
             EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
-            Network_Send(Packet_CreatePlayerClick(1));
-            ClientInventory_Interact(true, player.rayResult.hitPos, player.rayResult.normal, player.rayResult.hitblockId);
+            ClientInteraction_Use( player.rayResult.hitPos, player.rayResult.normal, player.rayResult.hitblockId);
         }
     }
 
@@ -300,7 +301,8 @@ static void Player_CheckActions(void) {
         EntityAnimation_Start(&player.animation, ENTITY_ANIMATION_SWING_RIGHT_ARM);
         nextDigSwing=GetTime()+0.3;
     }
-    ClientInventory_Dig(!screenCursorEnabled && IsMouseButtonDown(MOUSE_LEFT_BUTTON),
+    ClientInteraction_Dig(!screenCursorEnabled && IsMouseButtonDown(MOUSE_LEFT_BUTTON),
+        !screenCursorEnabled && IsMouseButtonPressed(MOUSE_LEFT_BUTTON),
         player.rayResult.hitPos, player.rayResult.normal, player.rayResult.hitblockId);
 }
 
@@ -346,6 +348,8 @@ void Player_ApplyImpulse(Vector3 impulse) {
     if (impulse.y > 0) player.canJump = false;
 }
 
+static bool Player_MovementBlocked(Vector3 previousPosition);
+
 static void Player_PhysicsStep(void) {
     player.liquidSubmersion = Player_GetLiquidSubmersion();
     if (player.liquidSubmersion > 0) player.waterborne = true;
@@ -367,8 +371,9 @@ static void Player_PhysicsStep(void) {
     
     //Move Y & Test Collisions
     for (int i = 0; i < steps; i++) {
+        Vector3 previous = player.position;
         player.position.y += velXdt.y / steps;
-        if (Player_TestCollision((Vector3){ 0 })) {
+        if (Player_MovementBlocked(previous)) {
             player.position.y -= velXdt.y / steps;
             if (player.velocity.y <= 0) player.canJump = true;
             player.velocity.y = 0;
@@ -380,9 +385,11 @@ static void Player_PhysicsStep(void) {
 
     //Move X & Test Collisions
     for (int i = 0; i < steps; i++) {
+        Vector3 previous = player.position;
         player.position.x += velXdt.x / steps;
-        if (Player_TestCollision((Vector3){ 0 })) {
-            if (player.velocity.y != 0 || Player_TestCollision((Vector3){0,0.51f,0})) {
+        if (Player_MovementBlocked(previous)) {
+            if (player.velocity.y != 0 || Player_TestCollision(Vector3Subtract(previous, player.position)) ||
+                Player_TestCollision((Vector3){0,0.51f,0})) {
                 player.position.x -= velXdt.x / steps;
                 if (player.impulseFlight) player.velocity.x = 0;
             } else {
@@ -393,9 +400,11 @@ static void Player_PhysicsStep(void) {
 
     //Move Z & Test Collisions
     for (int i = 0; i < steps; i++) {
+        Vector3 previous = player.position;
         player.position.z += velXdt.z / steps;
-        if (Player_TestCollision((Vector3){ 0 })) {
-            if (player.velocity.y != 0 || Player_TestCollision((Vector3){0,0.51f,0})) {
+        if (Player_MovementBlocked(previous)) {
+            if (player.velocity.y != 0 || Player_TestCollision(Vector3Subtract(previous, player.position)) ||
+                Player_TestCollision((Vector3){0,0.51f,0})) {
                 player.position.z -= velXdt.z / steps;
                 if (player.impulseFlight) player.velocity.z = 0;
             } else {
@@ -450,8 +459,9 @@ static void Player_AdvancePhysics(float dt) {
 }
 
 void Player_Update(void) {
-    player.camera.fovy = screenFOV;
+    player.camera.fovy = settingsFOV;
     ClientInventory_Update();
+    ClientInteraction_Update();
     Player_CheckInputs();
     if (!player.attachment.parent) Player_AdvancePhysics(GetFrameTime());
     else {
@@ -473,11 +483,16 @@ void Player_Update(void) {
     EntityAnimation_UpdatePose(&player.animation, GetFrameTime());
 }
 
-bool Player_TestCollision(Vector3 offset) {
+static bool Player_CollisionAt(Vector3 offset, const Vector3 *previousPosition) {
     
     BoundingBox pB = player.collisionBox;
     pB.min = Vector3Add(Vector3Add(pB.min, player.position), offset);
     pB.max = Vector3Add(Vector3Add(pB.max, player.position), offset);
+    BoundingBox previous = player.collisionBox;
+    if (previousPosition) {
+        previous.min = Vector3Add(previous.min, *previousPosition);
+        previous.max = Vector3Add(previous.max, *previousPosition);
+    }
     
     for (int x = (int)(pB.min.x - 1); x < (int)(pB.max.x + 1); x++) {
         for (int z = (int)(pB.min.z - 1); z < (int)(pB.max.z + 1); z++) {
@@ -494,13 +509,20 @@ bool Player_TestCollision(Vector3 offset) {
                 
                 for(int box=0;box<Block_BoxCount(blockDef,false);box++) {
                     BoundingBox blockB=Block_GetBox(blockDef,box,blockPos,false);
-                    if(CheckCollisionBoxes(pB,blockB)) return true;
+                    if (CheckCollisionBoxes(pB,blockB) &&
+                        (!previousPosition || !Collision_LeavingBox(previous, pB, blockB))) return true;
                 }
             }
         }
     }
     
     return false;
+}
+
+bool Player_TestCollision(Vector3 offset) { return Player_CollisionAt(offset, NULL); }
+
+static bool Player_MovementBlocked(Vector3 previousPosition) {
+    return Player_CollisionAt((Vector3){0}, &previousPosition);
 }
 
 float Player_GetLiquidSubmersion(void) {

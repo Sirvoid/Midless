@@ -5,6 +5,7 @@
  * https://opensource.org/licenses/MIT
  */
 
+#include "interaction.h"
 #include "../serverinventory.h"
 #include "../lighting.h"
 #include <math.h>
@@ -558,7 +559,7 @@ void ServerWorld_SetBlock(Vector3 blockPosition, int blockId, bool broadcast, bo
         floorf(blockPosition.z) - chunkPosition.z * CHUNK_SIZE_Z
     };
     int previousBlock = ServerChunk_GetBlock(chunk, localPosition);
-    ServerInventory_InvalidateDig(blockPosition);
+    ServerInteraction_InvalidateDig(blockPosition);
     if (previousBlock == blockId) return;
     ServerBlockPhysics_Cancel(chunk, ServerChunk_PosToIndex(localPosition));
     InventoryWindow_Invalidate((Vector3){floorf(blockPosition.x), floorf(blockPosition.y), floorf(blockPosition.z)});

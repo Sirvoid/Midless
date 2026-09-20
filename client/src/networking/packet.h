@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include "player.h"
+#include "worldaction.h"
 
 extern unsigned char *packetData;
 extern int packetReaderIndex;
@@ -27,6 +28,7 @@ short Packet_ReadShort(void);
 char Packet_ReadSByte(void);
 unsigned short Packet_ReadUShort(void);
 int Packet_ReadInt(void);
+bool Packet_ReadInventory(Inventory *inventory, uint32_t *revision, uint32_t *acknowledged);
 char* Packet_ReadString(void);
 unsigned char* Packet_ReadArray(int size);
 
@@ -76,6 +78,7 @@ void Packet_HandleDroppedItem(void);
 void Packet_HandleInventoryView(void);
 void Packet_HandleDefineItem(void);
 void Packet_HandleDigProgress(void);
+void Packet_HandleWorldActionAck(void);
 void Packet_HandleBreakingTexture(void);
 void Packet_HandleDefineHudBar(void);
 void Packet_HandleSetHudBar(void);
@@ -85,6 +88,7 @@ unsigned char* Packet_CreateIdentification(unsigned short version, char* name);
 unsigned char* Packet_CreatePlayerPosition(Vector3 position, Vector3 rotation);
 unsigned char* Packet_CreateMessage(char* message);
 unsigned char *Packet_CreateSetDrawDistance(unsigned char distance);
-unsigned char *Packet_CreatePlayerClick(unsigned char button);
+unsigned char *Packet_CreateInventoryAction(const InventoryAction *action);
+unsigned char *Packet_CreateWorldAction(const WorldAction *action);
 
 #endif

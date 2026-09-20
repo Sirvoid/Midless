@@ -1,4 +1,3 @@
-#include "version.h"
 /**
  * Copyright (c) 2021 Sirvoid
  * 
@@ -6,6 +5,8 @@
  * https://opensource.org/licenses/MIT
  */
 
+#include "settings.h"
+#include "version.h"
 #define RAYGUI_IMPLEMENTATION
 #define RAYGUI_SUPPORT_ICONS
 #include <pthread.h>
@@ -35,12 +36,11 @@
 
 Screen currentScreen = SCREEN_MAIN;
 bool screenCursorEnabled = false;
-bool screenShowDebug = false;
 int screenHeight, screenWidth;
 bool *exitGame;
 Color uiColBg;
 static Screen optionsReturn = SCREEN_MAIN;
-static int focus, controlIndex, pendingDistance, fpsChoice;
+static int focus, controlIndex, pendingDistance;
 static bool skipMenuKeys, loadingNextFrame, loadingStarted, intentionalDisconnect;
 static bool acceptGeneratorChange;
 static Screen disconnectReturn = SCREEN_MAIN;
@@ -51,13 +51,6 @@ static char portInput[6] = "25565";
 static char fullAddress[144];
 static char connectionError[160];
 static char preferencesError[96];
-static const int fpsValues[] = {60, 120, 144, 240, 0};
-float screenUIScale = 1.0f, screenSensitivity = 1.0f, screenFOV = 65.0f;
-bool screenInvertMouse = false;
-int screenKeys[CONTROL_COUNT] = {KEY_W, KEY_S, KEY_A, KEY_D, KEY_SPACE,
-    KEY_LEFT_SHIFT, KEY_E, KEY_T, KEY_F5, KEY_F3};
-static const int defaultKeys[CONTROL_COUNT] = {KEY_W, KEY_S, KEY_A, KEY_D, KEY_SPACE,
-    KEY_LEFT_SHIFT, KEY_E, KEY_T, KEY_F5, KEY_F3};
 static const char *controlNames[CONTROL_COUNT] = {"Forward", "Backward", "Left", "Right",
     "Jump", "Sneak", "Inventory", "Chat", "Camera view", "Debug info"};
 typedef enum OptionsPage { OPTIONS_HOME, OPTIONS_VIDEO, OPTIONS_CONTROLS, OPTIONS_KEYS } OptionsPage;
@@ -65,23 +58,8 @@ static OptionsPage optionsPage;
 static int bindingScroll, captureKey = -1;
 static bool bindingDragging;
 static float bindingDragOffset;
-static bool videoVSync, videoFullscreen;
 static float menuScale;
 
-static bool ValidBinding(int key) {
-    return (key >= KEY_A && key <= KEY_Z) || (key >= KEY_F1 && key <= KEY_F12) ||
-        key == KEY_SPACE || (key >= KEY_RIGHT && key <= KEY_UP) ||
-        (key >= KEY_LEFT_SHIFT && key <= KEY_RIGHT_SUPER);
-}
-
-static void ApplyVideo(void) {
-#if !defined(PLATFORM_WEB)
-    if (IsWindowFullscreen() != videoFullscreen) ToggleFullscreen();
-#endif
-    if (videoVSync) SetWindowState(FLAG_VSYNC_HINT);
-    else ClearWindowState(FLAG_VSYNC_HINT);
-    SetTargetFPS(fpsValues[fpsChoice]);
-}
 static float hoverAmount[CONTROL_COUNT + 1];
 static bool keyboardFocus = true;
 static int invalidField = -1;
@@ -98,10 +76,8 @@ static void SavePreferences(void) {
         return;
     }
     int result = fprintf(file, "%s\n%s\n%s\n%d %d %d\n", nameInput, ipInput, portInput,
-                         world.drawDistance, fpsChoice, screenShowDebug);
-    if (result >= 0) result = fprintf(file, "v2 %g %g %g %d %d %d\n",
-        screenUIScale, screenSensitivity, screenFOV, screenInvertMouse, videoVSync, videoFullscreen);
-    for (int i = 0; i < CONTROL_COUNT && result >= 0; i++) result = fprintf(file, "%d ", screenKeys[i]);
+                         world.drawDistance, fpsChoice, settingsShowDebug);
+    if (result >= 0) result = Settings_Write(file);
     int closed = fclose(file);
     if (result < 0 || closed != 0)
         snprintf(preferencesError, sizeof(preferencesError), "Could not save preferences in the game folder.");
@@ -176,26 +152,12 @@ void Screen_Init(Texture2D terrain, bool *exit) {
         if (fscanf(file, "%d %d %d", &distance, &fps, &debug) == 3) {
             if (distance >= 2 && distance <= 32) world.drawDistance = distance;
             if (fps >= 0 && fps < 5) fpsChoice = fps;
-            screenShowDebug = debug != 0;
+            settingsShowDebug = debug != 0;
         }
-        float scale, sensitivity, fov;
-        int invert, vsync, fullscreen;
-        if (fscanf(file, " v2 %f %f %f %d %d %d", &scale, &sensitivity, &fov, &invert, &vsync, &fullscreen) == 6) {
-            if (isfinite(scale) && scale >= 0.75f && scale <= 1.5f) screenUIScale = scale;
-            if (isfinite(sensitivity) && sensitivity >= 0.1f && sensitivity <= 3) screenSensitivity = sensitivity;
-            if (isfinite(fov) && fov >= 45 && fov <= 110) screenFOV = fov;
-            screenInvertMouse = invert == 1; videoVSync = vsync == 1; videoFullscreen = fullscreen == 1;
-            int keys[CONTROL_COUNT];
-            bool valid = true;
-            for (int i = 0; i < CONTROL_COUNT; i++) {
-                if (fscanf(file, "%d", &keys[i]) != 1 || !ValidBinding(keys[i])) { valid = false; break; }
-                for (int j = 0; j < i; j++) if (keys[i] == keys[j]) valid = false;
-            }
-            if (valid) memcpy(screenKeys, keys, sizeof(keys));
-        }
+        Settings_Read(file);
         fclose(file);
     }
-    ApplyVideo();
+    Settings_ApplyVideo();
     networkName = nameInput;
     SetTargetFPS(fpsValues[fpsChoice]);
     Screen_Switch(SCREEN_MAIN);
@@ -213,7 +175,7 @@ void Screen_Shutdown(void) {
 void Screen_DrawGame(void) {
 
     //Draw debug infos
-    if (screenShowDebug) {
+    if (settingsShowDebug) {
         const char* coordText = TextFormat("X: %i Y: %i Z: %i", (int)player.position.x, (int)player.position.y, (int)player.position.z);
         const char* debugText;
 
@@ -299,7 +261,7 @@ static void Menu_Background(const char *title, Screen screen) {
 static void Menu_Begin(const char *title, int controls) {
     float fit = fminf(screenWidth / 640.0f, screenHeight / (currentScreen == SCREEN_OPTIONS ? 640.0f : 560.0f));
     float base = fminf(2.0f, fminf(screenWidth / 800.0f, screenHeight / 700.0f));
-    menuScale = fminf(fit, base * screenUIScale);
+    menuScale = fminf(fit, base * settingsUIScale);
     GuiSetStyle(DEFAULT, TEXT_SIZE, Menu_Font(20));
     GuiSetStyle(DEFAULT, BORDER_WIDTH, 1);
     GuiSetStyle(TEXTBOX, TEXT_PADDING, (int)(12 * menuScale));
@@ -499,12 +461,6 @@ static const char *Binding_Name(int key) {
     }
 }
 
-static void BindKey(int action, int key) {
-    for (int i = 0; i < CONTROL_COUNT; i++)
-        if (i != action && screenKeys[i] == key) screenKeys[i] = screenKeys[action];
-    screenKeys[action] = key;
-}
-
 static void Bindings_Scroll(bool capturing) {
     const int visible = 6, maximum = CONTROL_COUNT - visible;
     Rectangle list = Menu_Rect(-150, 290);
@@ -551,7 +507,7 @@ void Screen_DrawOptions(void) {
         if (IsKeyPressed(KEY_ESCAPE)) captureKey = -1;
         else {
             int key = GetKeyPressed();
-            if (ValidBinding(key)) { BindKey(captureKey, key); captureKey = -1; SavePreferences(); }
+            if (Settings_ValidBinding(key)) { Settings_BindKey(captureKey, key); captureKey = -1; SavePreferences(); }
         }
         skipMenuKeys = true;
         GuiDisable();
@@ -572,22 +528,22 @@ void Screen_DrawOptions(void) {
 #if !defined(PLATFORM_WEB)
         videoFullscreen = IsWindowFullscreen();
         if (Option_Choice(-50, "Fullscreen", videoFullscreen ? "On" : "Off")) {
-            videoFullscreen = !videoFullscreen; ApplyVideo();
+            videoFullscreen = !videoFullscreen; Settings_ApplyVideo();
         }
 #else
         Option_Choice(-50, "Fullscreen", "Browser (F11)");
 #endif
-        if (Option_Choice(0, "VSync", videoVSync ? "On" : "Off")) { videoVSync = !videoVSync; ApplyVideo(); }
-        screenFOV = fminf(110, fmaxf(45, screenFOV + 5 * Option_Choice(50, "Field of view", TextFormat("%.0f", screenFOV))));
-        screenUIScale = fminf(1.5f, fmaxf(0.75f, screenUIScale + 0.25f * Option_Choice(100, "UI scale", TextFormat("%.0f%%", screenUIScale * 100))));
-        if (Option_Choice(150, "Debug info", screenShowDebug ? "On" : "Off")) screenShowDebug = !screenShowDebug;
+        if (Option_Choice(0, "VSync", videoVSync ? "On" : "Off")) { videoVSync = !videoVSync; Settings_ApplyVideo(); }
+        settingsFOV = fminf(110, fmaxf(45, settingsFOV + 5 * Option_Choice(50, "Field of view", TextFormat("%.0f", settingsFOV))));
+        settingsUIScale = fminf(1.5f, fmaxf(0.75f, settingsUIScale + 0.25f * Option_Choice(100, "UI scale", TextFormat("%.0f%%", settingsUIScale * 100))));
+        if (Option_Choice(150, "Debug info", settingsShowDebug ? "On" : "Off")) settingsShowDebug = !settingsShowDebug;
         if (Menu_Button(220, "Back", true) || Menu_Key(KEY_ESCAPE)) { ApplyDistance(); SavePreferences(); Options_Open(OPTIONS_HOME); }
     } else if (optionsPage == OPTIONS_CONTROLS) {
-        screenSensitivity = fminf(3, fmaxf(0.1f, screenSensitivity + 0.1f * Option_Choice(-130, "Sensitivity", TextFormat("%.0f%%", screenSensitivity * 100))));
-        if (Option_Choice(-80, "Invert mouse Y", screenInvertMouse ? "On" : "Off")) screenInvertMouse = !screenInvertMouse;
+        settingsSensitivity = fminf(3, fmaxf(0.1f, settingsSensitivity + 0.1f * Option_Choice(-130, "Sensitivity", TextFormat("%.0f%%", settingsSensitivity * 100))));
+        if (Option_Choice(-80, "Invert mouse Y", settingsInvertMouse ? "On" : "Off")) settingsInvertMouse = !settingsInvertMouse;
         if (Menu_Button(-10, "Key bindings", true)) { Options_Open(OPTIONS_KEYS); return; }
         if (Menu_Button(44, "Reset controls", true)) {
-            memcpy(screenKeys, defaultKeys, sizeof(screenKeys)); screenSensitivity = 1; screenInvertMouse = false; SavePreferences();
+            Settings_ResetControls(); SavePreferences();
         }
         if (Menu_Button(220, "Back", true) || Menu_Key(KEY_ESCAPE)) { SavePreferences(); Options_Open(OPTIONS_HOME); }
     } else {
@@ -597,7 +553,7 @@ void Screen_DrawOptions(void) {
             controlIndex = action;
             Rectangle bounds = Menu_SettingsRow(-150 + row * 50, controlNames[action]);
             bool selected = Menu_Focus(bounds);
-            bool pressed = GuiButton(bounds, captureKey == action ? "Press a key..." : Binding_Name(screenKeys[action]));
+            bool pressed = GuiButton(bounds, captureKey == action ? "Press a key..." : Binding_Name(settingsKeys[action]));
             if (!capturing && (pressed || (selected && (Menu_Key(KEY_ENTER) || Menu_Key(KEY_SPACE))))) {
                 while (GetKeyPressed()) { }
                 captureKey = action;
